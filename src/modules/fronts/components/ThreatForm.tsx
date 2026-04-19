@@ -1,0 +1,354 @@
+import { useState } from 'react';
+import { useForm, Controller, useFieldArray } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Plus, X, Clock } from 'lucide-react';
+import { TagInput } from '@shared/components/TagInput';
+import { RichTextEditor } from '@shared/components/RichTextEditor';
+import { useEntitiesByType } from '@shared/hooks/useEntitiesByType';
+import {
+  THREAT_DEATH_REASON_PRESETS,
+  THREAT_STATUSES,
+  THREAT_STATUS_LABELS,
+  THREAT_TYPES,
+  THREAT_TYPE_LABELS,
+} from '../types';
+import { CLOCK_SEGMENTS } from '@modules/clocks/types';
+import type { ClockSegments } from '@modules/clocks/types';
+
+// Internal form schema — moves stored as objects for useFieldArray compatibility
+const threatFormSchema = z.object({
+  name: z.string().min(1, 'Nazwa jest wymagana').max(200),
+  threatType: z.enum(THREAT_TYPES),
+  status: z.enum(THREAT_STATUSES).default('active'),
+  impulse: z.string().max(400),
+  trigger: z.string().max(500).default(''),
+  reasonOfDead: z.string().max(1000).default(''),
+  forkThreatId: z.string().default(''),
+  moves: z.array(z.object({ value: z.string() })),
+  description: z.string().max(100_000),
+  tags: z.array(z.string()).max(50),
+  clockName: z.string().max(200).default(''),
+  clockSegments: z.coerce.number().refine((v): v is ClockSegments => (CLOCK_SEGMENTS as readonly number[]).includes(v)).default(6),
+});
+
+type ThreatFormRaw = z.infer<typeof threatFormSchema>;
+
+// Public type used by callers — moves are plain strings
+export interface ThreatFormValues {
+  name: string;
+  threatType: (typeof THREAT_TYPES)[number];
+  status: (typeof THREAT_STATUSES)[number];
+  impulse: string;
+  trigger: string;
+  reasonOfDead: string;
+  forkThreatId?: string;
+  moves: string[];
+  description: string;
+  tags: string[];
+  clock?: { name: string; segments: ClockSegments } | null;
+}
+
+interface ThreatFormProps {
+  defaultValues?: Partial<ThreatFormValues>;
+  onSubmit: (values: ThreatFormValues) => void | Promise<void>;
+  submitLabel?: string;
+  isSaving?: boolean;
+  onCancel?: () => void;
+  currentThreatId?: string;
+}
+
+export function ThreatForm({
+  defaultValues,
+  onSubmit,
+  submitLabel = 'Zapisz',
+  isSaving = false,
+  onCancel,
+  currentThreatId,
+}: ThreatFormProps) {
+  const [showClock, setShowClock] = useState(!!defaultValues?.clock);
+  const allThreats = useEntitiesByType('threat');
+  const forkThreatCandidates = allThreats.filter((threat) => threat.id !== currentThreatId);
+
+  const {
+    register,
+    control,
+    handleSubmit,
+    setValue,
+    formState: { errors },
+  } = useForm<ThreatFormRaw>({
+    resolver: zodResolver(threatFormSchema),
+    defaultValues: {
+      name: defaultValues?.name ?? '',
+      threatType: defaultValues?.threatType ?? 'ambitious_organization',
+      status: defaultValues?.status ?? 'active',
+      impulse: defaultValues?.impulse ?? '',
+      trigger: defaultValues?.trigger ?? '',
+      reasonOfDead: defaultValues?.reasonOfDead ?? '',
+      forkThreatId: defaultValues?.forkThreatId ?? '',
+      moves: (defaultValues?.moves ?? []).map((v) => ({ value: v })),
+      description: defaultValues?.description ?? '',
+      tags: defaultValues?.tags ?? [],
+      clockName: defaultValues?.clock?.name ?? '',
+      clockSegments: defaultValues?.clock?.segments ?? 6,
+    },
+  });
+
+  const { fields, append, remove } = useFieldArray({ control, name: 'moves' });
+
+  function handleValidSubmit(raw: ThreatFormRaw) {
+    return onSubmit({
+      ...raw,
+      trigger: raw.trigger.trim(),
+      reasonOfDead: raw.reasonOfDead.trim(),
+      forkThreatId: raw.forkThreatId || undefined,
+      moves: raw.moves.map((m) => m.value).filter(Boolean),
+      clock: showClock && raw.clockName.trim()
+        ? { name: raw.clockName.trim(), segments: raw.clockSegments }
+        : null,
+    });
+  }
+
+  return (
+    <form onSubmit={handleSubmit(handleValidSubmit)} className="flex flex-col gap-4" noValidate>
+      {/* Name */}
+      <div className="flex flex-col gap-1">
+        <label htmlFor="threat-name" className="text-sm font-medium text-surface-700">
+          Nazwa <span className="text-red-500" aria-hidden="true">*</span>
+        </label>
+        <input
+          id="threat-name"
+          {...register('name')}
+          className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          placeholder="Nazwa zagrożenia…"
+          aria-invalid={errors.name ? 'true' : 'false'}
+        />
+        {errors.name && (
+          <p role="alert" className="text-xs text-red-600">{errors.name.message}</p>
+        )}
+      </div>
+
+      {/* Threat Type */}
+      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="flex flex-col gap-1">
+        <label htmlFor="threat-type" className="text-sm font-medium text-surface-700">
+          Rodzaj zagrożenia
+        </label>
+        <select
+          id="threat-type"
+          {...register('threatType')}
+          className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+        >
+          {THREAT_TYPES.map((t) => (
+            <option key={t} value={t}>{THREAT_TYPE_LABELS[t]}</option>
+          ))}
+        </select>
+      </div>
+      <div className="flex flex-col gap-1">
+        <label htmlFor="threat-status" className="text-sm font-medium text-surface-700">
+          Status
+        </label>
+        <select
+          id="threat-status"
+          {...register('status')}
+          className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+        >
+          {THREAT_STATUSES.map((status) => (
+            <option key={status} value={status}>{THREAT_STATUS_LABELS[status]}</option>
+          ))}
+        </select>
+      </div>
+      </div>
+
+      {/* Impulse */}
+      <div className="flex flex-col gap-1">
+        <label htmlFor="threat-impulse" className="text-sm font-medium text-surface-700">
+          Impuls
+        </label>
+        <input
+          id="threat-impulse"
+          {...register('impulse')}
+          className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          placeholder="Czego to zagrożenie desperacko pragnie…"
+        />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor="threat-trigger" className="text-sm font-medium text-surface-700">
+          Trigger tykania
+        </label>
+        <textarea
+          id="threat-trigger"
+          {...register('trigger')}
+          rows={3}
+          className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          placeholder="Kiedy to zagrozenie tyka albo eskaluje?"
+        />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor="threat-fork-source" className="text-sm font-medium text-surface-700">
+          Powstalo z innego zagrozenia
+        </label>
+        <select
+          id="threat-fork-source"
+          {...register('forkThreatId')}
+          className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+        >
+          <option value="">Brak</option>
+          {forkThreatCandidates.map((threat) => (
+            <option key={threat.id} value={threat.id}>{threat.name}</option>
+          ))}
+        </select>
+        <p className="text-xs text-surface-500">
+          Przydatne, gdy nowe zagrozenie wyrasta z poprzedniego albo jest jego odgalezieniem.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1">
+          <label htmlFor="threat-reason-of-dead" className="text-sm font-medium text-surface-700">
+            Powod wygaszenia / smierci
+          </label>
+          <textarea
+            id="threat-reason-of-dead"
+            {...register('reasonOfDead')}
+            rows={3}
+            className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            placeholder="Opcjonalnie: co sprawilo, ze to zagrozenie zniknelo albo utracilo znaczenie?"
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {THREAT_DEATH_REASON_PRESETS.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              onClick={() => setValue('reasonOfDead', preset, { shouldDirty: true, shouldValidate: true })}
+              className="rounded-full border border-surface-300 px-3 py-1 text-xs text-surface-600 hover:bg-surface-50"
+            >
+              {preset}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Moves */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium text-surface-700">Ruchy zagrożenia</label>
+          <button
+            type="button"
+            onClick={() => append({ value: '' })}
+            className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700"
+          >
+            <Plus className="h-3.5 w-3.5" /> Dodaj ruch
+          </button>
+        </div>
+        {fields.length === 0 && (
+          <p className="text-xs text-surface-400">Brak ruchów — dodaj co zagrożenie może zrobić.</p>
+        )}
+        {fields.map((field, i) => (
+          <div key={field.id} className="flex gap-2">
+            <input
+              {...register(`moves.${i}.value`)}
+              className="flex-1 rounded-md border border-surface-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              placeholder={`Ruch ${i + 1}…`}
+            />
+            <button
+              type="button"
+              onClick={() => remove(i)}
+              aria-label="Usuń ruch"
+              className="rounded-md border border-surface-200 p-1.5 text-surface-400 hover:bg-red-50 hover:text-red-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Optional clock section */}
+      <div className="rounded-lg border border-surface-200 p-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-surface-400" />
+            <span className="text-sm font-medium text-surface-700">Powiązany zegar</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowClock((v) => !v)}
+            className="text-xs text-primary-600 hover:text-primary-700"
+          >
+            {showClock ? 'Usuń zegar' : '+ Dodaj zegar'}
+          </button>
+        </div>
+        {showClock && (
+          <div className="mt-3 flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <label htmlFor="threat-clock-name" className="text-xs font-medium text-surface-600">Nazwa zegara</label>
+              <input
+                id="threat-clock-name"
+                {...register('clockName')}
+                className="rounded-md border border-surface-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                placeholder="Np. Odliczanie do ataku…"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="threat-clock-segments" className="text-xs font-medium text-surface-600">Segmenty</label>
+              <select
+                id="threat-clock-segments"
+                {...register('clockSegments')}
+                className="rounded-md border border-surface-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              >
+                {CLOCK_SEGMENTS.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Description */}
+      <div className="flex flex-col gap-1">
+        <label className="text-sm font-medium text-surface-700">Opis / Notatki</label>
+        <Controller
+          name="description"
+          control={control}
+          render={({ field }) => (
+            <RichTextEditor value={field.value ?? ''} onChange={field.onChange} onBlur={field.onBlur} />
+          )}
+        />
+      </div>
+
+      {/* Tags */}
+      <div className="flex flex-col gap-1">
+        <label className="text-sm font-medium text-surface-700">Tagi</label>
+        <Controller
+          name="tags"
+          control={control}
+          render={({ field }) => <TagInput value={field.value} onChange={field.onChange} />}
+        />
+      </div>
+
+      {/* Actions */}
+      <div className="flex justify-end gap-2 pt-2">
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-md border border-surface-300 px-4 py-2 text-sm font-medium text-surface-700 hover:bg-surface-50"
+          >
+            Anuluj
+          </button>
+        )}
+        <button
+          type="submit"
+          disabled={isSaving}
+          className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+        >
+          {isSaving ? 'Zapisywanie…' : submitLabel}
+        </button>
+      </div>
+    </form>
+  );
+}

@@ -1,0 +1,171 @@
+@import "tailwindcss";
+
+.npc-scroll-row {
+  scrollbar-width: none;
+}
+.npc-scroll-row::-webkit-scrollbar {
+  display: none;
+}
+
+@theme {
+  /* Colors — dark fantasy GM tool palette */
+  --color-primary-50: #f0f4ff;
+  --color-primary-100: #dbe4ff;
+  --color-primary-200: #bac8ff;
+  --color-primary-300: #91a7ff;
+  --color-primary-400: #748ffc;
+  --color-primary-500: #5c7cfa;
+  --color-primary-600: #4c6ef5;
+  --color-primary-700: #4263eb;
+  --color-primary-800: #3b5bdb;
+  --color-primary-900: #364fc7;
+
+  --color-surface-50: #f8f9fa;
+  --color-surface-100: #f1f3f5;
+  --color-surface-200: #e9ecef;
+  --color-surface-300: #dee2e6;
+  --color-surface-400: #ced4da;
+  --color-surface-500: #adb5bd;
+  --color-surface-600: #868e96;
+  --color-surface-700: #495057;
+  --color-surface-800: #343a40;
+  --color-surface-900: #212529;
+
+  --color-danger-500: #ff6b6b;
+  --color-danger-600: #fa5252;
+  --color-danger-700: #f03e3e;
+
+  --color-success-500: #51cf66;
+  --color-success-600: #40c057;
+
+  --color-warning-500: #fcc419;
+  --color-warning-600: #fab005;
+
+  /* Spacing */
+  --spacing-sidebar: 16rem;
+
+  /* Font */
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Border radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+}
+
+/* Base styles */
+body {
+  @apply bg-surface-50 text-surface-900 font-sans antialiased;
+  min-height: 100dvh;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+/* Dark mode — activated by .dark class on <html> */
+.dark body {
+  background-color: #1a1b1e;
+  color: #c1c2c5;
+}
+
+.dark {
+  --color-surface-50: #1a1b1e;
+  --color-surface-100: #25262b;
+  --color-surface-200: #2c2e33;
+  --color-surface-300: #373a40;
+  --color-surface-400: #495057;
+  --color-surface-500: #868e96;
+  --color-surface-600: #adb5bd;
+  --color-surface-700: #ced4da;
+  --color-surface-800: #dee2e6;
+  --color-surface-900: #f1f3f5;
+}
+
+/* Fade-in animation for page content */
+@keyframes fadein {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+main > * {
+  animation: fadein 150ms ease-out;
+}
+
+/* ── Print styles ─────────────────────────────────────────────────────────── */
+@media print {
+  [data-sidebar],
+  [data-topbar] {
+    display: none !important;
+  }
+
+  body {
+    background: white;
+    color: black;
+    font-size: 11pt;
+  }
+
+  main {
+    padding: 0 !important;
+  }
+
+  section {
+    break-inside: avoid;
+  }
+
+  .print-page-break {
+    break-before: page;
+  }
+
+  * {
+    box-shadow: none !important;
+  }
+
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
+}
+
+/* ── Print styles ─────────────────────────────────────────────────────────── */
+@media print {
+  /* Hide navigation chrome */
+  [data-sidebar],
+  [data-topbar] {
+    display: none !important;
+  }
+
+  body {
+    background: white;
+    color: black;
+    font-size: 11pt;
+  }
+
+  /* Remove page margins from wrapper */
+  main {
+    padding: 0 !important;
+  }
+
+  /* Avoid breaking inside report sections */
+  section {
+    break-inside: avoid;
+  }
+
+  /* Page breaks before major sections */
+  .print-page-break {
+    break-before: page;
+  }
+
+  /* Remove shadows and borders that don't print well */
+  * {
+    box-shadow: none !important;
+  }
+
+  /* Ensure links print with text only */
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
+}

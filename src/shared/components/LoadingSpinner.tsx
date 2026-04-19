@@ -1,0 +1,24 @@
+interface LoadingSpinnerProps {
+  size?: 'sm' | 'md' | 'lg';
+  className?: string;
+}
+
+const sizeClasses = { sm: 'h-4 w-4', md: 'h-8 w-8', lg: 'h-12 w-12' };
+
+export function LoadingSpinner({ size = 'md', className = '' }: LoadingSpinnerProps) {
+  return (
+    <div
+      role="status"
+      aria-label="Ładowanie"
+      className={`animate-spin rounded-full border-2 border-surface-200 border-t-primary-600 ${sizeClasses[size]} ${className}`}
+    />
+  );
+}
+
+export function LoadingPage() {
+  return (
+    <div className="flex h-full items-center justify-center">
+      <LoadingSpinner size="lg" />
+    </div>
+  );
+}
