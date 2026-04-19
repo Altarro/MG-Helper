@@ -279,7 +279,7 @@ export function ActiveThreatsPanel({ sessionId }: { sessionId?: string }) {
     const existingReason = typeof threatData.reasonOfDead === 'string'
       ? threatData.reasonOfDead.trim()
       : '';
-    const nextReason = nextStatus === 'completed' ? (existingReason || 'Zakończone w sesji') : '';
+    const nextReason = nextStatus === 'completed' ? (existingReason || '') : '';
     try {
       await updateEntity(db, row.threat.id, {
         data: {

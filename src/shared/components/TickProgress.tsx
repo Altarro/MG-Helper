@@ -12,11 +12,12 @@ interface TickProgressProps {
 export function TickProgress({ tickLabels, filled, segments, className = '' }: TickProgressProps) {
   if (!tickLabels || tickLabels.length === 0) return null;
 
-  const currentIndex = Math.max(0, filled - 1);
+  const hasCurrentTick = filled > 0;
+  const currentIndex = filled - 1;
   const nextIndex = filled;
 
-  const currentLabel = tickLabels[currentIndex];
-  const nextLabel = filled < segments ? tickLabels[nextIndex] : null;
+  const currentLabel = hasCurrentTick ? tickLabels[currentIndex] ?? null : null;
+  const nextLabel = filled < segments ? tickLabels[nextIndex] ?? null : null;
 
   if (!currentLabel && !nextLabel) return null;
 

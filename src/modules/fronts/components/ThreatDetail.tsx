@@ -6,6 +6,7 @@ import { useThreatById } from '../hooks/useThreatById';
 import { ThreatForm } from './ThreatForm';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
+import { Modal } from '@shared/components/Modal';
 import { NarrativeLinksSection } from '@shared/components/NarrativeLinksSection';
 import { RelationList } from '@shared/components/RelationList';
 import { RelationPicker } from '@shared/components/RelationPicker';
@@ -25,8 +26,8 @@ import { useRelatedEntities } from '@shared/hooks/useRelatedEntities';
 import { useThreatDetailPath } from '@shared/hooks/useThreatDetailPath';
 import { isClock } from '@modules/clocks/types';
 import { toast } from 'sonner';
-import { THREAT_TYPE_LABELS } from '../types';
-import { getThreatStatus } from '@shared/utils/entityData';
+import { THREAT_TYPE_LABELS, THREAT_DEATH_REASON_PRESETS } from '../types';
+import { getThreatStatus, getClockData } from '@shared/utils/entityData';
 import type { ThreatFormValues } from './ThreatForm';
 
 export function ThreatDetail() {
@@ -39,6 +40,10 @@ export function ThreatDetail() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [toggleModalOpen, setToggleModalOpen] = useState(false);
+  const [toggleSaving, setToggleSaving] = useState(false);
+  const [toggleReason, setToggleReason] = useState('');
+  const [confirmReactivate, setConfirmReactivate] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showThreadPicker, setShowThreadPicker] = useState(false);
   const [showRelPicker, setShowRelPicker] = useState(false);
@@ -88,6 +93,75 @@ export function ThreatDetail() {
   const currentThreat = threat;
   const threatId = id;
   const threatStatus = getThreatStatus(currentThreat);
+
+  function openToggleFlow() {
+    if (threatStatus === 'completed') {
+      setConfirmReactivate(true);
+    } else {
+      setToggleReason('');
+      setToggleModalOpen(true);
+    }
+  }
+
+  async function handleConfirmComplete() {
+    if (!threatId) return;
+    setToggleSaving(true);
+    try {
+      const nextReason = toggleReason.trim() || 'Zakończone w sesji';
+      await updateEntity(db, threatId, {
+        data: {
+          ...currentThreat.data,
+          status: 'completed',
+          reasonOfDead: nextReason,
+        },
+      });
+
+      if (linkedClock) {
+        const clockData = getClockData(linkedClock);
+        await updateEntity(db, linkedClock.id, {
+          data: {
+            ...clockData,
+            isActive: false,
+          },
+        });
+      }
+
+      toast.success('Zagrożenie zakończone');
+      setToggleModalOpen(false);
+    } catch {
+      toast.error('Nie udalo sie oznaczyc zagrozenia jako zakonczone');
+    } finally {
+      setToggleSaving(false);
+    }
+  }
+
+  async function handleConfirmReactivate() {
+    if (!threatId) return;
+    try {
+      await updateEntity(db, threatId, {
+        data: {
+          ...currentThreat.data,
+          status: 'active',
+          reasonOfDead: '',
+        },
+      });
+
+      if (linkedClock) {
+        const clockData = getClockData(linkedClock);
+        await updateEntity(db, linkedClock.id, {
+          data: {
+            ...clockData,
+            isActive: true,
+          },
+        });
+      }
+
+      toast.success('Zagrożenie aktywowane');
+      setConfirmReactivate(false);
+    } catch {
+      toast.error('Nie udalo sie wznawic zagrozenia');
+    }
+  }
 
   async function handleUpdate(values: ThreatFormValues) {
     setSaving(true);
@@ -196,6 +270,17 @@ export function ThreatDetail() {
             className="flex items-center gap-1.5 rounded-md border border-surface-300 px-3 py-1.5 text-sm hover:bg-surface-50"
           >
             <Edit2 className="h-3.5 w-3.5" /> {isEditing ? 'Anuluj' : 'Edytuj'}
+          </button>
+          <button
+            type="button"
+            onClick={() => openToggleFlow()}
+            className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm ${
+              threatStatus === 'completed'
+                ? 'border-green-200 text-green-700 hover:bg-green-50'
+                : 'border-surface-300 hover:bg-surface-50'
+            }`}
+          >
+            {threatStatus === 'completed' ? 'Wznów' : 'Zakończ'}
           </button>
           <button
             type="button"
@@ -438,6 +523,60 @@ export function ThreatDetail() {
         description={`Czy na pewno chcesz usunac zagrozenie "${currentThreat.name}"? Tej operacji nie mozna cofnac.`}
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}
+      />
+
+      {toggleModalOpen && (
+        <Modal title="Powód zakończenia" onClose={() => setToggleModalOpen(false)}>
+          <p className="text-sm text-surface-600">Podaj powód zakończenia zagrożenia (opcjonalnie):</p>
+          <textarea
+            value={toggleReason}
+            onChange={(e) => setToggleReason(e.target.value)}
+            rows={4}
+            className="mt-3 w-full rounded-md border border-surface-300 px-3 py-2 text-sm"
+          />
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {THREAT_DEATH_REASON_PRESETS.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => setToggleReason(preset)}
+                className="rounded-full border border-surface-300 px-3 py-1 text-xs text-surface-600 hover:bg-surface-50"
+              >
+                {preset}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-6 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setToggleModalOpen(false)}
+              className="rounded-md border border-surface-300 px-4 py-2 text-sm font-medium text-surface-700 hover:bg-surface-50"
+            >
+              Anuluj
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleConfirmComplete()}
+              disabled={toggleSaving}
+              className={`rounded-md px-4 py-2 text-sm font-medium text-white ${toggleSaving ? 'bg-primary-600/70' : 'bg-danger-600 hover:bg-danger-700'}`}
+            >
+              Zakończ
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      <ConfirmDialog
+        open={confirmReactivate}
+        title="Wznów zagrożenie"
+        description={`Czy chcesz przywrócić zagrożenie "${currentThreat.name}" jako aktywne? Powód zakończenia zostanie usunięty.`}
+        confirmLabel="Wznów"
+        cancelLabel="Anuluj"
+        destructive={false}
+        onConfirm={handleConfirmReactivate}
+        onCancel={() => setConfirmReactivate(false)}
       />
 
       {showThreadPicker && (

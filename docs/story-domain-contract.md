@@ -152,6 +152,8 @@ Intended meaning:
 - a threat is affected by one or more threads,
 - the relation is directional in storage, but should be understandable both ways in UX.
 
+Uwaga: relacja `affects` jest już zaimplementowana i walidowana w runtime (zob. `src/shared/db/relationRules.ts`).
+
 ## Questline Contract
 
 ### Direction of `derives_from`
@@ -246,7 +248,6 @@ Threads should support the scene, not compete with the primary scene context.
 
 The following items are intentionally not implemented in Phase 1:
 
-- new explicit `affects` relation in runtime rules,
 - `thread.kind`,
 - `threat.trigger` / `tickTrigger`,
 - questline relation kinds beyond plain `derives_from`,

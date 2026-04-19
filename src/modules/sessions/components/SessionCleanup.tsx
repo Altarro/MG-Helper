@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
-import { ArrowLeft, MapPin, CheckCircle2, Users, GitBranch, Trash2, Plus } from 'lucide-react';
+import { ArrowLeft, MapPin, CheckCircle2, Users, GitBranch, Trash2, Plus, AlertTriangle } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { useSessionById } from '../hooks/useSessionById';
@@ -8,7 +8,7 @@ import { useLocations } from '@modules/locations/hooks/useLocations';
 import { isNamedLocation } from '@modules/locations/types';
 import { ThreatForm } from '@modules/fronts/components/ThreatForm';
 import type { ThreatFormValues } from '@modules/fronts/components/ThreatForm';
-import { addEntity, addRelation, deleteEntity, getEntityById } from '@shared/db/operations';
+import { addEntity, addRelation, deleteEntity, getEntityById, updateEntity } from '@shared/db/operations';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { Modal } from '@shared/components/Modal';
@@ -16,6 +16,8 @@ import { RelationPicker } from '@shared/components/RelationPicker';
 import { toast } from 'sonner';
 import type { Entity } from '@shared/types/entity';
 import { setNpcCurrentLocation } from '../utils/liveSessionCommands';
+import { getThreatStatus } from '@shared/utils/entityData';
+import { THREAT_DEATH_REASON_PRESETS } from '@modules/fronts/types';
 
 // ── Data hooks ────────────────────────────────────────────────────────────────
 
@@ -78,6 +80,26 @@ function useSessionDanglingThreads(sessionId: string | undefined) {
       if (!hasParent && !hasThreat && receivedThreat === 0) result.push(thread);
     }
     return result;
+  }, [db, sessionId]) ?? [];
+}
+
+function useSessionCompletedThreats(sessionId: string | undefined) {
+  const { db } = useCampaign();
+  return useLiveQuery(async () => {
+    if (!sessionId) return [];
+    const rels = await db.relations
+      .where('targetId')
+      .equals(sessionId)
+      .filter((r) => r.type === 'appears_in')
+      .toArray();
+    const entities = await Promise.all(rels.map((r) => getEntityById(db, r.sourceId)));
+    const threats = entities.filter((e): e is Entity => !!e && e.type === 'threat');
+    return threats.filter((t) => {
+      const isCompleted = getThreatStatus(t) === 'completed';
+      if (!isCompleted) return false;
+      const reason = typeof t.data.reasonOfDead === 'string' ? t.data.reasonOfDead.trim() : '';
+      return reason.length === 0 || reason === 'Zakończone w sesji';
+    });
   }, [db, sessionId]) ?? [];
 }
 
@@ -428,6 +450,84 @@ function ThreadCleanupRow({
   );
 }
 
+function ThreatCleanupRow({ threat }: { threat: Entity }) {
+  const { db } = useCampaign();
+  const [reason, setReason] = useState<string>(threat.data.reasonOfDead ?? '');
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const nextReason = reason.trim() || 'Zakończone w sesji';
+      await updateEntity(db, threat.id, {
+        data: {
+          ...threat.data,
+          reasonOfDead: nextReason,
+        },
+      });
+      toast.success('Powód zakończenia zapisany');
+    } catch {
+      toast.error('Nie udało się zapisać powodu');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-surface-200 bg-white p-3">
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <Link to={`/threats/${threat.id}`} className="block truncate font-medium text-surface-900 hover:text-primary-600 hover:underline">
+            {threat.name}
+          </Link>
+          <p className="mt-1 text-xs text-surface-500">Uzupełnij powód zakończenia, jeśli chcesz zapisać kontekst.</p>
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          rows={3}
+          className="w-full rounded-md border border-surface-300 px-3 py-2 text-sm"
+          placeholder="Powód zakończenia..."
+        />
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          {THREAT_DEATH_REASON_PRESETS.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              onClick={() => setReason(preset)}
+              className="rounded-full border border-surface-300 px-3 py-1 text-xs text-surface-600 hover:bg-surface-50"
+            >
+              {preset}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={() => setReason('')}
+            className="rounded-md border border-surface-300 px-3 py-1.5 text-sm text-surface-700 hover:bg-surface-50"
+          >
+            Wyczyść
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={saving}
+            className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+          >
+            Zapisz powód
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function SessionCleanup() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -437,6 +537,7 @@ export function SessionCleanup() {
   const locationsWithoutParent = useSessionLocationsWithoutParent(id);
   const danglingThreads = useSessionDanglingThreads(id);
   const visibleDanglingThreads = danglingThreads.filter((thread) => !acknowledgedFreeThreadIds.has(thread.id));
+  const completedThreats = useSessionCompletedThreats(id);
 
   if (session === undefined) return <LoadingSpinner />;
 
@@ -538,6 +639,26 @@ export function SessionCleanup() {
                   setAcknowledgedFreeThreadIds((prev) => new Set([...prev, threadId]));
                 }}
               />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Section: Zagrożenia (do uzupełnienia powodu) */}
+      <section className="mb-8">
+        <SectionHeader
+          icon={<AlertTriangle className="h-4 w-4" />}
+          title="Zagrożenia"
+          count={completedThreats.length}
+          iconColor="text-amber-500"
+        />
+        {completedThreats.length === 0 ? (
+          <SectionAllClear message="Brak zakończonych zagrożeń wymagających powodu." />
+        ) : (
+          <div className="space-y-2">
+            <p className="mb-2 text-sm text-surface-500">Uzupełnij powody zakończenia zagrożeń oznaczonych podczas sesji.</p>
+            {completedThreats.map((threat) => (
+              <ThreatCleanupRow key={threat.id} threat={threat} />
             ))}
           </div>
         )}
