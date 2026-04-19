@@ -24,23 +24,23 @@ export function getReadableRelationErrorMessage(
       context.targetType === 'thread'
     ) {
       if (!context.mode) {
-        return 'Te watki sa juz powiazane w questline. Aby zmienic typ powiazania, usun stara relacje i dodaj ja ponownie.';
+        return 'Te w?tki s? ju? powi?zane w questline. Aby zmieni? typ powi?zania, usu? star? relacj? i dodaj j? ponownie.';
       }
 
       return context.mode === 'parent'
-        ? 'Ten watek nadrzedny jest juz podpiety do biezacego watku. Aby zmienic typ questline, usun stara relacje i dodaj ja ponownie.'
-        : 'Ten watek jest juz podpiety jako element questline. Aby zmienic typ powiazania, usun stara relacje i dodaj ja ponownie.';
+        ? 'Ten w?tek nadrz?dny jest ju? podpi?ty do bie??cego w?tku. Aby zmieni? typ questline, usu? star? relacj? i dodaj j? ponownie.'
+        : 'Ten w?tek jest ju? podpi?ty jako element questline. Aby zmieni? typ powi?zania, usu? star? relacj? i dodaj j? ponownie.';
     }
 
     if (context.relationType === 'clues_for') {
-      return 'Ta wskazowka juz prowadzi do wybranego celu.';
+      return 'Ta wskaz?wka ju? prowadzi do wybranego celu.';
     }
 
-    return 'Taka relacja juz istnieje.';
+    return 'Taka relacja ju? istnieje.';
   }
 
   if (error instanceof ContainsParentConflictError) {
-    return 'Ten element ma juz innego rodzica. Najpierw przepnij go lub usun poprzednia relacje.';
+    return 'Ten element ma ju? innego rodzica. Najpierw przepnij go lub usu? poprzedni? relacj?.';
   }
 
   if (error instanceof RelationNotAllowedError) {
@@ -49,9 +49,9 @@ export function getReadableRelationErrorMessage(
 
   if (error instanceof Error) {
     if (error.message.includes('Source entity not found') || error.message.includes('Target entity not found')) {
-      return 'Nie udalo sie zapisac relacji, bo jedna z encji juz nie istnieje.';
+      return 'Nie uda?o si? zapisa? relacji, bo jedna z encji ju? nie istnieje.';
     }
   }
 
-  return 'Nie udalo sie zapisac relacji.';
+  return 'Nie uda?o si? zapisa? relacji.';
 }

@@ -9,6 +9,7 @@ import type { Clock } from '@modules/clocks/types';
 import type { Entity } from '@shared/types';
 import { getClockData, getThreatData, getThreatStatus } from '@shared/utils/entityData';
 import { addRelation, updateEntity } from '@shared/db/operations';
+import { normalizeThreatLifecycle } from '@shared/utils/threatLifecycle';
 import { TickProgress } from '@shared/components/TickProgress';
 import { ClueSection } from '@shared/components/ClueSection';
 import { ThreatPreviewModal } from './ThreatPreviewModal';
@@ -213,7 +214,7 @@ function useOrphanClocks(db: MgHelperDb, sessionId?: string) {
 
 async function tick(db: MgHelperDb, clock: Clock) {
   const d = getClockData(clock);
-  if (d.filled >= d.segments) return;
+  if (d.filled >= d.segments || d.isActive === false) return;
   const newFilled = d.filled + 1;
   await updateEntity(db, clock.id, { data: { ...d, filled: newFilled } });
   if (newFilled >= d.segments) toast.success(`Zegar „${clock.name}” wypełniony!`);
@@ -275,17 +276,11 @@ export function ActiveThreatsPanel({ sessionId }: { sessionId?: string }) {
   async function toggleThreatStatus(row: ThreatRow) {
     const currentStatus = getThreatStatus(row.threat);
     const nextStatus = currentStatus === 'active' ? 'completed' : 'active';
-    const threatData = getThreatData(row.threat);
-    const existingReason = typeof threatData.reasonOfDead === 'string'
-      ? threatData.reasonOfDead.trim()
-      : '';
-    const nextReason = nextStatus === 'completed' ? (existingReason || '') : '';
     try {
       await updateEntity(db, row.threat.id, {
         data: {
           ...row.threat.data,
-          status: nextStatus,
-          reasonOfDead: nextReason,
+          ...normalizeThreatLifecycle(nextStatus, getThreatData(row.threat).reasonOfDead),
         },
       });
       if (row.clock) {
@@ -372,7 +367,7 @@ export function ActiveThreatsPanel({ sessionId }: { sessionId?: string }) {
             <span className="w-7 shrink-0 text-right text-xs text-surface-400">{pct}%</span>
             <button
               onClick={() => void tick(db, clock)}
-              disabled={d.filled >= d.segments}
+              disabled={d.filled >= d.segments || d.isActive === false}
               className="rounded-md border border-primary-200 bg-white px-2 py-0.5 text-xs font-semibold text-primary-600 hover:bg-primary-50 disabled:opacity-40"
               title="Zwiększ zegar o 1 segment"
             >

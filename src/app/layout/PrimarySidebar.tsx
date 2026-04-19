@@ -39,16 +39,16 @@ const dashboardItem = {
 
 const navGroups = [
   {
-    label: 'Fabula',
+    label: 'Fabuła',
     items: [
       { to: '/fronts', label: 'Fronty', icon: Flame },
-      { to: '/threats', label: 'Zagrozenia', icon: AlertTriangle },
-      { to: '/threads', label: 'Watki', icon: Milestone },
-      { to: '/clues', label: 'Wskazowki', icon: Compass },
+      { to: '/threats', label: 'Zagrożenia', icon: AlertTriangle },
+      { to: '/threads', label: 'Wątki', icon: Milestone },
+      { to: '/clues', label: 'Wskazówki', icon: Compass },
     ],
   },
   {
-    label: 'Swiat gry',
+    label: 'Świat gry',
     items: [
       { to: '/locations', label: 'Lokacje', icon: MapPin },
       { to: '/npcs', label: 'Postacie', icon: Users },
@@ -61,12 +61,12 @@ const navGroups = [
     items: [
       { to: '/sessions', label: 'Sesje', icon: BookOpen },
       { to: '/clocks', label: 'Zegary', icon: Clock },
-      { to: '/timeline', label: 'Os czasu', icon: CalendarDays },
+      { to: '/timeline', label: 'Oś czasu', icon: CalendarDays },
       { to: '/notes', label: 'Notatki', icon: StickyNote },
     ],
   },
   {
-    label: 'Narzedzia',
+    label: 'Narzędzia',
     items: [{ to: '/graph', label: 'Graf', icon: GitFork }],
   },
 ] as const satisfies readonly NavGroup[];
@@ -142,7 +142,7 @@ export function PrimarySidebar({ onClose }: { onClose?: () => void }) {
         </NavLink>
         <button
           onClick={toggleDark}
-          aria-label={dark ? 'Wlacz tryb jasny' : 'Wlacz tryb ciemny'}
+          aria-label={dark ? 'W??cz tryb jasny' : 'W??cz tryb ciemny'}
           className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-surface-600 transition-colors hover:bg-surface-100 hover:text-surface-900"
         >
           {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}

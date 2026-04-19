@@ -125,11 +125,11 @@ export function ClueList() {
           discovered: values.discovered,
         },
       });
-      toast.success(`Wskazowka "${values.name}" utworzona`);
+      toast.success(`Wskazówka "${values.name}" utworzona`);
       setShowForm(false);
       navigate(`/clues/${entity.id}`);
     } catch {
-      toast.error('Nie udalo sie utworzyc wskazowki');
+      toast.error('Nie udało się utworzyć wskazówki');
     } finally {
       setSaving(false);
     }
@@ -140,9 +140,9 @@ export function ClueList() {
       await updateEntity(db, clue.id, {
         data: { ...clue.data, discovered: !clue.data.discovered },
       });
-      toast.success(clue.data.discovered ? 'Wskazowka ukryta' : 'Wskazowka odkryta');
+      toast.success(clue.data.discovered ? 'Wskazówka ukryta' : 'Wskazówka odkryta');
     } catch {
-      toast.error('Nie udalo sie zaktualizowac wskazowki');
+      toast.error('Nie udało się zaktualizować wskazówki');
     }
   }
 
@@ -152,9 +152,9 @@ export function ClueList() {
     <div className="flex flex-col gap-6 p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-surface-900">Wskazowki</h1>
+          <h1 className="text-xl font-semibold text-surface-900">Wskazówki</h1>
           <p className="mt-1 text-sm text-surface-500">
-            Tropy i sekrety kampanii, grupowane wzgledem celu albo pokazywane jako wolne wskazowki.
+            Tropy i sekrety kampanii, grupowane względem celu albo pokazywane jako wolne wskazówki.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -186,7 +186,7 @@ export function ClueList() {
             className="flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
           >
             <Plus className="h-4 w-4" />
-            Nowa wskazowka
+            Nowa wskazówka
           </button>
         </div>
       </div>
@@ -210,7 +210,7 @@ export function ClueList() {
 
       {showForm && (
         <div className="rounded-xl border border-surface-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-base font-semibold text-surface-900">Nowa wskazowka</h2>
+          <h2 className="mb-4 text-base font-semibold text-surface-900">Nowa wskazówka</h2>
           <ClueForm
             onSubmit={handleCreate}
             onCancel={() => setShowForm(false)}
@@ -225,7 +225,7 @@ export function ClueList() {
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Szukaj wskazowek, hintow albo celow..."
+          placeholder="Szukaj wskazówek, hintów albo celów..."
           className="w-full rounded-md border border-surface-300 py-2 pl-9 pr-8 text-sm focus:border-primary-500 focus:outline-none"
         />
         {query && (
@@ -233,7 +233,7 @@ export function ClueList() {
             type="button"
             onClick={() => setQuery('')}
             className="absolute right-2.5 top-1/2 -translate-y-1/2"
-            aria-label="Wyczysc wyszukiwanie wskazowek"
+            aria-label="Wyczyść wyszukiwanie wskazówek"
           >
             <X className="h-4 w-4 text-surface-400" />
           </button>
@@ -243,14 +243,14 @@ export function ClueList() {
       {clues.length === 0 ? (
         <EmptyState
           icon={<Zap className="h-8 w-8" />}
-          title="Brak wskazowek"
-          description="Dodaj pierwsza wskazowke dla tej kampanii."
+          title="Brak wskazówek"
+          description="Dodaj pierwszą wskazówkę dla tej kampanii."
         />
       ) : filtered?.length === 0 ? (
         <EmptyState
           icon={<Search className="h-8 w-8" />}
-          title="Brak wynikow"
-          description="Zmien filtry albo wyszukiwana fraze."
+          title="Brak wyników"
+          description="Zmień filtry albo wyszukiwaną frazę."
         />
       ) : viewMode === 'grouped' ? (
         <div className="flex flex-col gap-4">
@@ -302,10 +302,10 @@ export function ClueList() {
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-cyan-700">
-                    Wolne wskazowki
+                    Wolne wskazówki
                   </p>
                   <p className="mt-1 text-sm text-surface-600">
-                    Sekrety i tropy, ktore nie maja jeszcze przypietego celu fabularnego.
+                    Sekrety i tropy, które nie mają jeszcze przypiętego celu fabularnego.
                   </p>
                 </div>
                 <span className="shrink-0 rounded-full bg-white/80 px-2.5 py-1 text-xs text-cyan-700 ring-1 ring-inset ring-cyan-200">

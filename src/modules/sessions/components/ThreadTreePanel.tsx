@@ -17,6 +17,7 @@ interface ThreadTreePanelProps {
   onOpenCard: (entityId: string) => void;
   onCloseCard: (entityId: string) => void;
 }
+
 type ThreadStatusFilter = 'all' | 'active' | 'completed';
 
 interface ThreadPanelData {
@@ -162,6 +163,7 @@ export function ThreadTreePanel({ sessionId, openCardIds, onOpenCard, onCloseCar
       .toArray();
     const ids = rels.map((r) => r.sourceId);
     if (ids.length === 0) return EMPTY_PANEL_DATA;
+
     const threads = await db.entities
       .where('id')
       .anyOf(ids)
@@ -291,6 +293,7 @@ export function ThreadTreePanel({ sessionId, openCardIds, onOpenCard, onCloseCar
           currentId = panelData.parentByChild.get(currentId);
         }
       }
+
       const roots = panelData.threads
         .filter((thread) => {
           if (!allowedSet.has(thread.id)) return false;
@@ -365,7 +368,7 @@ export function ThreadTreePanel({ sessionId, openCardIds, onOpenCard, onCloseCar
         );
       }
       await Promise.all(operations);
-      toast.success(`Wątek „${trimmed}" dodany`);
+      toast.success(`Wątek "${trimmed}" dodany`);
       resetAddForm();
     } catch {
       toast.error('Nie udało się dodać wątku');
@@ -543,7 +546,7 @@ export function ThreadTreePanel({ sessionId, openCardIds, onOpenCard, onCloseCar
                 if (e.key === 'Enter') void handleAddThread();
                 if (e.key === 'Escape') resetAddForm();
               }}
-              placeholder="Nazwa watku..."
+              placeholder="Nazwa wątku..."
               className="flex-1 rounded border border-surface-300 px-2 py-1 text-xs focus:border-primary-500 focus:outline-none"
             />
             <div className="flex flex-wrap gap-1">
@@ -692,5 +695,4 @@ export function ThreadTreePanel({ sessionId, openCardIds, onOpenCard, onCloseCar
   );
 }
 
-// Export icon for use in CollapsiblePanel
 export { GitBranch as ThreadIcon };

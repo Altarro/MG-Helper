@@ -6,7 +6,7 @@ import { TagInput } from '@shared/components/TagInput';
 import { RichTextEditor } from '@shared/components/RichTextEditor';
 import { FRONT_CATEGORIES, FRONT_CATEGORY_LABELS } from '../types';
 
-// Internal form schema — stakes stored as objects for useFieldArray compatibility
+// Internal form schema - stakes stored as objects for useFieldArray compatibility
 const frontFormSchema = z.object({
   name: z.string().min(1, 'Nazwa jest wymagana').max(200),
   category: z.enum(FRONT_CATEGORIES),
@@ -18,7 +18,7 @@ const frontFormSchema = z.object({
 
 type FrontFormRaw = z.infer<typeof frontFormSchema>;
 
-// Public type used by callers — stakes are plain strings
+// Public type used by callers - stakes are plain strings
 export interface FrontFormValues {
   name: string;
   category: (typeof FRONT_CATEGORIES)[number];
@@ -71,7 +71,6 @@ export function FrontForm({
 
   return (
     <form onSubmit={handleSubmit(handleValidSubmit)} className="flex flex-col gap-4" noValidate>
-      {/* Name */}
       <div className="flex flex-col gap-1">
         <label htmlFor="front-name" className="text-sm font-medium text-surface-700">
           Nazwa <span className="text-red-500" aria-hidden="true">*</span>
@@ -80,7 +79,7 @@ export function FrontForm({
           id="front-name"
           {...register('name')}
           className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-          placeholder="Nazwa frontu…"
+          placeholder="Nazwa frontu..."
           aria-invalid={errors.name ? 'true' : 'false'}
         />
         {errors.name && (
@@ -88,7 +87,6 @@ export function FrontForm({
         )}
       </div>
 
-      {/* Category */}
       <div className="flex flex-col gap-1">
         <label htmlFor="front-category" className="text-sm font-medium text-surface-700">
           Kategoria
@@ -104,7 +102,6 @@ export function FrontForm({
         </select>
       </div>
 
-      {/* Goal */}
       <div className="flex flex-col gap-1">
         <label htmlFor="front-goal" className="text-sm font-medium text-surface-700">
           Cel frontu
@@ -114,11 +111,10 @@ export function FrontForm({
           {...register('goal')}
           rows={3}
           className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none"
-          placeholder={'Co front chce osiągnąć? Jakie jest jego przeznaczenie?'}
+          placeholder="Co front chce osiągnąć? Jakie jest jego przeznaczenie?"
         />
       </div>
 
-      {/* Stakes */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <label className="text-sm font-medium text-surface-700">Stawki</label>
@@ -131,14 +127,14 @@ export function FrontForm({
           </button>
         </div>
         {fields.length === 0 && (
-          <p className="text-xs text-surface-400">Brak stawek — dodaj czym ryzykują bohaterowie.</p>
+          <p className="text-xs text-surface-400">Brak stawek - dodaj, czym ryzykują bohaterowie.</p>
         )}
         {fields.map((field, i) => (
           <div key={field.id} className="flex gap-2">
             <input
               {...register(`stakes.${i}.value`)}
               className="flex-1 rounded-md border border-surface-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              placeholder={`Stawka ${i + 1}…`}
+              placeholder={`Stawka ${i + 1}...`}
             />
             <button
               type="button"
@@ -152,7 +148,6 @@ export function FrontForm({
         ))}
       </div>
 
-      {/* Description */}
       <div className="flex flex-col gap-1">
         <label className="text-sm font-medium text-surface-700">Opis / Notatki</label>
         <Controller
@@ -164,7 +159,6 @@ export function FrontForm({
         />
       </div>
 
-      {/* Tags */}
       <div className="flex flex-col gap-1">
         <label className="text-sm font-medium text-surface-700">Tagi</label>
         <Controller
@@ -174,7 +168,6 @@ export function FrontForm({
         />
       </div>
 
-      {/* Actions */}
       <div className="flex justify-end gap-2 pt-2">
         {onCancel && (
           <button
@@ -190,7 +183,7 @@ export function FrontForm({
           disabled={isSaving}
           className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
         >
-          {isSaving ? 'Zapisywanie…' : submitLabel}
+          {isSaving ? 'Zapisywanie...' : submitLabel}
         </button>
       </div>
     </form>

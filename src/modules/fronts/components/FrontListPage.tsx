@@ -59,7 +59,7 @@ export function FrontList() {
       setShowForm(false);
       navigate(`/fronts/${entity.id}`);
     } catch {
-      toast.error('Nie udalo sie utworzyc frontu');
+      toast.error('Nie udało się utworzyć frontu');
     } finally {
       setSaving(false);
     }
@@ -93,7 +93,7 @@ export function FrontList() {
             onSubmit={handleCreate}
             isSaving={saving}
             onCancel={() => setShowForm(false)}
-            submitLabel="Utworz"
+            submitLabel="Utwórz"
           />
         </div>
       )}
@@ -103,7 +103,7 @@ export function FrontList() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Szukaj frontow, stawek albo tagow..."
+          placeholder="Szukaj frontów, stawek albo tagów..."
           className="w-full rounded-md border border-surface-300 bg-white py-2 pl-9 pr-8 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
         {query && (
@@ -111,7 +111,7 @@ export function FrontList() {
             type="button"
             onClick={() => setQuery('')}
             className="absolute right-2.5 top-1/2 -translate-y-1/2"
-            aria-label="Wyczysc wyszukiwanie frontow"
+            aria-label="Wyczyść wyszukiwanie frontów"
           >
             <X className="h-4 w-4 text-surface-400" />
           </button>
@@ -149,8 +149,8 @@ export function FrontList() {
       {fronts.length === 0 ? (
         <EmptyState
           icon={<Shield className="h-10 w-10 text-surface-300" />}
-          title="Brak frontow"
-          description="Utworz pierwszy front, by uporzadkowac glowne osie kampanii."
+          title="Brak frontów"
+          description="Utwórz pierwszy front, by uporządkować główne osie kampanii."
           action={
             <button
               type="button"
@@ -165,8 +165,8 @@ export function FrontList() {
       ) : sections.length === 0 ? (
         <EmptyState
           icon={<Search className="h-8 w-8" />}
-          title="Brak wynikow"
-          description="Sprobuj zmienic filtr albo wyszukiwana fraze."
+          title="Brak wyników"
+          description="Spróbuj zmienić filtr albo wyszukiwaną frazę."
         />
       ) : (
         <div className="flex flex-col gap-4">

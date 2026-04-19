@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useNavigate, useParams, Link, useLocation } from 'react-router';
-import { AlertTriangle, ArrowLeft, Edit2, Trash2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Edit2, GitBranchPlus, Trash2 } from 'lucide-react';
 import { useThreatById } from '../hooks/useThreatById';
 import { ThreatForm } from './ThreatForm';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
@@ -24,10 +24,12 @@ import {
 import { useCampaign } from '@shared/db/CampaignContext';
 import { useRelatedEntities } from '@shared/hooks/useRelatedEntities';
 import { useThreatDetailPath } from '@shared/hooks/useThreatDetailPath';
-import { isClock } from '@modules/clocks/types';
+import { CLOCK_SEGMENTS, isClock } from '@modules/clocks/types';
 import { toast } from 'sonner';
 import { THREAT_TYPE_LABELS, THREAT_DEATH_REASON_PRESETS } from '../types';
 import { getThreatStatus, getClockData } from '@shared/utils/entityData';
+import { normalizeThreatLifecycle } from '@shared/utils/threatLifecycle';
+import { buildDerivedThreatDefaults, getCompletedClockLabels } from '../utils/derivedThreat';
 import type { ThreatFormValues } from './ThreatForm';
 
 export function ThreatDetail() {
@@ -43,10 +45,17 @@ export function ThreatDetail() {
   const [toggleModalOpen, setToggleModalOpen] = useState(false);
   const [toggleSaving, setToggleSaving] = useState(false);
   const [toggleReason, setToggleReason] = useState('');
+  const [toggleReasonError, setToggleReasonError] = useState('');
   const [confirmReactivate, setConfirmReactivate] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showThreadPicker, setShowThreadPicker] = useState(false);
   const [showRelPicker, setShowRelPicker] = useState(false);
+  const [showDerivedModal, setShowDerivedModal] = useState(false);
+  const [derivedSaving, setDerivedSaving] = useState(false);
+  const [showQuickClockModal, setShowQuickClockModal] = useState(false);
+  const [quickClockName, setQuickClockName] = useState('');
+  const [quickClockSegments, setQuickClockSegments] = useState<number>(6);
+  const [quickClockSaving, setQuickClockSaving] = useState(false);
   const returnToSessionLive = (location.state as { returnToSessionLive?: string } | null)?.returnToSessionLive;
   const backPath = returnToSessionLive ? `/sessions/${returnToSessionLive}/live` : '/threats';
 
@@ -82,9 +91,9 @@ export function ThreatDetail() {
   if (!threat || !id) {
     return (
       <div className="p-6">
-        <p className="text-surface-500">Zagrozenie nie znalezione.</p>
+        <p className="text-surface-500">Zagrożenie nie znalezione.</p>
         <Link to="/threats" className="text-primary-600 hover:underline">
-          ← Powrot do zagrozen
+          ← Powrót do zagrożeń
         </Link>
       </div>
     );
@@ -93,26 +102,34 @@ export function ThreatDetail() {
   const currentThreat = threat;
   const threatId = id;
   const threatStatus = getThreatStatus(currentThreat);
+  const completedClockLabels = getCompletedClockLabels(linkedClock);
+  const derivedThreatDefaults = buildDerivedThreatDefaults(currentThreat, linkedClock);
+  const parentFrontEntity = parentFront?.[0]?.entity;
 
   function openToggleFlow() {
     if (threatStatus === 'completed') {
       setConfirmReactivate(true);
     } else {
       setToggleReason('');
+      setToggleReasonError('');
       setToggleModalOpen(true);
     }
   }
 
   async function handleConfirmComplete() {
-    if (!threatId) return;
+    const trimmed = toggleReason.trim();
+    if (trimmed.length === 0) {
+      setToggleReasonError('Podaj powód zakończenia zagrożenia');
+      toast.error('Podaj powód zakończenia');
+      return;
+    }
+
     setToggleSaving(true);
     try {
-      const nextReason = toggleReason.trim() || 'Zakończone w sesji';
       await updateEntity(db, threatId, {
         data: {
           ...currentThreat.data,
-          status: 'completed',
-          reasonOfDead: nextReason,
+          ...normalizeThreatLifecycle('completed', trimmed),
         },
       });
 
@@ -129,20 +146,18 @@ export function ThreatDetail() {
       toast.success('Zagrożenie zakończone');
       setToggleModalOpen(false);
     } catch {
-      toast.error('Nie udalo sie oznaczyc zagrozenia jako zakonczone');
+      toast.error('Nie udało się oznaczyć zagrożenia jako zakończone');
     } finally {
       setToggleSaving(false);
     }
   }
 
   async function handleConfirmReactivate() {
-    if (!threatId) return;
     try {
       await updateEntity(db, threatId, {
         data: {
           ...currentThreat.data,
-          status: 'active',
-          reasonOfDead: '',
+          ...normalizeThreatLifecycle('active', ''),
         },
       });
 
@@ -159,13 +174,14 @@ export function ThreatDetail() {
       toast.success('Zagrożenie aktywowane');
       setConfirmReactivate(false);
     } catch {
-      toast.error('Nie udalo sie wznawic zagrozenia');
+      toast.error('Nie udało się wznowić zagrożenia');
     }
   }
 
   async function handleUpdate(values: ThreatFormValues) {
     setSaving(true);
     try {
+      const lifecycle = normalizeThreatLifecycle(values.status, values.reasonOfDead);
       await updateEntity(db, threatId, {
         name: values.name,
         description: values.description,
@@ -176,11 +192,21 @@ export function ThreatDetail() {
           impulse: values.impulse,
           moves: values.moves,
           trigger: values.trigger,
-          status: values.status,
-          reasonOfDead: values.reasonOfDead,
+          inheritanceNotes: values.inheritanceNotes,
           forkThreatId: values.forkThreatId,
+          ...lifecycle,
         },
       });
+
+      if (linkedClock) {
+        const clockData = getClockData(linkedClock);
+        await updateEntity(db, linkedClock.id, {
+          data: {
+            ...clockData,
+            isActive: lifecycle.status !== 'completed',
+          },
+        });
+      }
 
       if (values.clock && !linkedClock) {
         const clockEntity = await addEntity(db, {
@@ -188,17 +214,76 @@ export function ThreatDetail() {
           name: values.clock.name,
           description: '',
           tags: [],
-          data: { segments: values.clock.segments, filled: 0, tickLabels: [], isActive: true },
+          data: {
+            segments: values.clock.segments,
+            filled: 0,
+            tickLabels: [],
+            isActive: lifecycle.status !== 'completed',
+          },
         });
         await addRelation(db, { type: 'tracks', sourceId: threatId, targetId: clockEntity.id });
       }
 
-      toast.success('Zagrozenie zaktualizowane');
+      toast.success('Zagrożenie zaktualizowane');
       setIsEditing(false);
     } catch {
-      toast.error('Nie udalo sie zapisac zmian');
+      toast.error('Nie udało się zapisać zmian');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleCreateDerivedThreat(values: ThreatFormValues) {
+    setDerivedSaving(true);
+    try {
+      const lifecycle = normalizeThreatLifecycle(values.status, values.reasonOfDead);
+      const entity = await addEntity(db, {
+        type: 'threat',
+        name: values.name,
+        description: values.description,
+        tags: values.tags,
+        data: {
+          threatType: values.threatType,
+          impulse: values.impulse,
+          moves: values.moves,
+          trigger: values.trigger,
+          inheritanceNotes: values.inheritanceNotes,
+          forkThreatId: currentThreat.id,
+          ...lifecycle,
+        },
+      });
+
+      if (parentFrontEntity) {
+        await addRelation(db, {
+          type: 'belongs_to',
+          sourceId: entity.id,
+          targetId: parentFrontEntity.id,
+        });
+      }
+
+      if (values.clock) {
+        const clockEntity = await addEntity(db, {
+          type: 'clock',
+          name: values.clock.name,
+          description: '',
+          tags: [],
+          data: {
+            segments: values.clock.segments,
+            filled: 0,
+            tickLabels: [],
+            isActive: lifecycle.status !== 'completed',
+          },
+        });
+        await addRelation(db, { type: 'tracks', sourceId: entity.id, targetId: clockEntity.id });
+      }
+
+      toast.success(`Utworzono zagrożenie wynikające "${values.name}"`);
+      setShowDerivedModal(false);
+      navigate(`/threats/${entity.id}`);
+    } catch {
+      toast.error('Nie udało się utworzyć zagrożenia wynikającego');
+    } finally {
+      setDerivedSaving(false);
     }
   }
 
@@ -209,17 +294,48 @@ export function ThreatDetail() {
       }
 
       await deleteEntity(db, threatId);
-      toast.success(`Zagrozenie "${currentThreat.name}" usuniete`);
+      toast.success(`Zagrożenie "${currentThreat.name}" usunięte`);
       navigate(backPath);
     } catch {
-      toast.error('Nie udalo sie usunac zagrozenia');
+      toast.error('Nie udało się usunąć zagrożenia');
+    }
+  }
+
+  async function handleCreateQuickClock() {
+    const trimmedName = quickClockName.trim();
+    if (!trimmedName || linkedClock) return;
+
+    setQuickClockSaving(true);
+    try {
+      const clockEntity = await addEntity(db, {
+        type: 'clock',
+        name: trimmedName,
+        description: '',
+        tags: [],
+        data: {
+          segments: quickClockSegments as 4 | 6 | 8 | 10 | 12,
+          filled: 0,
+          tickLabels: [],
+          isActive: threatStatus !== 'completed',
+        },
+      });
+      await addRelation(db, { type: 'tracks', sourceId: threatId, targetId: clockEntity.id });
+      toast.success(`Dodano zegar "${trimmedName}"`);
+      setQuickClockName('');
+      setQuickClockSegments(6);
+      setShowQuickClockModal(false);
+    } catch {
+      toast.error('Nie udało się utworzyć zegara');
+    } finally {
+      setQuickClockSaving(false);
     }
   }
 
   async function handleTickLinkedClock() {
     if (!linkedClock) return;
     const data = linkedClock.data;
-    if (data.filled >= data.segments) return;
+    if (data.filled >= data.segments || data.isActive === false) return;
+
     const nextFilled = data.filled + 1;
     try {
       await updateEntity(db, linkedClock.id, {
@@ -228,8 +344,9 @@ export function ThreatDetail() {
           filled: nextFilled,
         },
       });
+
       if (nextFilled >= data.segments) {
-        toast.success(`Zegar „${linkedClock.name}” wypełniony!`);
+        toast.success(`Zegar "${linkedClock.name}" wypełniony!`);
       }
     } catch {
       toast.error('Nie udało się odnotować kolejnego tyknięcia');
@@ -237,13 +354,13 @@ export function ThreatDetail() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6 max-w-4xl mx-auto">
+    <div className="mx-auto flex max-w-4xl flex-col gap-6 p-6">
       <Link
         to={backPath}
         className="flex w-fit items-center gap-2 text-sm text-surface-500 hover:text-primary-600"
       >
         <ArrowLeft className="h-4 w-4" />
-        {returnToSessionLive ? 'Sesja na żywo' : 'Zagrozenia'}
+        {returnToSessionLive ? 'Sesja na żywo' : 'Zagrożenia'}
       </Link>
 
       <div className="flex items-start justify-between gap-4">
@@ -263,7 +380,7 @@ export function ThreatDetail() {
             </span>
           </div>
         </div>
-        <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+        <div className="flex shrink-0 flex-wrap justify-end gap-2">
           <button
             type="button"
             onClick={() => setIsEditing((current) => !current)}
@@ -271,6 +388,15 @@ export function ThreatDetail() {
           >
             <Edit2 className="h-3.5 w-3.5" /> {isEditing ? 'Anuluj' : 'Edytuj'}
           </button>
+          {threatStatus === 'completed' && (
+            <button
+              type="button"
+              onClick={() => setShowDerivedModal(true)}
+              className="flex items-center gap-1.5 rounded-md border border-primary-200 px-3 py-1.5 text-sm text-primary-700 hover:bg-primary-50"
+            >
+              <GitBranchPlus className="h-3.5 w-3.5" /> Utwórz zagrożenie wynikające
+            </button>
+          )}
           <button
             type="button"
             onClick={() => openToggleFlow()}
@@ -287,7 +413,7 @@ export function ThreatDetail() {
             onClick={() => setConfirmDelete(true)}
             className="flex items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
           >
-            <Trash2 className="h-3.5 w-3.5" /> Usun
+            <Trash2 className="h-3.5 w-3.5" /> Usuń
           </button>
         </div>
       </div>
@@ -296,19 +422,20 @@ export function ThreatDetail() {
         <div className="rounded-xl border border-surface-200 bg-white p-5 shadow-sm">
           <ThreatForm
             defaultValues={{
-                name: currentThreat.name,
-                threatType: currentThreat.data.threatType,
-                status: getThreatStatus(currentThreat),
-                impulse: currentThreat.data.impulse,
-                trigger: currentThreat.data.trigger ?? '',
-                reasonOfDead: currentThreat.data.reasonOfDead ?? '',
-                forkThreatId: currentThreat.data.forkThreatId,
-                moves: currentThreat.data.moves,
-                description: currentThreat.description,
-                tags: currentThreat.tags,
-                clock: linkedClock
-                  ? { name: linkedClock.name, segments: linkedClock.data.segments }
-                  : null,
+              name: currentThreat.name,
+              threatType: currentThreat.data.threatType,
+              status: threatStatus,
+              impulse: currentThreat.data.impulse,
+              trigger: currentThreat.data.trigger ?? '',
+              reasonOfDead: currentThreat.data.reasonOfDead ?? '',
+              inheritanceNotes: typeof currentThreat.data.inheritanceNotes === 'string' ? currentThreat.data.inheritanceNotes : '',
+              forkThreatId: currentThreat.data.forkThreatId,
+              moves: currentThreat.data.moves,
+              description: currentThreat.description,
+              tags: currentThreat.tags,
+              clock: linkedClock
+                ? { name: linkedClock.name, segments: linkedClock.data.segments }
+                : null,
             }}
             onSubmit={handleUpdate}
             isSaving={saving}
@@ -319,89 +446,89 @@ export function ThreatDetail() {
       ) : (
         <>
           <DetailSection
-            title="Kontekst zagrozenia"
-            description="Glowne informacje o presji fabularnej i jej miejscu w kampanii."
+            title="Kontekst zagrożenia"
+            description="Główne informacje o presji fabularnej i jej miejscu w kampanii."
             tone="accent"
           >
-          {currentThreat.data.impulse && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
-              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-700">Impuls</h2>
-              <p className="text-sm italic text-surface-800">{currentThreat.data.impulse}</p>
-            </div>
-          )}
+            {currentThreat.data.impulse && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
+                <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-700">Impuls</h2>
+                <p className="text-sm italic text-surface-800">{currentThreat.data.impulse}</p>
+              </div>
+            )}
 
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-xl border border-surface-200 bg-white p-5">
-              <NarrativeLinksSection
-                title="Front nadrzedny"
-                items={parentFront}
-                emptyMessage="To zagrozenie nie jest jeszcze podpiete do zadnego frontu."
-              />
-            </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-xl border border-surface-200 bg-white p-5">
+                <NarrativeLinksSection
+                  title="Front nadrzędny"
+                  items={parentFront}
+                  emptyMessage="To zagrożenie nie jest jeszcze podpięte do żadnego frontu."
+                />
+              </div>
 
-            <div className="rounded-xl border border-surface-200 bg-white p-5">
-              <NarrativeLinksSection
-                title="Powiazane watki"
-                items={relatedThreads}
-                emptyMessage="To zagrozenie nie ma jeszcze podpietych watkow przez relacje affects."
-                actionLabel="+ Dodaj watek"
-                onAction={() => setShowThreadPicker(true)}
-              />
+              <div className="rounded-xl border border-surface-200 bg-white p-5">
+                <NarrativeLinksSection
+                  title="Powiązane wątki"
+                  items={relatedThreads}
+                  emptyMessage="To zagrożenie nie ma jeszcze podpiętych wątków przez relację affects."
+                  actionLabel="+ Dodaj wątek"
+                  onAction={() => setShowThreadPicker(true)}
+                />
+              </div>
             </div>
-          </div>
           </DetailSection>
 
           {(currentThreat.data.trigger || forkSourceThreat || currentThreat.data.reasonOfDead) && (
             <DetailSection
               title="Historia i tykanie"
-              description="Trigger, pochodzenie i stan wygaszenia zagrozenia."
+              description="Trigger, pochodzenie i stan wygaszenia zagrożenia."
             >
               <div className="grid gap-4 lg:grid-cols-2">
-              {currentThreat.data.trigger && (
-                <div className="rounded-xl border border-surface-200 bg-white p-5">
-                  <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-500">
-                    Trigger tykania
-                  </h2>
-                  <p className="text-sm whitespace-pre-wrap text-surface-700">{currentThreat.data.trigger}</p>
-                </div>
-              )}
+                {currentThreat.data.trigger && (
+                  <div className="rounded-xl border border-surface-200 bg-white p-5">
+                    <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-500">
+                      Trigger tykania
+                    </h2>
+                    <p className="whitespace-pre-wrap text-sm text-surface-700">{currentThreat.data.trigger}</p>
+                  </div>
+                )}
 
-              {forkSourceThreat && (
-                <div className="rounded-xl border border-surface-200 bg-white p-5">
-                  <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-500">
-                    Powstalo z zagrozenia
-                  </h2>
-                  {forkSourcePath ? (
-                    <Link to={forkSourcePath} className="text-sm font-medium text-primary-600 hover:underline">
-                      {forkSourceThreat.name}
-                    </Link>
-                  ) : (
-                    <p className="text-sm text-surface-700">{forkSourceThreat.name}</p>
-                  )}
-                </div>
-              )}
+                {forkSourceThreat && (
+                  <div className="rounded-xl border border-surface-200 bg-white p-5">
+                    <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-500">
+                      Powstało z zagrożenia
+                    </h2>
+                    {forkSourcePath ? (
+                      <Link to={forkSourcePath} className="text-sm font-medium text-primary-600 hover:underline">
+                        {forkSourceThreat.name}
+                      </Link>
+                    ) : (
+                      <p className="text-sm text-surface-700">{forkSourceThreat.name}</p>
+                    )}
+                  </div>
+                )}
 
-              {currentThreat.data.reasonOfDead && (
-                <div className="rounded-xl border border-surface-200 bg-surface-50 p-5 lg:col-span-2">
-                  <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-500">
-                    Powod wygaszenia / smierci
-                  </h2>
-                  <p className="text-sm whitespace-pre-wrap text-surface-700">{currentThreat.data.reasonOfDead}</p>
-                </div>
-              )}
+                {currentThreat.data.reasonOfDead && (
+                  <div className="rounded-xl border border-surface-200 bg-surface-50 p-5 lg:col-span-2">
+                    <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-500">
+                      Powód wygaszenia / śmierci
+                    </h2>
+                    <p className="whitespace-pre-wrap text-sm text-surface-700">{currentThreat.data.reasonOfDead}</p>
+                  </div>
+                )}
               </div>
             </DetailSection>
           )}
 
           {currentThreat.data.moves.length > 0 && (
             <DetailSection
-              title="Ruchy zagrozenia"
-              description="Lista ruchow, po ktorych MG moze siegac podczas eskalacji."
+              title="Ruchy zagrożenia"
+              description="Lista ruchów, po których MG może sięgać podczas eskalacji."
             >
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-surface-500">
-                Ruchy zagrozenia
+                Ruchy zagrożenia
               </h2>
-              <ul className="list-disc list-inside space-y-1.5">
+              <ul className="list-inside list-disc space-y-1.5">
                 {currentThreat.data.moves.map((move, index) => (
                   <li key={index} className="text-sm text-surface-700">
                     {move}
@@ -411,23 +538,32 @@ export function ThreatDetail() {
             </DetailSection>
           )}
 
+          {typeof currentThreat.data.inheritanceNotes === 'string' && currentThreat.data.inheritanceNotes.trim().length > 0 && (
+            <DetailSection
+              title="Dziedzictwo zagrożenia"
+              description="To, co przeszło dalej po wcześniejszym zagrożeniu: skutki, etapy i konsekwencje."
+            >
+              <p className="whitespace-pre-wrap text-sm text-surface-700">{currentThreat.data.inheritanceNotes}</p>
+            </DetailSection>
+          )}
+
           {linkedClock && (
             <DetailSection
               title="Zegar presji"
-              description="Operacyjny licznik eskalacji przypiety do tego zagrozenia."
+              description="Operacyjny licznik eskalacji przypięty do tego zagrożenia."
             >
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-surface-500">
-                Powiazany zegar
+                Powiązany zegar
               </h2>
               <Link
                 to={`/clocks/${linkedClock.id}`}
-                className="flex items-center gap-4 rounded-lg border border-transparent p-2 -m-2 transition-colors hover:border-primary-200 hover:bg-primary-50"
+                className="m-[-0.5rem] flex items-center gap-4 rounded-lg border border-transparent p-2 transition-colors hover:border-primary-200 hover:bg-primary-50"
               >
                 <ClockWidget clock={linkedClock} size={56} showLabel />
                 <div className="min-w-0">
                   <p className="font-medium text-surface-900">{linkedClock.name}</p>
                   <p className="text-sm text-surface-500">
-                    {linkedClock.data.filled}/{linkedClock.data.segments} segmentow
+                    {linkedClock.data.filled}/{linkedClock.data.segments} segmentów
                   </p>
                 </div>
               </Link>
@@ -435,7 +571,7 @@ export function ThreatDetail() {
                 <button
                   type="button"
                   onClick={() => void handleTickLinkedClock()}
-                  disabled={linkedClock.data.filled >= linkedClock.data.segments}
+                  disabled={linkedClock.data.filled >= linkedClock.data.segments || linkedClock.data.isActive === false}
                   className="rounded-md border border-primary-200 bg-white px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 disabled:opacity-40"
                 >
                   +1 tick
@@ -454,10 +590,25 @@ export function ThreatDetail() {
             </DetailSection>
           )}
 
+          {!linkedClock && (
+            <DetailSection
+              title="Zegar presji"
+              description="To zagrożenie nie ma jeszcze zegara, ale możesz dodać go od razu bez przechodzenia do edycji."
+            >
+              <button
+                type="button"
+                onClick={() => setShowQuickClockModal(true)}
+                className="rounded-md border border-primary-200 bg-white px-3 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
+              >
+                + Dodaj zegar
+              </button>
+            </DetailSection>
+          )}
+
           {currentThreat.description && (
             <DetailSection
               title="Opis"
-              description="Pelny opis zagrozenia i jego roli w kampanii."
+              description="Pełny opis zagrożenia i jego roli w kampanii."
             >
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-surface-500">Opis</h2>
               <div
@@ -478,15 +629,15 @@ export function ThreatDetail() {
           )}
 
           <DetailSection
-            title="Wskazowki zagrozenia"
-            description="Tropy prowadzace bezposrednio do tego zagrozenia."
+            title="Wskazówki zagrożenia"
+            description="Tropy prowadzące bezpośrednio do tego zagrożenia."
           >
-            <ClueSection parentId={threatId} title="Wskazowki" />
+            <ClueSection parentId={threatId} title="Wskazówki" />
           </DetailSection>
 
           <DetailSection
-            title="Powiazania swiata"
-            description="Relacje dodatkowe poza glownym kontraktem zagrozenia."
+            title="Powiązania świata"
+            description="Relacje dodatkowe poza głównym kontraktem zagrożenia."
             action={(
               <button
                 type="button"
@@ -500,18 +651,18 @@ export function ThreatDetail() {
             <RelationList
               entityId={currentThreat.id}
               excludeRelationTypes={['belongs_to', 'affects', 'tracks', 'clues_for']}
-              emptyMessage="Brak dodatkowych relacji swiata dla tego zagrozenia."
+              emptyMessage="Brak dodatkowych relacji świata dla tego zagrożenia."
             />
           </DetailSection>
 
           <DetailSection
             title="Notatki MG"
-            description="Zaplecze robocze dla prowadzacego poza glowna presja i jej tropami."
+            description="Zaplecze robocze dla prowadzącego poza główną presją i jej tropami."
           >
             <NotesList
               entityId={currentThreat.id}
               showTitle={false}
-              emptyMessage="Brak notatek podpietych do tego zagrozenia."
+              emptyMessage="Brak notatek podpiętych do tego zagrożenia."
             />
           </DetailSection>
         </>
@@ -519,21 +670,28 @@ export function ThreatDetail() {
 
       <ConfirmDialog
         open={confirmDelete}
-        title="Usun zagrozenie"
-        description={`Czy na pewno chcesz usunac zagrozenie "${currentThreat.name}"? Tej operacji nie mozna cofnac.`}
+        title="Usuń zagrożenie"
+        description={`Czy na pewno chcesz usunąć zagrożenie "${currentThreat.name}"? Tej operacji nie można cofnąć.`}
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}
       />
 
       {toggleModalOpen && (
         <Modal title="Powód zakończenia" onClose={() => setToggleModalOpen(false)}>
-          <p className="text-sm text-surface-600">Podaj powód zakończenia zagrożenia (opcjonalnie):</p>
+          <p className="text-sm text-surface-600">Podaj powód zakończenia zagrożenia:</p>
           <textarea
+            placeholder="Podaj powód zakończenia..."
             value={toggleReason}
-            onChange={(e) => setToggleReason(e.target.value)}
+            onChange={(e) => {
+              setToggleReason(e.target.value);
+              if (toggleReasonError) setToggleReasonError('');
+            }}
             rows={4}
             className="mt-3 w-full rounded-md border border-surface-300 px-3 py-2 text-sm"
           />
+          {toggleReasonError && (
+            <p className="mt-2 text-xs text-red-600">{toggleReasonError}</p>
+          )}
 
           <div className="mt-3 flex flex-wrap gap-2">
             {THREAT_DEATH_REASON_PRESETS.map((preset) => (
@@ -564,6 +722,100 @@ export function ThreatDetail() {
             >
               Zakończ
             </button>
+          </div>
+        </Modal>
+      )}
+
+      {showDerivedModal && (
+        <Modal title="Nowe zagrożenie wynikające" onClose={() => setShowDerivedModal(false)}>
+          <div className="mb-4 rounded-lg border border-primary-100 bg-primary-50 px-4 py-3 text-sm text-surface-700">
+            <p>
+              Źródło: <span className="font-medium text-surface-900">{currentThreat.name}</span>
+            </p>
+            {completedClockLabels.length > 0 ? (
+              <div className="mt-2">
+                <p className="font-medium text-surface-900">Przenoszone ukończone kroki zegara:</p>
+                <ul className="mt-1 list-inside list-disc space-y-1 text-sm">
+                  {completedClockLabels.map((label, index) => (
+                    <li key={`${index}-${label}`}>{label}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : linkedClock && linkedClock.data.filled > 0 ? (
+              <p className="mt-2">
+                Zapiszę w opisie informację, że w źródle ukończono {linkedClock.data.filled} z {linkedClock.data.segments} segmentów zegara.
+              </p>
+            ) : (
+              <p className="mt-2 text-surface-600">
+                Źródłowy zegar nie ma ukończonych nazwanych kroków do przeniesienia.
+              </p>
+            )}
+            {parentFrontEntity && (
+              <p className="mt-2 text-surface-600">
+                Nowe zagrożenie zostanie też automatycznie podpięte pod front: <span className="font-medium text-surface-900">{parentFrontEntity.name}</span>.
+              </p>
+            )}
+          </div>
+
+          <ThreatForm
+            defaultValues={derivedThreatDefaults}
+            onSubmit={handleCreateDerivedThreat}
+            isSaving={derivedSaving}
+            onCancel={() => setShowDerivedModal(false)}
+            submitLabel="Utwórz zagrożenie wynikające"
+            currentThreatId={currentThreat.id}
+          />
+        </Modal>
+      )}
+
+      {showQuickClockModal && (
+        <Modal title="Dodaj zegar do zagrożenia" onClose={() => setShowQuickClockModal(false)}>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <label htmlFor="quick-clock-name" className="text-sm font-medium text-surface-700">
+                Nazwa zegara
+              </label>
+              <input
+                id="quick-clock-name"
+                value={quickClockName}
+                onChange={(event) => setQuickClockName(event.target.value)}
+                placeholder="Np. Eskalacja rytuału"
+                className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                autoFocus
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="quick-clock-segments" className="text-sm font-medium text-surface-700">
+                Segmenty
+              </label>
+              <select
+                id="quick-clock-segments"
+                value={quickClockSegments}
+                onChange={(event) => setQuickClockSegments(Number(event.target.value))}
+                className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              >
+                {CLOCK_SEGMENTS.map((segments) => (
+                  <option key={segments} value={segments}>{segments}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowQuickClockModal(false)}
+                className="rounded-md border border-surface-300 px-4 py-2 text-sm font-medium text-surface-700 hover:bg-surface-50"
+              >
+                Anuluj
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleCreateQuickClock()}
+                disabled={!quickClockName.trim() || quickClockSaving}
+                className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+              >
+                {quickClockSaving ? 'Zapisywanie...' : 'Dodaj zegar'}
+              </button>
+            </div>
           </div>
         </Modal>
       )}

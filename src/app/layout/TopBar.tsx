@@ -10,7 +10,7 @@ const ROUTE_LABELS: Record<string, string> = {
   npcs: 'Postacie',
   locations: 'Lokacje',
   fronts: 'Fronty',
-  threats: 'Zagrozenia',
+  threats: 'Zagrożenia',
   clocks: 'Zegary',
   sessions: 'Sesje',
   factions: 'Frakcje',

@@ -36,7 +36,7 @@ type FilterTab = 'all' | 'active' | 'completed';
 const TAB_LABELS: Record<FilterTab, string> = {
   all: 'Wszystkie',
   active: 'Aktywne',
-  completed: 'Zakonczone',
+  completed: 'Zakończone',
 };
 
 export function ThreadList() {
@@ -147,11 +147,11 @@ export function ThreadList() {
           resolution: values.resolution,
         },
       });
-      toast.success(`Watek "${values.name}" utworzony`);
+      toast.success(`Wątek "${values.name}" utworzony`);
       setShowForm(false);
       navigate(`/threads/${entity.id}`);
     } catch {
-      toast.error('Nie udalo sie utworzyc watku');
+      toast.error('Nie udało się utworzyć wątku');
     } finally {
       setSaving(false);
     }
@@ -170,9 +170,9 @@ export function ThreadList() {
     const reordered = reorderEntities(threads, String(active.id), String(over.id));
     try {
       await updateSortOrders(db, reordered.map((thread) => thread.id));
-      toast.success('Kolejnosc zaktualizowana');
+      toast.success('Kolejność zaktualizowana');
     } catch {
-      toast.error('Nie udalo sie zapisac kolejnosci');
+      toast.error('Nie udało się zapisać kolejności');
     }
   }
 
@@ -182,9 +182,9 @@ export function ThreadList() {
     <div className="flex flex-col gap-6 p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-surface-900">Watki fabularne</h1>
+          <h1 className="text-xl font-semibold text-surface-900">Wątki fabularne</h1>
           <p className="mt-1 text-sm text-surface-500">
-            Questy i sprawy dla stolu, grupowane wzgledem zagrozen albo pokazywane jako wolne watki.
+            Questy i sprawy dla stołu, grupowane względem zagrożeń albo pokazywane jako wolne wątki.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -216,14 +216,14 @@ export function ThreadList() {
             className="flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
           >
             <Plus className="h-4 w-4" />
-            Nowy watek
+            Nowy wątek
           </button>
         </div>
       </div>
 
       {showForm && (
         <div className="rounded-xl border border-surface-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold text-surface-700">Nowy watek</h2>
+          <h2 className="mb-4 text-sm font-semibold text-surface-700">Nowy wątek</h2>
           <ThreadForm
             onSubmit={handleCreate}
             onCancel={() => setShowForm(false)}
@@ -238,7 +238,7 @@ export function ThreadList() {
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Szukaj watkow, tagow albo zagrozen..."
+          placeholder="Szukaj wątków, tagów albo zagrożeń..."
           className="w-full rounded-md border border-surface-300 py-2 pl-9 pr-8 text-sm focus:border-primary-500 focus:outline-none"
         />
         {query && (
@@ -246,7 +246,7 @@ export function ThreadList() {
             type="button"
             onClick={() => setQuery('')}
             className="absolute right-2.5 top-1/2 -translate-y-1/2"
-            aria-label="Wyczysc wyszukiwanie watkow"
+            aria-label="Wyczyść wyszukiwanie wątków"
           >
             <X className="h-4 w-4 text-surface-400" />
           </button>
@@ -273,8 +273,8 @@ export function ThreadList() {
       {filtered && filtered.length === 0 ? (
         <EmptyState
           icon={<Milestone className="h-8 w-8" />}
-          title="Brak watkow"
-          description={query ? 'Zaden watek nie pasuje do wyszukiwania.' : 'Utworz pierwszy watek fabularny.'}
+          title="Brak wątków"
+          description={query ? 'Żaden wątek nie pasuje do wyszukiwania.' : 'Utwórz pierwszy wątek fabularny.'}
           action={
             !query ? (
               <button
@@ -282,7 +282,7 @@ export function ThreadList() {
                 onClick={() => setShowForm(true)}
                 className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
               >
-                Nowy watek
+                Nowy wątek
               </button>
             ) : undefined
           }
@@ -297,7 +297,7 @@ export function ThreadList() {
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold uppercase tracking-wide text-surface-400">
-                    Zagrozenie
+                    Zagrożenie
                   </p>
                   <Link
                     to={`/threats/${section.threat.id}`}
@@ -328,10 +328,10 @@ export function ThreadList() {
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">
-                    Wolne watki
+                    Wolne wątki
                   </p>
                   <p className="mt-1 text-sm text-surface-600">
-                    Watki poboczne albo jeszcze nieprzypiete do zadnego zagrozenia.
+                    Wątki poboczne albo jeszcze nieprzypięte do żadnego zagrożenia.
                   </p>
                 </div>
                 <span className="shrink-0 rounded-full bg-white/80 px-2.5 py-1 text-xs text-violet-700 ring-1 ring-inset ring-violet-200">

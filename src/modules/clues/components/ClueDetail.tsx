@@ -168,8 +168,8 @@ export function ClueDetail() {
       ) : (
         <div className="flex flex-col gap-5">
           <DetailSection
-            title="Kontekst wskazowki"
-            description="Status tropu, jego rdzen i najkrotsza informacja, z ktorej korzysta MG przy stole."
+            title="Kontekst wskaz?wki"
+            description="Status tropu, jego rdze? i najkr?tsza informacja, z kt?rej korzysta MG przy stole."
             tone="accent"
           >
           {/* Toggle discovered */}
@@ -224,7 +224,7 @@ export function ClueDetail() {
 
           <DetailSection
             title="Prowadzi do"
-            description="Docelowe byty fabularne oraz sila tropu dla kazdego kierunku."
+            description="Docelowe byty fabularne oraz si?a tropu dla ka?dego kierunku."
           >
             <div>
             <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
@@ -233,7 +233,7 @@ export function ClueDetail() {
                   Prowadzi do
                 </h2>
                 <p className="mt-1 text-sm text-surface-400">
-                  Okresl, czy wskazowka prowadzi do watku, zagrozenia albo frontu oraz jak mocny to trop.
+                  Okre?l, czy wskaz?wka prowadzi do w?tku, zagro?enia albo frontu oraz jak mocny to trop.
                 </p>
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -249,7 +249,7 @@ export function ClueDetail() {
                   onClick={() => setTargetPickerType('threat')}
                   className="rounded-full border border-surface-300 px-2.5 py-1 text-xs font-medium text-surface-600 hover:bg-surface-50"
                 >
-                  + Zagrozenie
+                  + Zagro?enie
                 </button>
                 <button
                   type="button"
@@ -282,9 +282,9 @@ export function ClueDetail() {
             )}
 
             <NarrativeLinksSection
-              title="Cele wskazowki"
+              title="Cele wskaz?wki"
               items={resolvedClueTargets}
-              emptyMessage="Ta wskazowka nie wskazuje jeszcze jawnie na front, zagrozenie ani watek."
+              emptyMessage="Ta wskaz?wka nie wskazuje jeszcze jawnie na front, zagro?enie ani w?tek."
               meta={(item) => (
                 item.relation.meta?.clueStrength
                   ? getClueStrengthLabel(item.relation.meta.clueStrength)
@@ -295,8 +295,8 @@ export function ClueDetail() {
           </DetailSection>
 
           <DetailSection
-            title="Powiazania swiata"
-            description="Relacje dodatkowe poza glownym kontraktem wskazowki."
+            title="Powi?zania ?wiata"
+            description="Relacje dodatkowe poza g??wnym kontraktem wskaz?wki."
             action={(
               <button
                 onClick={() => setShowRelPicker(true)}
@@ -319,19 +319,19 @@ export function ClueDetail() {
             <RelationList
               entityId={clue.id}
               excludeRelationTypes={['clues_for']}
-              emptyMessage="Brak dodatkowych powiazan dla tej wskazowki."
+              emptyMessage="Brak dodatkowych powi?za? dla tej wskaz?wki."
             />
           </div>
           </DetailSection>
 
           <DetailSection
             title="Notatki MG"
-            description="Zaplecze robocze dla prowadzacego, poza czystym tropem i jego celem."
+            description="Zaplecze robocze dla prowadz?cego, poza czystym tropem i jego celem."
           >
             <NotesList
               entityId={clue.id}
               showTitle={false}
-              emptyMessage="Brak notatek podpietych do tej wskazowki."
+              emptyMessage="Brak notatek podpi?tych do tej wskaz?wki."
             />
           </DetailSection>
         </div>

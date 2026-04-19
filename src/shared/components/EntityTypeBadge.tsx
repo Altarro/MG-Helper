@@ -28,7 +28,7 @@ export function EntityTypeBadge({
       <button
         type="button"
         onClick={onClick}
-        aria-label={ariaLabel ?? `Otworz detail typu ${getEntityTypeLabel(type)}`}
+        aria-label={ariaLabel ?? `Otw?rz detail typu ${getEntityTypeLabel(type)}`}
         className={`${classes} cursor-pointer transition-colors hover:brightness-95`}
         title={getEntityTypeLabel(type)}
       >

@@ -16,7 +16,6 @@ import {
 import { CLOCK_SEGMENTS } from '@modules/clocks/types';
 import type { ClockSegments } from '@modules/clocks/types';
 
-// Internal form schema — moves stored as objects for useFieldArray compatibility
 const threatFormSchema = z.object({
   name: z.string().min(1, 'Nazwa jest wymagana').max(200),
   threatType: z.enum(THREAT_TYPES),
@@ -24,17 +23,19 @@ const threatFormSchema = z.object({
   impulse: z.string().max(400),
   trigger: z.string().max(500).default(''),
   reasonOfDead: z.string().max(1000).default(''),
+  inheritanceNotes: z.string().max(4000).default(''),
   forkThreatId: z.string().default(''),
   moves: z.array(z.object({ value: z.string() })),
   description: z.string().max(100_000),
   tags: z.array(z.string()).max(50),
   clockName: z.string().max(200).default(''),
-  clockSegments: z.coerce.number().refine((v): v is ClockSegments => (CLOCK_SEGMENTS as readonly number[]).includes(v)).default(6),
+  clockSegments: z.coerce.number().refine(
+    (v): v is ClockSegments => (CLOCK_SEGMENTS as readonly number[]).includes(v),
+  ).default(6),
 });
 
 type ThreatFormRaw = z.infer<typeof threatFormSchema>;
 
-// Public type used by callers — moves are plain strings
 export interface ThreatFormValues {
   name: string;
   threatType: (typeof THREAT_TYPES)[number];
@@ -42,6 +43,7 @@ export interface ThreatFormValues {
   impulse: string;
   trigger: string;
   reasonOfDead: string;
+  inheritanceNotes: string;
   forkThreatId?: string;
   moves: string[];
   description: string;
@@ -85,6 +87,7 @@ export function ThreatForm({
       impulse: defaultValues?.impulse ?? '',
       trigger: defaultValues?.trigger ?? '',
       reasonOfDead: defaultValues?.reasonOfDead ?? '',
+      inheritanceNotes: defaultValues?.inheritanceNotes ?? '',
       forkThreatId: defaultValues?.forkThreatId ?? '',
       moves: (defaultValues?.moves ?? []).map((v) => ({ value: v })),
       description: defaultValues?.description ?? '',
@@ -101,6 +104,7 @@ export function ThreatForm({
       ...raw,
       trigger: raw.trigger.trim(),
       reasonOfDead: raw.reasonOfDead.trim(),
+      inheritanceNotes: raw.inheritanceNotes.trim(),
       forkThreatId: raw.forkThreatId || undefined,
       moves: raw.moves.map((m) => m.value).filter(Boolean),
       clock: showClock && raw.clockName.trim()
@@ -111,7 +115,6 @@ export function ThreatForm({
 
   return (
     <form onSubmit={handleSubmit(handleValidSubmit)} className="flex flex-col gap-4" noValidate>
-      {/* Name */}
       <div className="flex flex-col gap-1">
         <label htmlFor="threat-name" className="text-sm font-medium text-surface-700">
           Nazwa <span className="text-red-500" aria-hidden="true">*</span>
@@ -120,7 +123,7 @@ export function ThreatForm({
           id="threat-name"
           {...register('name')}
           className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-          placeholder="Nazwa zagrożenia…"
+          placeholder="Nazwa zagrożenia..."
           aria-invalid={errors.name ? 'true' : 'false'}
         />
         {errors.name && (
@@ -128,39 +131,37 @@ export function ThreatForm({
         )}
       </div>
 
-      {/* Threat Type */}
       <div className="grid gap-3 sm:grid-cols-2">
-      <div className="flex flex-col gap-1">
-        <label htmlFor="threat-type" className="text-sm font-medium text-surface-700">
-          Rodzaj zagrożenia
-        </label>
-        <select
-          id="threat-type"
-          {...register('threatType')}
-          className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-        >
-          {THREAT_TYPES.map((t) => (
-            <option key={t} value={t}>{THREAT_TYPE_LABELS[t]}</option>
-          ))}
-        </select>
-      </div>
-      <div className="flex flex-col gap-1">
-        <label htmlFor="threat-status" className="text-sm font-medium text-surface-700">
-          Status
-        </label>
-        <select
-          id="threat-status"
-          {...register('status')}
-          className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-        >
-          {THREAT_STATUSES.map((status) => (
-            <option key={status} value={status}>{THREAT_STATUS_LABELS[status]}</option>
-          ))}
-        </select>
-      </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="threat-type" className="text-sm font-medium text-surface-700">
+            Rodzaj zagrożenia
+          </label>
+          <select
+            id="threat-type"
+            {...register('threatType')}
+            className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          >
+            {THREAT_TYPES.map((t) => (
+              <option key={t} value={t}>{THREAT_TYPE_LABELS[t]}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="threat-status" className="text-sm font-medium text-surface-700">
+            Status
+          </label>
+          <select
+            id="threat-status"
+            {...register('status')}
+            className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          >
+            {THREAT_STATUSES.map((status) => (
+              <option key={status} value={status}>{THREAT_STATUS_LABELS[status]}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {/* Impulse */}
       <div className="flex flex-col gap-1">
         <label htmlFor="threat-impulse" className="text-sm font-medium text-surface-700">
           Impuls
@@ -169,7 +170,7 @@ export function ThreatForm({
           id="threat-impulse"
           {...register('impulse')}
           className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-          placeholder="Czego to zagrożenie desperacko pragnie…"
+          placeholder="Czego to zagrożenie desperacko pragnie..."
         />
       </div>
 
@@ -182,13 +183,13 @@ export function ThreatForm({
           {...register('trigger')}
           rows={3}
           className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-          placeholder="Kiedy to zagrozenie tyka albo eskaluje?"
+          placeholder="Kiedy to zagrożenie tyka albo eskaluje?"
         />
       </div>
 
       <div className="flex flex-col gap-1">
         <label htmlFor="threat-fork-source" className="text-sm font-medium text-surface-700">
-          Powstalo z innego zagrozenia
+          Powstało z innego zagrożenia
         </label>
         <select
           id="threat-fork-source"
@@ -201,21 +202,21 @@ export function ThreatForm({
           ))}
         </select>
         <p className="text-xs text-surface-500">
-          Przydatne, gdy nowe zagrozenie wyrasta z poprzedniego albo jest jego odgalezieniem.
+          Przydatne, gdy nowe zagrożenie wyrasta z poprzedniego albo jest jego odgałęzieniem.
         </p>
       </div>
 
       <div className="flex flex-col gap-2">
         <div className="flex flex-col gap-1">
           <label htmlFor="threat-reason-of-dead" className="text-sm font-medium text-surface-700">
-            Powod wygaszenia / smierci
+            Powód wygaszenia / śmierci
           </label>
           <textarea
             id="threat-reason-of-dead"
             {...register('reasonOfDead')}
             rows={3}
             className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-            placeholder="Opcjonalnie: co sprawilo, ze to zagrozenie zniknelo albo utracilo znaczenie?"
+            placeholder="Opcjonalnie: co sprawiło, że to zagrożenie zniknęło albo utraciło znaczenie?"
           />
         </div>
         <div className="flex flex-wrap gap-2">
@@ -232,7 +233,22 @@ export function ThreatForm({
         </div>
       </div>
 
-      {/* Moves */}
+      <div className="flex flex-col gap-1">
+        <label htmlFor="threat-inheritance-notes" className="text-sm font-medium text-surface-700">
+          Dziedzictwo zagrożenia
+        </label>
+        <textarea
+          id="threat-inheritance-notes"
+          {...register('inheritanceNotes')}
+          rows={4}
+          className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          placeholder="Co to zagrożenie odziedziczyło po wcześniejszym? Jakie skutki, etapy lub konsekwencje przeszły dalej?"
+        />
+        <p className="text-xs text-surface-500">
+          To osobne pole na konsekwencje i ciąg dalszy po poprzednim zagrożeniu, niezależnie od zwykłego opisu.
+        </p>
+      </div>
+
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <label className="text-sm font-medium text-surface-700">Ruchy zagrożenia</label>
@@ -245,14 +261,14 @@ export function ThreatForm({
           </button>
         </div>
         {fields.length === 0 && (
-          <p className="text-xs text-surface-400">Brak ruchów — dodaj co zagrożenie może zrobić.</p>
+          <p className="text-xs text-surface-400">Brak ruchów - dodaj, co zagrożenie może zrobić.</p>
         )}
         {fields.map((field, i) => (
           <div key={field.id} className="flex gap-2">
             <input
               {...register(`moves.${i}.value`)}
               className="flex-1 rounded-md border border-surface-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              placeholder={`Ruch ${i + 1}…`}
+              placeholder={`Ruch ${i + 1}...`}
             />
             <button
               type="button"
@@ -266,7 +282,6 @@ export function ThreatForm({
         ))}
       </div>
 
-      {/* Optional clock section */}
       <div className="rounded-lg border border-surface-200 p-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -289,7 +304,7 @@ export function ThreatForm({
                 id="threat-clock-name"
                 {...register('clockName')}
                 className="rounded-md border border-surface-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                placeholder="Np. Odliczanie do ataku…"
+                placeholder="Np. Odliczanie do ataku..."
               />
             </div>
             <div className="flex flex-col gap-1">
@@ -308,7 +323,6 @@ export function ThreatForm({
         )}
       </div>
 
-      {/* Description */}
       <div className="flex flex-col gap-1">
         <label className="text-sm font-medium text-surface-700">Opis / Notatki</label>
         <Controller
@@ -320,7 +334,6 @@ export function ThreatForm({
         />
       </div>
 
-      {/* Tags */}
       <div className="flex flex-col gap-1">
         <label className="text-sm font-medium text-surface-700">Tagi</label>
         <Controller
@@ -330,7 +343,6 @@ export function ThreatForm({
         />
       </div>
 
-      {/* Actions */}
       <div className="flex justify-end gap-2 pt-2">
         {onCancel && (
           <button
@@ -346,7 +358,7 @@ export function ThreatForm({
           disabled={isSaving}
           className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
         >
-          {isSaving ? 'Zapisywanie…' : submitLabel}
+          {isSaving ? 'Zapisywanie...' : submitLabel}
         </button>
       </div>
     </form>

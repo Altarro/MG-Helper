@@ -23,9 +23,9 @@ const RELATION_TYPE_LABELS: Record<string, string> = {
   appears_in: 'pojawia się w',
   owns: 'posiada',
   related_to: 'powiązany z',
-  clues_for: 'wskazowka do',
+  clues_for: 'wskaz?wka do',
   derives_from: 'wynika z',
-  affects: 'wplywa na',
+  affects: 'wp?ywa na',
 };
 
 /** Strips simple HTML tags to get plain text */

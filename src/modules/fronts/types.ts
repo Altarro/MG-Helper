@@ -8,10 +8,9 @@ export const FRONT_CATEGORY_LABELS: Record<FrontCategory, string> = {
 };
 
 export interface FrontData {
-  // Front is the strategic campaign container and the highest-level story object.
   category: FrontCategory;
-  goal: string;     // primary objective / doom of the front
-  stakes: string[]; // list of stake strings
+  goal: string;
+  stakes: string[];
 }
 
 export type Front = Entity & { type: 'front'; data: FrontData };
@@ -19,8 +18,6 @@ export type Front = Entity & { type: 'front'; data: FrontData };
 export function isFront(entity: Entity): entity is Front {
   return entity.type === 'front';
 }
-
-// ── Threats ──────────────────────────────────────────────────────────────────
 
 export const THREAT_TYPES = [
   'ambitious_organization',
@@ -57,10 +54,10 @@ export const THREAT_TYPE_LABELS: Record<ThreatType, string> = {
 };
 
 export const THREAT_DEATH_REASON_PRESETS = [
-  'pokonane przez bohaterow',
-  'wchloniete przez inny front',
-  'rozpadlo sie od srodka',
-  'utracilo znaczenie po decyzjach stolu',
+  'pokonane przez bohaterów',
+  'wchłonięte przez inny front',
+  'rozpadło się od środka',
+  'utraciło znaczenie po decyzjach stołu',
 ] as const;
 
 export const THREAT_STATUSES = ['active', 'completed'] as const;
@@ -71,14 +68,14 @@ export const THREAT_STATUS_LABELS: Record<ThreatStatus, string> = {
 };
 
 export interface ThreatData {
-  // Threat is active pressure in the fiction. It may belong to a front or stay free.
   threatType: ThreatType;
   status?: ThreatStatus;
   impulse: string;
-  moves: string[]; // list of threat move strings
+  moves: string[];
   trigger?: string;
   reasonOfDead?: string;
   forkThreatId?: string;
+  inheritanceNotes?: string;
 }
 
 export type Threat = Entity & { type: 'threat'; data: ThreatData };

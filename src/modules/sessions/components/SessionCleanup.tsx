@@ -16,7 +16,11 @@ import { RelationPicker } from '@shared/components/RelationPicker';
 import { toast } from 'sonner';
 import type { Entity } from '@shared/types/entity';
 import { setNpcCurrentLocation } from '../utils/liveSessionCommands';
-import { getThreatStatus } from '@shared/utils/entityData';
+import {
+  normalizeThreatLifecycle,
+  SESSION_COMPLETED_DEFAULT_REASON,
+  threatNeedsCleanupReason,
+} from '@shared/utils/threatLifecycle';
 import { THREAT_DEATH_REASON_PRESETS } from '@modules/fronts/types';
 
 // ── Data hooks ────────────────────────────────────────────────────────────────
@@ -94,12 +98,7 @@ function useSessionCompletedThreats(sessionId: string | undefined) {
       .toArray();
     const entities = await Promise.all(rels.map((r) => getEntityById(db, r.sourceId)));
     const threats = entities.filter((e): e is Entity => !!e && e.type === 'threat');
-    return threats.filter((t) => {
-      const isCompleted = getThreatStatus(t) === 'completed';
-      if (!isCompleted) return false;
-      const reason = typeof t.data.reasonOfDead === 'string' ? t.data.reasonOfDead.trim() : '';
-      return reason.length === 0 || reason === 'Zakończone w sesji';
-    });
+    return threats.filter((t) => threatNeedsCleanupReason(t.data));
   }, [db, sessionId]) ?? [];
 }
 
@@ -205,7 +204,7 @@ function NpcCleanupRow({ npc, sessionId }: { npc: Entity; sessionId: string }) {
       </button>
       <ConfirmDialog
         open={confirmDelete}
-        title={`Usunąć ${npc.name}?`}
+        title={`Usu?ąć ${npc.name}?`}
         description="Postać i jej relacje zostaną permanentnie usunięte."
         confirmLabel="Usuń"
         onConfirm={() => void handleDelete()}
@@ -271,8 +270,8 @@ function EntityCleanupRow({
       )}
       <ConfirmDialog
         open={confirmDelete}
-        title={`Usunąć „${entity.name}"?`}
-        description="Encja i jej relacje zostaną permanentnie usunięte."
+        title={`Usu?ąć „${entity.name}"?`}
+        description="Encj? i jej relacje zostaną permanentnie usunięte."
         confirmLabel="Usuń"
         onConfirm={() => void handleDelete()}
         onCancel={() => setConfirmDelete(false)}
@@ -296,6 +295,7 @@ function CreateThreatFromThreadModal({
   async function handleSubmit(values: ThreatFormValues) {
     setSaving(true);
     try {
+      const lifecycle = normalizeThreatLifecycle(values.status, values.reasonOfDead);
       const threat = await addEntity(db, {
         type: 'threat',
         name: values.name,
@@ -303,12 +303,12 @@ function CreateThreatFromThreadModal({
         tags: values.tags,
         data: {
           threatType: values.threatType,
-          status: values.status,
           impulse: values.impulse,
           moves: values.moves,
           trigger: values.trigger,
-          reasonOfDead: values.reasonOfDead,
+          inheritanceNotes: values.inheritanceNotes,
           forkThreatId: values.forkThreatId,
+          ...lifecycle,
         },
       });
       if (values.clock) {
@@ -317,24 +317,29 @@ function CreateThreatFromThreadModal({
           name: values.clock.name,
           description: '',
           tags: [],
-          data: { segments: values.clock.segments, filled: 0, tickLabels: [], isActive: true },
+          data: {
+            segments: values.clock.segments,
+            filled: 0,
+            tickLabels: [],
+            isActive: lifecycle.status !== 'completed',
+          },
         });
         await addRelation(db, { type: 'tracks', sourceId: threat.id, targetId: clock.id });
       }
       await addRelation(db, { type: 'affects', sourceId: thread.id, targetId: threat.id });
-      toast.success(`Dodano zagrozenie na bazie watku "${thread.name}"`);
+      toast.success(`Dodano zagro?enie na bazie w?tku "${thread.name}"`);
       onClose();
     } catch {
-      toast.error('Nie udalo sie utworzyc zagrozenia');
+      toast.error('Nie uda?o si? utworzy? zagro?enia');
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <Modal title="Nowe zagrozenie z watku" size="lg" onClose={onClose}>
+    <Modal title="Nowe zagro?enie z w?tku" size="lg" onClose={onClose}>
       <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-surface-700">
-        Powstale zagrozenie zostanie od razu powiazane z watkiem przez relacje `affects`.
+        Powsta?e zagro?enie zostanie od razu powi?zane z w?tkiem przez relacj? `affects`.
       </div>
       <ThreatForm
         defaultValues={{
@@ -345,7 +350,7 @@ function CreateThreatFromThreadModal({
         onSubmit={handleSubmit}
         onCancel={onClose}
         isSaving={saving}
-        submitLabel="Dodaj zagrozenie"
+        submitLabel="Dodaj zagro?enie"
       />
     </Modal>
   );
@@ -366,15 +371,15 @@ function ThreadCleanupRow({
   async function handleDelete() {
     try {
       await deleteEntity(db, thread.id);
-      toast.success(`"${thread.name}" usunieto`);
+      toast.success(`"${thread.name}" usuni?to`);
     } catch {
-      toast.error('Nie udalo sie usunac');
+      toast.error('Nie uda?o si? usun??');
     }
   }
 
   function handleLeaveFree() {
     onLeaveFree(thread.id);
-    toast.success(`"${thread.name}" pozostawiono jako wolny watek`);
+    toast.success(`"${thread.name}" pozostawiono jako wolny w?tek`);
   }
 
   return (
@@ -386,13 +391,13 @@ function ThreadCleanupRow({
               {thread.name}
             </Link>
             <p className="mt-1 text-xs text-surface-500">
-              Ten watek jest w sesji, ale nie ma jeszcze rodzica ani powiazanego zagrozenia.
+              Ten w?tek jest w sesji, ale nie ma jeszcze rodzica ani powi?zanego zagro?enia.
             </p>
           </div>
           <button
             type="button"
             onClick={() => setConfirmDelete(true)}
-            aria-label="Usun"
+            aria-label="Usu?"
             className="rounded-md border border-surface-200 p-1.5 text-surface-400 hover:bg-red-50 hover:text-red-600"
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -405,14 +410,14 @@ function ThreadCleanupRow({
             onClick={() => setShowRelationPicker(true)}
             className="flex items-center gap-1 rounded-md border border-surface-300 px-2.5 py-1 text-xs text-surface-700 hover:bg-surface-50"
           >
-            <Plus className="h-3 w-3" /> Powiaz z zagrozeniem
+            <Plus className="h-3 w-3" /> Powi?? z zagro?eniem
           </button>
           <button
             type="button"
             onClick={() => setShowCreateThreat(true)}
             className="flex items-center gap-1 rounded-md border border-amber-300 px-2.5 py-1 text-xs text-amber-700 hover:bg-amber-50"
           >
-            <Plus className="h-3 w-3" /> Nowe zagrozenie
+            <Plus className="h-3 w-3" /> Nowe zagro?enie
           </button>
           <button
             type="button"
@@ -440,9 +445,9 @@ function ThreadCleanupRow({
       )}
       <ConfirmDialog
         open={confirmDelete}
-        title={`Usunac "${thread.name}"?`}
-        description="Encja i jej relacje zostana permanentnie usuniete."
-        confirmLabel="Usun"
+        title={`Usun?? "${thread.name}"?`}
+        description="Encja i jej relacje zostan? permanentnie usuni?te."
+        confirmLabel="Usu?"
         onConfirm={() => void handleDelete()}
         onCancel={() => setConfirmDelete(false)}
       />
@@ -452,19 +457,32 @@ function ThreadCleanupRow({
 
 function ThreatCleanupRow({ threat }: { threat: Entity }) {
   const { db } = useCampaign();
-  const [reason, setReason] = useState<string>(threat.data.reasonOfDead ?? '');
+  const initial = typeof threat.data.reasonOfDead === 'string' ? threat.data.reasonOfDead : '';
+  const [reason, setReason] = useState<string>(initial);
   const [saving, setSaving] = useState(false);
+  const [warnEmpty, setWarnEmpty] = useState(false);
 
   async function handleSave() {
+    if (saving) return;
     setSaving(true);
     try {
-      const nextReason = reason.trim() || 'Zakończone w sesji';
+      const trimmed = reason.trim();
+      // If the textarea is empty, first click: insert default in UI and show inline warning.
+      if (trimmed.length === 0) {
+        setReason(SESSION_COMPLETED_DEFAULT_REASON);
+        setWarnEmpty(true);
+        setSaving(false);
+        return;
+      }
+
+      // Otherwise persist the provided reason and ensure threat is marked completed
       await updateEntity(db, threat.id, {
         data: {
           ...threat.data,
-          reasonOfDead: nextReason,
+          ...normalizeThreatLifecycle('completed', trimmed),
         },
       });
+      setWarnEmpty(false);
       toast.success('Powód zakończenia zapisany');
     } catch {
       toast.error('Nie udało się zapisać powodu');
@@ -485,6 +503,12 @@ function ThreatCleanupRow({ threat }: { threat: Entity }) {
       </div>
 
       <div className="mt-3">
+        {warnEmpty && (
+          <div className="mb-2 rounded-md border border-amber-100 bg-amber-50 p-2 text-sm text-amber-700">
+            Nie podano powodu zakończenia. Wstawiono domyślny powód. Kliknij „Zapisz powód”, aby potwierdzić.
+          </div>
+        )}
+
         <textarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}
@@ -554,7 +578,8 @@ export function SessionCleanup() {
   const allClear =
     npcsWithoutLocation.length === 0 &&
     locationsWithoutParent.length === 0 &&
-    visibleDanglingThreads.length === 0;
+    visibleDanglingThreads.length === 0 &&
+    completedThreats.length === 0;
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8">

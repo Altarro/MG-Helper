@@ -213,7 +213,7 @@ export function RelationPicker({
           sourceType === 'clue' &&
           (targetType === 'thread' || targetType === 'threat' || targetType === 'front') && (
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-surface-600">Sila wskazowki</label>
+              <label className="text-xs font-medium text-surface-600">Si?a wskaz?wki</label>
               <select
                 value={relationMeta?.clueStrength ?? ''}
                 onChange={(e) => {

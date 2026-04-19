@@ -41,6 +41,11 @@ Rules:
 - a threat may belong to a `front`,
 - a threat may also stay free,
 - a threat should eventually describe what makes it tick via a textual trigger field.
+- a completed threat may spawn a new derived threat,
+- a derived threat should keep a backlink to its source threat,
+- a derived threat should have its own explicit inheritance section, separate from the general description,
+- if a source threat had a clock, only already completed clock steps may be carried forward into the derived threat context,
+- unfinished future clock steps must stay visible only in the original threat.
 
 ### Thread
 

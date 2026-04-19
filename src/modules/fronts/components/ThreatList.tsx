@@ -10,6 +10,7 @@ import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { EmptyState } from '@shared/components/EmptyState';
 import { addEntity, addRelation } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
+import { normalizeThreatLifecycle } from '@shared/utils/threatLifecycle';
 import { toast } from 'sonner';
 import type { ThreatFormValues } from './ThreatForm';
 
@@ -92,6 +93,7 @@ export function ThreatList() {
   async function handleCreate(values: ThreatFormValues) {
     setSaving(true);
     try {
+      const lifecycle = normalizeThreatLifecycle(values.status, values.reasonOfDead);
       const entity = await addEntity(db, {
         type: 'threat',
         name: values.name,
@@ -99,12 +101,12 @@ export function ThreatList() {
         tags: values.tags,
         data: {
           threatType: values.threatType,
-          status: values.status,
           impulse: values.impulse,
           moves: values.moves,
           trigger: values.trigger,
-          reasonOfDead: values.reasonOfDead,
+          inheritanceNotes: values.inheritanceNotes,
           forkThreatId: values.forkThreatId,
+          ...lifecycle,
         },
       });
 
@@ -122,17 +124,22 @@ export function ThreatList() {
           name: values.clock.name,
           description: '',
           tags: [],
-          data: { segments: values.clock.segments, filled: 0, tickLabels: [], isActive: true },
+          data: {
+            segments: values.clock.segments,
+            filled: 0,
+            tickLabels: [],
+            isActive: lifecycle.status !== 'completed',
+          },
         });
         await addRelation(db, { type: 'tracks', sourceId: entity.id, targetId: clockEntity.id });
       }
 
-      toast.success(`Zagrozenie "${values.name}" utworzone`);
+      toast.success(`Zagrożenie "${values.name}" utworzone`);
       setShowForm(false);
       setSelectedFrontId('');
       navigate(`/threats/${entity.id}`);
     } catch {
-      toast.error('Nie udalo sie utworzyc zagrozenia');
+      toast.error('Nie udało się utworzyć zagrożenia');
     } finally {
       setSaving(false);
     }
@@ -145,9 +152,9 @@ export function ThreatList() {
     <div className="flex flex-col gap-6 p-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-surface-900">Zagrozenia</h1>
+          <h1 className="text-xl font-semibold text-surface-900">Zagrożenia</h1>
           <p className="mt-1 text-sm text-surface-500">
-            Samodzielny widok presji fabularnych, niezaleznie od frontow.
+            Samodzielny widok presji fabularnych, niezależnie od frontów.
           </p>
         </div>
         <button
@@ -156,14 +163,14 @@ export function ThreatList() {
           className="flex items-center gap-2 rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600"
         >
           <Plus className="h-4 w-4" />
-          Nowe zagrozenie
+          Nowe zagrożenie
         </button>
       </div>
 
       {showForm && (
         <div className="rounded-xl border border-amber-200 bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between gap-3">
-            <h2 className="text-base font-semibold text-surface-900">Nowe zagrozenie</h2>
+            <h2 className="text-base font-semibold text-surface-900">Nowe zagrożenie</h2>
             <button
               type="button"
               onClick={() => {
@@ -171,7 +178,7 @@ export function ThreatList() {
                 setSelectedFrontId('');
               }}
               className="rounded-md p-1 text-surface-400 hover:bg-surface-100 hover:text-surface-700"
-              aria-label="Zamknij formularz nowego zagrozenia"
+              aria-label="Zamknij formularz nowego zagrożenia"
             >
               <X className="h-4 w-4" />
             </button>
@@ -179,7 +186,7 @@ export function ThreatList() {
 
           <div className="mb-4 flex flex-col gap-1">
             <label htmlFor="new-threat-front" className="text-sm font-medium text-surface-700">
-              Front nadrzedny
+              Front nadrzędny
             </label>
             <select
               id="new-threat-front"
@@ -187,7 +194,7 @@ export function ThreatList() {
               onChange={(event) => setSelectedFrontId(event.target.value)}
               className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             >
-              <option value="">Brak frontu (wolne zagrozenie)</option>
+              <option value="">Brak frontu (wolne zagrożenie)</option>
               {(fronts ?? []).map((front) => (
                 <option key={front.id} value={front.id}>
                   {front.name}
@@ -195,7 +202,7 @@ export function ThreatList() {
               ))}
             </select>
             <p className="text-xs text-surface-500">
-              Zagrozenie moze pozostac wolne albo od razu wejsc pod konkretny front.
+              Zagrożenie może pozostać wolne albo od razu wejść pod konkretny front.
             </p>
           </div>
 
@@ -206,7 +213,7 @@ export function ThreatList() {
               setShowForm(false);
               setSelectedFrontId('');
             }}
-            submitLabel="Utworz zagrozenie"
+            submitLabel="Utwórz zagrożenie"
           />
         </div>
       )}
@@ -216,7 +223,7 @@ export function ThreatList() {
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Szukaj zagrozen, impulsow albo frontow..."
+          placeholder="Szukaj zagrożeń, impulsów albo frontów..."
           className="w-full rounded-md border border-surface-300 bg-white py-2 pl-9 pr-8 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
         />
         {query && (
@@ -224,7 +231,7 @@ export function ThreatList() {
             type="button"
             onClick={() => setQuery('')}
             className="absolute right-2.5 top-1/2 -translate-y-1/2"
-            aria-label="Wyczysc wyszukiwanie zagrozen"
+            aria-label="Wyczyść wyszukiwanie zagrożeń"
           >
             <X className="h-4 w-4 text-surface-400" />
           </button>
@@ -257,15 +264,15 @@ export function ThreatList() {
       ) : threats && threats.length === 0 ? (
         <EmptyState
           icon={<AlertTriangle className="h-10 w-10 text-surface-300" />}
-          title="Brak zagrozen"
-          description="Utworz pierwsze zagrozenie, aby rozpisac aktywna presje fabularna kampanii."
+          title="Brak zagrożeń"
+          description="Utwórz pierwsze zagrożenie, aby rozpisać aktywną presję fabularną kampanii."
           action={(
             <button
               type="button"
               onClick={() => setShowForm(true)}
               className="flex items-center gap-2 rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600"
             >
-              <Plus className="h-4 w-4" /> Nowe zagrozenie
+              <Plus className="h-4 w-4" /> Nowe zagrożenie
             </button>
           )}
         />
@@ -310,10 +317,10 @@ export function ThreatList() {
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
-                    Wolne zagrozenia
+                    Wolne zagrożenia
                   </p>
                   <p className="mt-1 text-sm text-surface-600">
-                    Presje fabularne, ktore nie sa jeszcze podpiete do zadnego frontu.
+                    Presje fabularne, które nie są jeszcze podpięte do żadnego frontu.
                   </p>
                 </div>
                 <span className="shrink-0 rounded-full bg-white/80 px-2.5 py-1 text-xs text-amber-700 ring-1 ring-inset ring-amber-200">
@@ -336,8 +343,8 @@ export function ThreatList() {
       ) : (
         <EmptyState
           icon={<Shield className="h-10 w-10 text-surface-300" />}
-          title="Brak wynikow"
-          description="Sprobuj zmienic filtr albo wyszukiwanie zagrozen."
+          title="Brak wyników"
+          description="Spróbuj zmienić filtr albo wyszukiwanie zagrożeń."
         />
       )}
     </div>

@@ -32,20 +32,20 @@ import {
   toggleSessionThreadStatus,
 } from '../utils/liveSessionCommands';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// Types
 
 type TabId = 'spotlight' | 'threats' | 'notes' | 'timeline' | 'map' | 'npcs' | 'threads';
 
 interface Tab { id: TabId; label: string; Icon: LucideIcon }
 
 const TABS: Tab[] = [
-  { id: 'npcs',      label: 'NPC',        Icon: Users },
-  { id: 'threads',   label: 'Wątki',      Icon: GitBranch },
-  { id: 'spotlight', label: 'Spot',       Icon: Users },
-  { id: 'threats',   label: 'Zagrożenia', Icon: AlertTriangle },
-  { id: 'notes',     label: 'Notatki',    Icon: StickyNote },
-  { id: 'timeline',  label: 'Czas',       Icon: Clock },
-  { id: 'map',       label: 'Mapa',       Icon: MapPin },
+  { id: 'npcs', label: 'NPC', Icon: Users },
+  { id: 'threads', label: 'Wątki', Icon: GitBranch },
+  { id: 'spotlight', label: 'Spot', Icon: Users },
+  { id: 'threats', label: 'Zagrożenia', Icon: AlertTriangle },
+  { id: 'notes', label: 'Notatki', Icon: StickyNote },
+  { id: 'timeline', label: 'Czas', Icon: Clock },
+  { id: 'map', label: 'Mapa', Icon: MapPin },
 ];
 
 const CORE_TABS: TabId[] = ['npcs', 'threads', 'threats'];
@@ -58,10 +58,10 @@ function loadOpenPanel(sessionId: string): TabId | null {
     const raw = sessionStorage.getItem(PANEL_KEY(sessionId));
     if (raw === 'null' || !raw) return null;
     return raw as TabId;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
-
-// ── Props ─────────────────────────────────────────────────────────────────────
 
 interface SessionHudTrayProps {
   sessionId: string;
@@ -99,9 +99,9 @@ function ThreadListRow({
         className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors hover:opacity-75 ${
           data.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-surface-100 text-surface-500'
         }`}
-        title={data.status === 'active' ? 'Oznacz jako zakonczony' : 'Oznacz jako aktywny'}
+        title={data.status === 'active' ? 'Oznacz jako zakończony' : 'Oznacz jako aktywny'}
       >
-        {data.status === 'active' ? 'Aktywny' : 'Zakonczony'}
+        {data.status === 'active' ? 'Aktywny' : 'Zakończony'}
       </button>
       <Link to={`/threads/${thread.id}`} className="text-surface-300 opacity-0 hover:text-surface-600 group-hover:opacity-100">
         <ExternalLink className="h-3.5 w-3.5" />
@@ -109,7 +109,7 @@ function ThreadListRow({
       <button
         onClick={() => onRemove(thread.id, thread.name)}
         className="text-surface-300 opacity-0 hover:text-red-500 group-hover:opacity-100"
-        title="Usun z sesji"
+        title="Usuń z sesji"
       >
         <X className="h-3.5 w-3.5" />
       </button>
@@ -162,7 +162,7 @@ function ThreadsPanel({
         data: { color: quickColor, status: 'active', kind: quickKind, priority: 'normal', resolution: '' },
       });
       await ensureEntityAppearsInSession(db, thread.id, sessionId);
-      toast.success(`Wątek „${trimmed}" dodany`);
+      toast.success(`Wątek "${trimmed}" dodany`);
       setQuickName('');
       setQuickKind('side');
       setQuickAddOpen(false);
@@ -177,7 +177,7 @@ function ThreadsPanel({
     try {
       const removed = await removeEntityFromSession(db, threadId, sessionId);
       if (!removed) return;
-      toast.success(`„${threadName}" usunięty z sesji`);
+      toast.success(`"${threadName}" usunięty z sesji`);
     } catch {
       toast.error('Nie udało się usunąć');
     }
@@ -192,10 +192,9 @@ function ThreadsPanel({
   }
 
   return (
-    <div className="relative flex flex-col h-full">
-      {/* Toolbar */}
+    <div className="relative flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-surface-100 px-3 py-2">
-        <div className="flex rounded-lg border border-surface-200 overflow-hidden text-xs">
+        <div className="flex overflow-hidden rounded-lg border border-surface-200 text-xs">
           {(['active', 'completed', 'all'] as const).map((opt) => (
             <button
               key={opt}
@@ -225,13 +224,13 @@ function ThreadsPanel({
         </button>
       </div>
 
-      {/* Quick-add form */}
       {quickAddOpen && (
         <form onSubmit={(e) => { void handleQuickAdd(e); }} className="flex flex-col gap-2 border-b border-surface-100 px-3 py-2">
           <div className="flex gap-1">
             {THREAD_COLORS.map((c) => (
               <button
-                key={c} type="button"
+                key={c}
+                type="button"
                 onClick={() => setQuickColor(c)}
                 className="h-4 w-4 rounded-full transition-transform hover:scale-110"
                 style={{ backgroundColor: c, outline: quickColor === c ? `2px solid ${c}` : 'none', outlineOffset: 2 }}
@@ -256,13 +255,18 @@ function ThreadsPanel({
           </div>
           <div className="flex items-center gap-2">
             <input
-              autoFocus value={quickName} onChange={(e) => setQuickName(e.target.value)}
-              placeholder="Nazwa wątku…"
+              autoFocus
+              value={quickName}
+              onChange={(e) => setQuickName(e.target.value)}
+              placeholder="Nazwa wątku..."
               className="flex-1 rounded border border-surface-300 px-2 py-1 text-xs focus:border-primary-500 focus:outline-none"
             />
-            <button type="submit" disabled={!quickName.trim() || quickSaving}
-              className="rounded bg-primary-600 px-2 py-1 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50">
-              {quickSaving ? '…' : 'Dodaj'}
+            <button
+              type="submit"
+              disabled={!quickName.trim() || quickSaving}
+              className="rounded bg-primary-600 px-2 py-1 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+            >
+              {quickSaving ? '...' : 'Dodaj'}
             </button>
             <button
               type="button"
@@ -279,7 +283,6 @@ function ThreadsPanel({
         </form>
       )}
 
-      {/* Thread list */}
       <div className="flex-1 overflow-y-auto">
         {visible.length === 0 && (
           <div className="flex h-full items-center justify-center">
@@ -302,11 +305,11 @@ function ThreadsPanel({
                   NPC na scenie: {currentSceneNpcIds.length}
                 </span>
                 <span className="rounded-full bg-white px-2 py-1 ring-1 ring-surface-200">
-                  Watki w sesji: {visible.length}
+                  Wątki w sesji: {visible.length}
                 </span>
               </div>
               <p className="mt-2 text-xs text-surface-500">
-                Kolejnosc przy stole pozostaje czytelna: lokacja, potem NPC, a watki sa warstwa wsparcia dla sceny.
+                Kolejność przy stole pozostaje czytelna: lokacja, potem NPC, a wątki są warstwą wsparcia dla sceny.
               </p>
             </div>
 
@@ -315,7 +318,7 @@ function ThreadsPanel({
                 <div className="flex items-center justify-between border-b border-amber-100 bg-amber-50 px-3 py-2">
                   <div className="min-w-0">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">
-                      Zagrozenie
+                      Zagrożenie
                     </p>
                     <p className="truncate text-sm font-medium text-surface-900">{group.threat.name}</p>
                   </div>
@@ -341,10 +344,10 @@ function ThreadsPanel({
                 <div className="flex items-center justify-between border-b border-surface-100 bg-surface-50 px-3 py-2">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-surface-500">
-                      Wolne watki
+                      Wolne wątki
                     </p>
                     <p className="text-sm font-medium text-surface-900">
-                      Watki przypiete do sesji, ale jeszcze bez powiazanego zagrozenia
+                      Wątki przypięte do sesji, ale jeszcze bez powiązanego zagrożenia
                     </p>
                   </div>
                   <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-medium text-surface-600 ring-1 ring-surface-200">
@@ -370,7 +373,7 @@ function ThreadsPanel({
           return (
             <div key={thread.id} className="group flex items-center gap-3 px-3 py-2 hover:bg-surface-50">
               <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: data.color }} />
-              <span className="flex-1 min-w-0 truncate text-sm text-surface-800">{thread.name}</span>
+              <span className="min-w-0 flex-1 truncate text-sm text-surface-800">{thread.name}</span>
               <button
                 onClick={() => { void handleToggleStatus(thread); }}
                 className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors hover:opacity-75 ${
@@ -380,12 +383,12 @@ function ThreadsPanel({
               >
                 {data.status === 'active' ? 'Aktywny' : 'Zakończony'}
               </button>
-              <Link to={`/threads/${thread.id}`} className="text-surface-300 hover:text-surface-600 opacity-0 group-hover:opacity-100">
+              <Link to={`/threads/${thread.id}`} className="text-surface-300 opacity-0 hover:text-surface-600 group-hover:opacity-100">
                 <ExternalLink className="h-3.5 w-3.5" />
               </Link>
               <button
                 onClick={() => { void handleRemove(thread.id, thread.name); }}
-                className="text-surface-300 hover:text-red-500 opacity-0 group-hover:opacity-100"
+                className="text-surface-300 opacity-0 hover:text-red-500 group-hover:opacity-100"
                 title="Usuń z sesji"
               >
                 <X className="h-3.5 w-3.5" />
@@ -395,7 +398,6 @@ function ThreadsPanel({
         })}
       </div>
 
-      {/* Campaign picker overlay */}
       {campaignPickerOpen && (
         <ThreadCampaignPickerHud sessionId={sessionId} onClose={() => setCampaignPickerOpen(false)} />
       )}
@@ -440,7 +442,7 @@ function ThreadCampaignPickerHud({ sessionId, onClose }: { sessionId: string; on
     setSaving(true);
     try {
       await ensureEntitiesAppearInSession(db, [...selected], sessionId);
-      toast.success(`Dodano ${selected.size} wątk${selected.size === 1 ? 'ątek' : 'i'} do sesji`);
+      toast.success(`Dodano ${selected.size} ${selected.size === 1 ? 'wątek' : 'wątki'} do sesji`);
       onClose();
     } catch {
       toast.error('Nie udało się dodać wątków');
@@ -450,7 +452,7 @@ function ThreadCampaignPickerHud({ sessionId, onClose }: { sessionId: string; on
   }
 
   return (
-    <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col rounded-b-xl border-t border-surface-200 bg-white shadow-lg" style={{ maxHeight: 300 }}>
+    <div className="absolute inset-x-0 bottom-0 z-10 flex max-h-[300px] flex-col rounded-b-xl border-t border-surface-200 bg-white shadow-lg">
       <div className="flex items-center justify-between border-b border-surface-100 px-3 py-2">
         <span className="text-xs font-semibold text-surface-700">Dodaj wątek z kampanii</span>
         <button onClick={onClose} className="text-surface-400 hover:text-surface-600"><X className="h-3.5 w-3.5" /></button>
@@ -458,9 +460,13 @@ function ThreadCampaignPickerHud({ sessionId, onClose }: { sessionId: string; on
       <div className="px-3 pt-2">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-surface-400" />
-          <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)}
-            placeholder="Szukaj…"
-            className="w-full rounded border border-surface-300 py-1 pl-7 pr-2 text-xs focus:border-primary-500 focus:outline-none" />
+          <input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Szukaj..."
+            className="w-full rounded border border-surface-300 py-1 pl-7 pr-2 text-xs focus:border-primary-500 focus:outline-none"
+          />
         </div>
       </div>
       <div className="flex-1 overflow-y-auto px-3 py-1">
@@ -478,16 +484,19 @@ function ThreadCampaignPickerHud({ sessionId, onClose }: { sessionId: string; on
       </div>
       <div className="flex justify-end gap-2 border-t border-surface-100 px-3 py-2">
         <button onClick={onClose} className="rounded border border-surface-300 px-2 py-1 text-xs text-surface-600 hover:bg-surface-50">Anuluj</button>
-        <button onClick={() => { void handleAdd(); }} disabled={!selected.size || saving}
-          className="rounded bg-primary-600 px-2 py-1 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50">
-          {saving ? '…' : `Dodaj (${selected.size})`}
+        <button
+          onClick={() => { void handleAdd(); }}
+          disabled={!selected.size || saving}
+          className="rounded bg-primary-600 px-2 py-1 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+        >
+          {saving ? '...' : `Dodaj (${selected.size})`}
         </button>
       </div>
     </div>
   );
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// Component
 
 export function SessionHudTray({
   sessionId, currentLocationId, onLocationChange, spotlightState, onSpotlightChange, onRequestNameScene,
@@ -498,7 +507,11 @@ export function SessionHudTray({
   function togglePanel(id: TabId) {
     setOpenPanel((prev) => {
       const next = prev === id ? null : id;
-      try { sessionStorage.setItem(PANEL_KEY(sessionId), String(next)); } catch { /* ignore */ }
+      try {
+        sessionStorage.setItem(PANEL_KEY(sessionId), String(next));
+      } catch {
+        // ignore
+      }
       return next;
     });
   }
@@ -511,7 +524,6 @@ export function SessionHudTray({
 
   return (
     <div className="fixed bottom-5 left-4 right-4 z-20 rounded-2xl border border-surface-200/90 bg-white/95 shadow-lg backdrop-blur-sm lg:left-[17rem]">
-      {/* Expandable panel — only rendered when open to avoid background timers */}
       <div className="overflow-hidden transition-all duration-200" style={{ maxHeight: openPanel ? 340 : 0 }}>
         {openPanel && (
           <div className="h-[340px] overflow-y-auto border-b border-surface-200/80 bg-surface-50/70">
@@ -557,9 +569,7 @@ export function SessionHudTray({
         )}
       </div>
 
-      {/* Status bar — always visible */}
       <div className="flex h-11 items-center gap-2 px-3 text-xs">
-        {/* Location */}
         <button
           type="button"
           onClick={() => setLocationPickerOpen(true)}
@@ -573,7 +583,6 @@ export function SessionHudTray({
           <span className="max-w-[140px] truncate">{currentLocation?.name ?? 'Pusta scena'}</span>
         </button>
 
-        {/* Core actions */}
         <div className="ml-1 flex items-center gap-1 rounded-lg border border-surface-200 bg-white px-1 py-1">
           {CORE_TABS.map((id) => {
             const tab = tabMap.get(id);
@@ -599,7 +608,6 @@ export function SessionHudTray({
 
         <div className="h-4 w-px bg-surface-200" aria-hidden="true" />
 
-        {/* Support actions */}
         <div className="flex items-center gap-1">
           {SUPPORT_TABS.map((id) => {
             const tab = tabMap.get(id);
@@ -622,7 +630,6 @@ export function SessionHudTray({
           })}
         </div>
 
-        {/* Threat counter */}
         {activeThreatCount > 0 && (
           <span className="ml-1 flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-amber-700 ring-1 ring-amber-200/70">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />

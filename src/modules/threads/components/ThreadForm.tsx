@@ -135,7 +135,7 @@ export function ThreadForm({ defaultValues, onSubmit, onCancel, isSaving }: Thre
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-surface-700">Typ watku</label>
+        <label className="mb-1 block text-sm font-medium text-surface-700">Typ w?tku</label>
         <Controller
           control={control}
           name="kind"
@@ -192,7 +192,7 @@ export function ThreadForm({ defaultValues, onSubmit, onCancel, isSaving }: Thre
           {...register('resolution')}
           rows={3}
           className="w-full rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-          placeholder="Jak ten watek zakonczyl sie albo do czego powinien doprowadzic?"
+          placeholder="Jak ten w?tek zako?czy? si? albo do czego powinien doprowadzi??"
         />
       </div>
 

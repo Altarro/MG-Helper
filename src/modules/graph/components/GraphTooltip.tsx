@@ -22,7 +22,7 @@ const RELATION_TYPE_LABELS: Record<string, string> = {
   appears_in: 'pojawia się',
   owns: 'posiada',
   related_to: 'powiązany',
-  clues_for: 'wskazowka do',
+  clues_for: 'wskaz?wka do',
   derives_from: 'wynika z',
   affects: 'wplywa na',
 };

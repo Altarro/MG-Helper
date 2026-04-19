@@ -74,6 +74,7 @@ export const threatSchema = baseEntitySchema.extend({
     trigger: z.string().max(500).default(''),
     reasonOfDead: z.string().max(1000).default(''),
     forkThreatId: z.string().min(1).optional(),
+    inheritanceNotes: z.string().max(4000).default(''),
   }).default({}),
 });
 

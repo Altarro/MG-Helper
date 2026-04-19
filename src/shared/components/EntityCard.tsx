@@ -40,7 +40,7 @@ export const EntityCard = memo(function EntityCard({
         <EntityTypeBadge
           type={entity.type}
           onClick={onClick}
-          ariaLabel={onClick ? `Otworz detail encji ${entity.name}` : undefined}
+          ariaLabel={onClick ? `Otw?rz detail encji ${entity.name}` : undefined}
         />
       </div>
 

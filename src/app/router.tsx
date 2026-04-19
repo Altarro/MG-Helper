@@ -129,8 +129,8 @@ export function AppRouter() {
                   <Route path="/locations/:id" element={<ErrorBoundary name="Lokacje"><LocationDetail /></ErrorBoundary>} />
                   <Route path="/fronts" element={<ErrorBoundary name="Fronty"><FrontList /></ErrorBoundary>} />
                   <Route path="/fronts/:id" element={<ErrorBoundary name="Fronty"><FrontDetail /></ErrorBoundary>} />
-                  <Route path="/threats" element={<ErrorBoundary name="Zagrozenia"><ThreatList /></ErrorBoundary>} />
-                  <Route path="/threats/:id" element={<ErrorBoundary name="Zagrozenia"><ThreatDetail /></ErrorBoundary>} />
+                  <Route path="/threats" element={<ErrorBoundary name="Zagrożenia"><ThreatList /></ErrorBoundary>} />
+                  <Route path="/threats/:id" element={<ErrorBoundary name="Zagrożenia"><ThreatDetail /></ErrorBoundary>} />
                   <Route path="/clocks" element={<ErrorBoundary name="Zegary"><ClockList /></ErrorBoundary>} />
                   <Route path="/clocks/:id" element={<ErrorBoundary name="Zegary"><ClockDetail /></ErrorBoundary>} />
                   <Route path="/sessions" element={<ErrorBoundary name="Sesje"><SessionList /></ErrorBoundary>} />

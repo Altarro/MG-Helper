@@ -10,6 +10,7 @@ import type { NoteData } from '@modules/notes/types';
 import type { NpcData, NpcLocationHistoryData } from '@modules/npcs/types';
 import type { SessionData, SessionEventData } from '@modules/sessions/types';
 import type { ThreadData } from '@modules/threads/types';
+import { deriveThreatStatus } from './threatLifecycle';
 
 type EntityDataTarget = Pick<Entity, 'data'>;
 type TimestampedEntityDataTarget = Pick<Entity, 'data' | 'createdAt'>;
@@ -40,9 +41,10 @@ export function getThreatData(entity: EntityDataTarget): ThreatData {
 
 export function getThreatStatus(entity: EntityDataTarget): ThreatStatus {
   const data = getThreatData(entity);
-  if (data.status && THREAT_STATUSES.includes(data.status)) return data.status;
-  const hasDeathReason = typeof data.reasonOfDead === 'string' && data.reasonOfDead.trim().length > 0;
-  return hasDeathReason ? 'completed' : 'active';
+  return deriveThreatStatus(
+    data.status && THREAT_STATUSES.includes(data.status) ? data.status : undefined,
+    data.reasonOfDead,
+  );
 }
 
 export function getClockData(entity: EntityDataTarget): ClockData {
