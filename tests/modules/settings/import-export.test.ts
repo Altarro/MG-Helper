@@ -91,6 +91,154 @@ describe('Import/Export', () => {
     expect(restored?.data).not.toHaveProperty('parentId');
   });
 
+  it('imports main-era v2 threat payload and backfills new fields with defaults', async () => {
+    const now = new Date().toISOString();
+    const result = await importJson(db, {
+      formatVersion: BACKUP_FORMAT_VERSION,
+      appVersion: '0.1.0-alpha',
+      exportedAt: now,
+      campaignMeta: null,
+      entities: [
+        {
+          id: 'threat-main-v2',
+          type: 'threat',
+          name: 'Dziedziczna Siec',
+          description: '',
+          tags: [],
+          createdAt: now,
+          updatedAt: now,
+          data: {
+            threatType: 'ambitious_organization',
+            impulse: 'Przejac port',
+            moves: ['Rozstawia ludzi w dokach'],
+          },
+        },
+      ],
+      relations: [],
+    });
+
+    expect(result.ok).toBe(true);
+    const restored = await db.entities.get('threat-main-v2');
+    expect(restored?.data).toMatchObject({
+      threatType: 'ambitious_organization',
+      status: 'active',
+      impulse: 'Przejac port',
+      moves: ['Rozstawia ludzi w dokach'],
+      trigger: '',
+      reasonOfDead: '',
+      inheritanceNotes: '',
+    });
+  });
+
+  it('upgrades explicit formatVersion 1 payload and re-export keeps normalized schema', async () => {
+    const now = new Date().toISOString();
+    const result = await importJson(db, {
+      formatVersion: 1,
+      entities: [
+        {
+          id: 'thread-v1',
+          type: 'thread',
+          name: 'Stary Watek',
+          description: '',
+          tags: [],
+          createdAt: now,
+          updatedAt: now,
+          data: {
+            color: '#6366f1',
+            status: 'active',
+          },
+        },
+        {
+          id: 'threat-v1',
+          type: 'threat',
+          name: 'Stare Zagrozenie',
+          description: '',
+          tags: [],
+          createdAt: now,
+          updatedAt: now,
+          data: {
+            threatType: 'dark_entity',
+            impulse: 'Stare cisnienie fabularne',
+            moves: ['Poddaje probe bohaterow'],
+          },
+        },
+      ],
+      relations: [
+        {
+          id: 'rel-v1',
+          sourceId: 'thread-v1',
+          targetId: 'threat-v1',
+          type: 'affects',
+          createdAt: now,
+        },
+      ],
+    });
+
+    expect(result.ok).toBe(true);
+
+    const upgradedThreat = await db.entities.get('threat-v1');
+    expect(upgradedThreat?.data).toMatchObject({
+      threatType: 'dark_entity',
+      status: 'active',
+      impulse: 'Stare cisnienie fabularne',
+      moves: ['Poddaje probe bohaterow'],
+      trigger: '',
+      reasonOfDead: '',
+      inheritanceNotes: '',
+    });
+
+    const exportData = await createExportPayload(db);
+    expect(exportData.formatVersion).toBe(BACKUP_FORMAT_VERSION);
+
+    const exportedThreat = exportData.entities.find((entity) => entity.id === 'threat-v1');
+    expect(exportedThreat?.data).toMatchObject({
+      threatType: 'dark_entity',
+      status: 'active',
+      trigger: '',
+      reasonOfDead: '',
+      inheritanceNotes: '',
+    });
+
+    expect(exportData.relations).toEqual([
+      expect.objectContaining({
+        id: 'rel-v1',
+        sourceId: 'thread-v1',
+        targetId: 'threat-v1',
+        type: 'affects',
+      }),
+    ]);
+  });
+
+  it('imports legacy payload with missing threat.data and initializes safe defaults', async () => {
+    const now = new Date().toISOString();
+    const result = await importJson(db, {
+      entities: [
+        {
+          id: 'threat-without-data',
+          type: 'threat',
+          name: 'Szkielet zagrozenia',
+          description: '',
+          tags: [],
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+      relations: [],
+    });
+
+    expect(result.ok).toBe(true);
+    const restored = await db.entities.get('threat-without-data');
+    expect(restored?.data).toMatchObject({
+      threatType: 'dark_entity',
+      status: 'active',
+      impulse: '',
+      moves: [],
+      trigger: '',
+      reasonOfDead: '',
+      inheritanceNotes: '',
+    });
+  });
+
   it('rejects backups from a future format version', async () => {
     const result = await importJson(db, {
       formatVersion: BACKUP_FORMAT_VERSION + 1,
