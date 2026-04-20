@@ -214,8 +214,8 @@ export function ThreadDetail() {
       ) : (
         <div className="flex flex-col gap-5">
           <DetailSection
-            title="Kontekst w?tku"
-            description="G??wne informacje potrzebne do pracy na sprawie przy stole."
+            title="Kontekst wątku"
+            description="Główne informacje potrzebne do pracy na sprawie przy stole."
             tone="accent"
           >
           {/* Status toggle */}
@@ -268,7 +268,7 @@ export function ThreadDetail() {
 
           <DetailSection
             title="Sesje i historia"
-            description="Operacyjny ?lad tego, gdzie ten w?tek by? obecny przy stole."
+            description="Operacyjny ślad tego, gdzie ten wątek był obecny przy stole."
           >
             <div>
             <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-500">
@@ -303,26 +303,26 @@ export function ThreadDetail() {
           </DetailSection>
 
           <DetailSection
-            title="Presj? fabularn?"
-            description="G??wne zagro?enia, na kt?re ten w?tek wp?ywa albo przez kt?re jest nap?dzany."
+            title="Presja fabularna"
+            description="Główne zagrożenia, na które ten wątek wpływa albo przez które jest napedzany."
           >
             <NarrativeLinksSection
-              title="Powi?zane zagro?enia"
+              title="Powiązane zagrożenia"
               items={relatedThreats}
-              emptyMessage="Ten w?tek nie ma jeszcze jawnie podpi?tych zagro?e? przez relacj? affects."
-              actionLabel="+ Dodaj zagro?enie"
+              emptyMessage="Ten wątek nie ma jeszcze jawnie podpietych zagrożeń przez relacje affects."
+              actionLabel="+ Dodaj zagrożenie"
               onAction={() => setShowThreatPicker(true)}
             />
           </DetailSection>
 
           <DetailSection
             title="Questline"
-            description="Relacje nadrz?dne i pochodne, kt?re pozwalaj? czyta? ten w?tek jako odnog?, kontynuacj? albo konsekwencj?."
+            description="Relacje nadrzędne i pochodne, ktore pozwalają czytać ten wątek jako odnogę, kontynuację albo konsekwencję."
           >
             <NarrativeLinksSection
-            title="W?tki nadrz?dne"
+            title="Wątki nadrzędne"
             items={parentThreads}
-            emptyMessage="Ten w?tek nie wynika jeszcze z innego w?tku."
+            emptyMessage="Ten wątek nie wynika jeszcze z innego wątku."
             actionLabel="+ Podepnij rodzica"
             onAction={() => setQuestlinePicker({ mode: 'parent', initialKind: 'followup' })}
             meta={(item) => {
@@ -336,10 +336,10 @@ export function ThreadDetail() {
             <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-xs font-semibold uppercase tracking-wide text-surface-500">
-                  W?tki pochodne
+                  Wątki pochodne
                 </h2>
                 <p className="mt-1 text-sm text-surface-400">
-                  Podepnij istniej?cy w?tek jako nast?pstwo, odnog?, alternatyw? albo konsekwencj?.
+                  Podepnij istniejący wątek jako nastepstwo, odnogę, alternatywę albo konsekwencję.
                 </p>
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -357,7 +357,7 @@ export function ThreadDetail() {
             </div>
 
             {childGroups.length === 0 && legacyChildThreads.length === 0 ? (
-              <p className="text-sm text-surface-400">Ten w?tek nie ma jeszcze odn?g ani nast?pstw.</p>
+              <p className="text-sm text-surface-400">Ten wątek nie ma jeszcze odnóg ani następstw.</p>
             ) : (
               <div className="flex flex-col gap-4">
                 {childGroups.map((group) => (
@@ -383,15 +383,15 @@ export function ThreadDetail() {
           </DetailSection>
 
           <DetailSection
-            title="Wskaz?wki w?tku"
-            description="Tropy, kt?re prowadz? do tej sprawy i pomagaj? MG utrzyma? ci?g poszlak."
+            title="Wskazówki wątku"
+            description="Tropy, które prowadzą do tej sprawy i pomagają MG utrzymać ciąg poszlak."
           >
-            <ClueSection parentId={thread.id} title="Powi?zane wskaz?wki" />
+            <ClueSection parentId={thread.id} title="Powiązane wskazówki" />
           </DetailSection>
 
           <DetailSection
-            title="Powi?zania ?wiata"
-            description="Relacje dodatkowe poza glowym kontraktem fabularnym i historia sesji."
+            title="Powiązania świata"
+            description="Relacje dodatkowe poza głównym kontraktem fabularnym i historia sesji."
             action={(
               <button
                 onClick={() => setShowRelPicker(true)}
@@ -414,18 +414,18 @@ export function ThreadDetail() {
             <RelationList
               entityId={thread.id}
               excludeRelationTypes={['affects', 'derives_from', 'clues_for', 'appears_in']}
-              emptyMessage="Brak dodatkowych relacji ?wiata dla tego w?tku."
+              emptyMessage="Brak dodatkowych relacji świata dla tego wątku."
             />
             </div>
           </DetailSection>
           <DetailSection
             title="Notatki MG"
-            description="Zaplecze robocze dla prowadz?cego, oddzielone od g??wnej narracji."
+            description="Zaplecze robocze dla prowadzącego, oddzielone od głównej narracji."
           >
             <NotesList
               entityId={thread.id}
               showTitle={false}
-              emptyMessage="Brak notatek podpi?tych do tego w?tku."
+              emptyMessage="Brak notatek podpietych do tego wątku."
             />
           </DetailSection>
         </div>

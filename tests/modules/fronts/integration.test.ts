@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { addEntity, addRelation, deleteEntity } from '@shared/db/operations';
+import { addEntity, addRelation, assignBelongsTo, deleteEntity } from '@shared/db/operations';
 import { db } from '@shared/db/database';
 import { isFront, isThreat } from '@modules/fronts/types';
 
@@ -86,6 +86,83 @@ describe('Front integration', () => {
       .first();
     expect(rel).toBeDefined();
     expect(rel!.targetId).toBe(front.id);
+  });
+
+  it('relinks threat to selected front and keeps one belongs_to relation', async () => {
+    const frontA = await addEntity(db, {
+      type: 'front',
+      name: 'Old Front',
+      description: '',
+      tags: [],
+      data: { category: 'adventure', stakes: [] },
+    });
+    const frontB = await addEntity(db, {
+      type: 'front',
+      name: 'New Front',
+      description: '',
+      tags: [],
+      data: { category: 'adventure', stakes: [] },
+    });
+    const threat = await addEntity(db, {
+      type: 'threat',
+      name: 'Split Allegiance',
+      description: '',
+      tags: [],
+      data: { threatType: 'cursed_place', impulse: 'Corrupt the city', moves: [] },
+    });
+
+    await addRelation(db, { type: 'belongs_to', sourceId: threat.id, targetId: frontA.id });
+    await addRelation(db, { type: 'belongs_to', sourceId: threat.id, targetId: frontB.id });
+
+    await assignBelongsTo(db, {
+      sourceId: threat.id,
+      targetId: frontB.id,
+    });
+
+    const belongsToRelations = await db.relations
+      .where('sourceId')
+      .equals(threat.id)
+      .filter((relation) => relation.type === 'belongs_to')
+      .toArray();
+
+    expect(belongsToRelations).toHaveLength(1);
+    expect(belongsToRelations[0].targetId).toBe(frontB.id);
+  });
+
+  it('assignBelongsTo is idempotent for same target', async () => {
+    const front = await addEntity(db, {
+      type: 'front',
+      name: 'Anchor Front',
+      description: '',
+      tags: [],
+      data: { category: 'campaign', stakes: [] },
+    });
+    const threat = await addEntity(db, {
+      type: 'threat',
+      name: 'Anchor Threat',
+      description: '',
+      tags: [],
+      data: { threatType: 'landscape_terrain', impulse: 'Hold position', moves: [] },
+    });
+
+    const first = await assignBelongsTo(db, {
+      sourceId: threat.id,
+      targetId: front.id,
+    });
+    const second = await assignBelongsTo(db, {
+      sourceId: threat.id,
+      targetId: front.id,
+    });
+
+    const belongsToRelations = await db.relations
+      .where('sourceId')
+      .equals(threat.id)
+      .filter((relation) => relation.type === 'belongs_to')
+      .toArray();
+
+    expect(second.id).toBe(first.id);
+    expect(belongsToRelations).toHaveLength(1);
+    expect(belongsToRelations[0].targetId).toBe(front.id);
   });
 
   it('deletes front and cascades relations to threat', async () => {

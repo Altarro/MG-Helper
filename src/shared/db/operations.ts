@@ -158,6 +158,36 @@ export async function assignContainment(
   });
 }
 
+export async function assignBelongsTo(
+  db: MgHelperDb,
+  data: Pick<NewRelation, 'sourceId' | 'targetId'>,
+): Promise<Relation> {
+  return db.transaction('rw', db.entities, db.relations, async () => {
+    const existingRelations = await db.relations
+      .where('sourceId')
+      .equals(data.sourceId)
+      .filter((relation) => relation.type === 'belongs_to')
+      .toArray();
+
+    const currentRelation = existingRelations.find((relation) => relation.targetId === data.targetId);
+    const relationsToRemove = existingRelations.filter((relation) => relation.targetId !== data.targetId);
+
+    if (relationsToRemove.length > 0) {
+      await db.relations.bulkDelete(relationsToRemove.map((relation) => relation.id));
+    }
+
+    if (currentRelation) {
+      return currentRelation;
+    }
+
+    return addRelation(db, {
+      type: 'belongs_to',
+      sourceId: data.sourceId,
+      targetId: data.targetId,
+    });
+  });
+}
+
 export async function removeContainment(
   db: MgHelperDb,
   targetId: string,

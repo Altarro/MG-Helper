@@ -24,23 +24,23 @@ export function getReadableRelationErrorMessage(
       context.targetType === 'thread'
     ) {
       if (!context.mode) {
-        return 'Te w?tki s? ju? powi?zane w questline. Aby zmieni? typ powi?zania, usu? star? relacj? i dodaj j? ponownie.';
+        return 'Te wątki są już powiązane w questline. Aby zmienić typ powiązania, usuń starą relację i dodaj ją ponownie.';
       }
 
       return context.mode === 'parent'
-        ? 'Ten w?tek nadrz?dny jest ju? podpi?ty do bie??cego w?tku. Aby zmieni? typ questline, usu? star? relacj? i dodaj j? ponownie.'
-        : 'Ten w?tek jest ju? podpi?ty jako element questline. Aby zmieni? typ powi?zania, usu? star? relacj? i dodaj j? ponownie.';
+        ? 'Ten wątek nadrzędny jest już podpięty do bieżącego wątku. Aby zmienić typ questline, usuń starą relację i dodaj ją ponownie.'
+        : 'Ten wątek jest już podpięty jako element questline. Aby zmienić typ powiązania, usuń starą relację i dodaj ją ponownie.';
     }
 
     if (context.relationType === 'clues_for') {
-      return 'Ta wskaz?wka ju? prowadzi do wybranego celu.';
+      return 'Ta wskazówka już prowadzi do wybranego celu.';
     }
 
     return 'Taka relacja ju? istnieje.';
   }
 
   if (error instanceof ContainsParentConflictError) {
-    return 'Ten element ma ju? innego rodzica. Najpierw przepnij go lub usu? poprzedni? relacj?.';
+    return 'Ten element ma jużinnego rodzica. Najpierw przepnij go lub usuń poprzednią relację.';
   }
 
   if (error instanceof RelationNotAllowedError) {
@@ -49,9 +49,9 @@ export function getReadableRelationErrorMessage(
 
   if (error instanceof Error) {
     if (error.message.includes('Source entity not found') || error.message.includes('Target entity not found')) {
-      return 'Nie uda?o si? zapisa? relacji, bo jedna z encji ju? nie istnieje.';
+      return 'Nie udało się zapisać relacji, bo jedna z encji już nie istnieje.';
     }
   }
 
-  return 'Nie uda?o si? zapisa? relacji.';
+  return 'Nie udało się zapisać relacji.';
 }

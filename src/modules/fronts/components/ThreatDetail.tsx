@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useNavigate, useParams, Link, useLocation } from 'react-router';
 import { AlertTriangle, ArrowLeft, Edit2, GitBranchPlus, Trash2 } from 'lucide-react';
 import { useThreatById } from '../hooks/useThreatById';
+import { useFronts } from '../hooks/useFronts';
 import { ThreatForm } from './ThreatForm';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
@@ -18,6 +19,7 @@ import { TickProgress } from '@shared/components/TickProgress';
 import {
   addEntity,
   addRelation,
+  assignBelongsTo,
   deleteEntity,
   updateEntity,
 } from '@shared/db/operations';
@@ -56,6 +58,9 @@ export function ThreatDetail() {
   const [quickClockName, setQuickClockName] = useState('');
   const [quickClockSegments, setQuickClockSegments] = useState<number>(6);
   const [quickClockSaving, setQuickClockSaving] = useState(false);
+  const [showFrontRelinkModal, setShowFrontRelinkModal] = useState(false);
+  const [relinkFrontId, setRelinkFrontId] = useState('');
+  const [relinkFrontSaving, setRelinkFrontSaving] = useState(false);
   const returnToSessionLive = (location.state as { returnToSessionLive?: string } | null)?.returnToSessionLive;
   const backPath = returnToSessionLive ? `/sessions/${returnToSessionLive}/live` : '/threats';
 
@@ -85,6 +90,7 @@ export function ThreatDetail() {
     direction: 'both',
     otherTypes: ['thread'],
   });
+  const fronts = useFronts();
 
   if (threat === undefined) return <LoadingSpinner />;
 
@@ -331,12 +337,15 @@ export function ThreatDetail() {
     }
   }
 
-  async function handleTickLinkedClock() {
+  async function handleAdjustLinkedClock(delta: 1 | -1) {
     if (!linkedClock) return;
     const data = linkedClock.data;
-    if (data.filled >= data.segments || data.isActive === false) return;
+    if (delta > 0 && (data.filled >= data.segments || data.isActive === false)) return;
+    if (delta < 0 && data.filled <= 0) return;
 
-    const nextFilled = data.filled + 1;
+    const nextFilled = Math.max(0, Math.min(data.filled + delta, data.segments));
+    if (nextFilled === data.filled) return;
+
     try {
       await updateEntity(db, linkedClock.id, {
         data: {
@@ -345,11 +354,46 @@ export function ThreatDetail() {
         },
       });
 
-      if (nextFilled >= data.segments) {
+      if (delta > 0 && nextFilled >= data.segments) {
         toast.success(`Zegar "${linkedClock.name}" wypełniony!`);
       }
     } catch {
-      toast.error('Nie udało się odnotować kolejnego tyknięcia');
+      toast.error('Nie udało się zaktualizować postępu zegara');
+    }
+  }
+
+  function openFrontRelinkModal() {
+    const defaultFrontId = parentFrontEntity?.id ?? fronts?.[0]?.id ?? '';
+    setRelinkFrontId(defaultFrontId);
+    setShowFrontRelinkModal(true);
+  }
+
+  async function handleRelinkFront() {
+    if (!relinkFrontId || relinkFrontSaving) return;
+
+    setRelinkFrontSaving(true);
+    try {
+      await assignBelongsTo(db, {
+        sourceId: threatId,
+        targetId: relinkFrontId,
+      });
+
+      const selectedFront = fronts?.find((front) => front.id === relinkFrontId);
+      const selectedFrontName = selectedFront?.name ?? 'wybrany front';
+
+      if (parentFrontEntity?.id === relinkFrontId) {
+        toast.success(`Przypisanie frontu "${selectedFrontName}" odświeżone`);
+      } else if (parentFrontEntity) {
+        toast.success(`Zmieniono front na "${selectedFrontName}"`);
+      } else {
+        toast.success(`Przypisano front "${selectedFrontName}"`);
+      }
+
+      setShowFrontRelinkModal(false);
+    } catch {
+      toast.error('Nie udało się przepiąć frontu');
+    } finally {
+      setRelinkFrontSaving(false);
     }
   }
 
@@ -383,6 +427,17 @@ export function ThreatDetail() {
         <div className="flex shrink-0 flex-wrap justify-end gap-2">
           <button
             type="button"
+            onClick={() => openToggleFlow()}
+            className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm ${
+              threatStatus === 'completed'
+                ? 'border-green-200 text-green-700 hover:bg-green-50'
+                : 'border-surface-300 hover:bg-surface-50'
+            }`}
+          >
+            {threatStatus === 'completed' ? 'Wznów' : 'Zakończ'}
+          </button>
+          <button
+            type="button"
             onClick={() => setIsEditing((current) => !current)}
             className="flex items-center gap-1.5 rounded-md border border-surface-300 px-3 py-1.5 text-sm hover:bg-surface-50"
           >
@@ -397,17 +452,6 @@ export function ThreatDetail() {
               <GitBranchPlus className="h-3.5 w-3.5" /> Utwórz zagrożenie wynikające
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => openToggleFlow()}
-            className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm ${
-              threatStatus === 'completed'
-                ? 'border-green-200 text-green-700 hover:bg-green-50'
-                : 'border-surface-300 hover:bg-surface-50'
-            }`}
-          >
-            {threatStatus === 'completed' ? 'Wznów' : 'Zakończ'}
-          </button>
           <button
             type="button"
             onClick={() => setConfirmDelete(true)}
@@ -463,6 +507,8 @@ export function ThreatDetail() {
                   title="Front nadrzędny"
                   items={parentFront}
                   emptyMessage="To zagrożenie nie jest jeszcze podpięte do żadnego frontu."
+                  actionLabel={parentFrontEntity ? '+ Zmień front' : '+ Przypisz front'}
+                  onAction={openFrontRelinkModal}
                 />
               </div>
 
@@ -567,10 +613,18 @@ export function ThreatDetail() {
                   </p>
                 </div>
               </Link>
-              <div className="mt-3 flex justify-end">
+              <div className="mt-3 flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => void handleTickLinkedClock()}
+                  onClick={() => void handleAdjustLinkedClock(-1)}
+                  disabled={linkedClock.data.filled <= 0}
+                  className="rounded-md border border-surface-300 bg-white px-2 py-1 text-xs font-medium text-surface-700 hover:bg-surface-50 disabled:opacity-40"
+                >
+                  -1 tick
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleAdjustLinkedClock(1)}
                   disabled={linkedClock.data.filled >= linkedClock.data.segments || linkedClock.data.isActive === false}
                   className="rounded-md border border-primary-200 bg-white px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 disabled:opacity-40"
                 >
@@ -816,6 +870,72 @@ export function ThreatDetail() {
                 {quickClockSaving ? 'Zapisywanie...' : 'Dodaj zegar'}
               </button>
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {showFrontRelinkModal && (
+        <Modal title="Przepnij zagrożenie do frontu" onClose={() => setShowFrontRelinkModal(false)}>
+          <div className="flex flex-col gap-4">
+            {fronts === undefined ? (
+              <p className="text-sm text-surface-600">Ładowanie listy frontów...</p>
+            ) : fronts.length === 0 ? (
+              <>
+                <p className="text-sm text-surface-600">
+                  Brak frontów do wyboru. Utwórz najpierw front, a potem wróć do tego zagrożenia.
+                </p>
+                <div className="flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowFrontRelinkModal(false)}
+                    className="rounded-md border border-surface-300 px-4 py-2 text-sm font-medium text-surface-700 hover:bg-surface-50"
+                  >
+                    Zamknij
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="threat-front-select" className="text-sm font-medium text-surface-700">
+                    Wybierz front
+                  </label>
+                  <select
+                    id="threat-front-select"
+                    value={relinkFrontId}
+                    onChange={(event) => setRelinkFrontId(event.target.value)}
+                    className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    autoFocus
+                  >
+                    {fronts.map((front) => (
+                      <option key={front.id} value={front.id}>{front.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="rounded-md border border-surface-200 bg-surface-50 px-3 py-2 text-xs text-surface-600">
+                  Zmiana zaktualizuje relację belongs_to tego zagrożenia.
+                </div>
+
+                <div className="flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowFrontRelinkModal(false)}
+                    className="rounded-md border border-surface-300 px-4 py-2 text-sm font-medium text-surface-700 hover:bg-surface-50"
+                  >
+                    Anuluj
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleRelinkFront()}
+                    disabled={!relinkFrontId || relinkFrontSaving}
+                    className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+                  >
+                    {relinkFrontSaving ? 'Zapisywanie...' : 'Zapisz'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </Modal>
       )}

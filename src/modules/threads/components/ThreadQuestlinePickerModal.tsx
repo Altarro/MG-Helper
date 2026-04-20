@@ -72,8 +72,8 @@ export function ThreadQuestlinePickerModal({
       });
       toast.success(
         mode === 'child'
-          ? 'W?tek pochodny podpi?ty do questline'
-          : 'W?tek nadrz?dny podpi?ty do questline',
+          ? 'Wątek pochodny podpięty do questline'
+          : 'ątek nadrzędny podpięty do questline',
       );
       onClose();
     } catch (error) {
@@ -89,7 +89,7 @@ export function ThreadQuestlinePickerModal({
 
   return (
     <Modal
-      title={mode === 'child' ? 'Podepnij istniej?cy w?tek pochodny' : 'Podepnij istniej?cy w?tek nadrz?dny'}
+      title={mode === 'child' ? 'Podepnij istniejący wątek pochodny' : 'Podepnij istniejący wątek nadrzędny'}
       size="md"
       onClose={onClose}
       initialFocusRef={searchRef}
@@ -97,7 +97,7 @@ export function ThreadQuestlinePickerModal({
     >
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-surface-600">Typ powi?zania questline</label>
+          <label className="text-xs font-medium text-surface-600">Typ powiazania questline</label>
           <select
             value={relationKind}
             onChange={(e) =>
@@ -117,10 +117,10 @@ export function ThreadQuestlinePickerModal({
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-surface-600">Wybierz w?tek</label>
+          <label className="text-xs font-medium text-surface-600">Wybierz wątek</label>
           <p className="text-xs text-surface-500">
-            W?tki ju? podpi?te do tego miejsca questline s? zablokowane. Aby zmieni? typ relacji,
-            usu? stary link na detalu w?tku i dodaj go ponownie.
+            Wątki juz podpiete do tego miejsca questline sa zablokowane. Aby zmienic typ relacji,
+            usun stary link na detalu wątku i dodaj go ponownie.
           </p>
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-surface-400" />
@@ -128,7 +128,7 @@ export function ThreadQuestlinePickerModal({
               ref={searchRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Szukaj w?tku..."
+              placeholder="Szukaj wątku..."
               className="w-full rounded-md border border-surface-300 py-2 pl-8 pr-3 text-sm placeholder:text-surface-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             />
           </div>
@@ -136,7 +136,7 @@ export function ThreadQuestlinePickerModal({
 
         <ul className="max-h-72 overflow-auto flex flex-col gap-1">
           {filteredThreads.length === 0 && (
-            <li className="py-2 text-center text-xs text-surface-400">Brak pasuj?cych w?tk?w</li>
+            <li className="py-2 text-center text-xs text-surface-400">Brak pasujacych wątkow</li>
           )}
           {filteredThreads.map((thread) => {
             const existingKind = existingQuestlineLinkMap.get(thread.id);
@@ -159,7 +159,7 @@ export function ThreadQuestlinePickerModal({
                   <span className="block font-medium text-surface-800">{thread.name}</span>
                   {isAlreadyLinked && (
                     <span className="block text-xs text-surface-500">
-                      Ju? powi?zane jako:{' '}
+                      Już powiązane jako:{' '}
                       {existingKind ? getThreadDerivationKindLabel(existingKind) : 'legacy questline'}
                     </span>
                   )}

@@ -119,17 +119,17 @@ describe('ThreadDetail', () => {
       expect(screen.getAllByText('Konsekwencja').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Dziennik Strazniczki').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Zakrwawiony manifest').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('Mocna wskazowka').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Mocna wskazówka').length).toBeGreaterThan(0);
     });
 
     fireEvent.click(screen.getByRole('button', { name: /\+ Konsekwencja/i }));
 
-    const dialog = await screen.findByRole('dialog', { name: /Podepnij istniejacy watek pochodny/i });
-    expect(within(dialog).getByText(/Watki juz podpiete do tego miejsca questline sa zablokowane/i)).toBeInTheDocument();
+    const dialog = await screen.findByRole('dialog', { name: /Podepnij istniejący wątek pochodny/i });
+    expect(within(dialog).getByText(/Wątki juz podpiete do tego miejsca questline sa zablokowane/i)).toBeInTheDocument();
 
     const linkedThreadButton = await within(dialog).findByRole('button', { name: /Dziennik Strazniczki/i });
     expect(linkedThreadButton).toBeDisabled();
-    expect(within(dialog).getByText(/Juz powiazane jako: Konsekwencja/i)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Już powiązane jako: Konsekwencja/i)).toBeInTheDocument();
   });
 
   it('shows clear empty states for a free thread without story links yet', async () => {
@@ -147,8 +147,8 @@ describe('ThreadDetail', () => {
       expect(screen.getByText('Wolny Trop')).toBeInTheDocument();
     });
 
-    expect(screen.getByText(/Ten watek nie ma jeszcze jawnie podpietych zagrozen/i)).toBeInTheDocument();
-    expect(screen.getByText(/Ten watek nie wynika jeszcze z innego watku/i)).toBeInTheDocument();
-    expect(screen.getByText(/Ten watek nie ma jeszcze odnog ani nastepstw/i)).toBeInTheDocument();
+    expect(screen.getByText(/Ten wątek nie ma jeszcze jawnie podpietych zagrożeń/i)).toBeInTheDocument();
+    expect(screen.getByText(/Ten wątek nie wynika jeszcze z innego wątku/i)).toBeInTheDocument();
+    expect(screen.getByText(/Ten wątek nie ma jeszcze odnóg ani następstw/i)).toBeInTheDocument();
   });
 });

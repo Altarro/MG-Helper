@@ -255,7 +255,7 @@ describe('Import/Export', () => {
       },
     });
 
-    const derivedRelation = exportData.relations.find((relation) => relation.type === 'derives_from');
+    const derivedRelation = exportData.relations.find((relation: { type: string; meta?: unknown }) => relation.type === 'derives_from');
     expect(derivedRelation?.meta).toEqual({ threadDerivationKind: 'consequence' });
 
     await db.entities.clear();
@@ -338,7 +338,7 @@ describe('Import/Export', () => {
       },
     });
 
-    const clueRelation = exportData.relations.find((relation) => relation.type === 'clues_for');
+    const clueRelation = exportData.relations.find((relation: { type: string; meta?: unknown }) => relation.type === 'clues_for');
     expect(clueRelation?.meta).toEqual({ clueStrength: 'strong' });
 
     await db.entities.clear();
@@ -490,8 +490,8 @@ describe('Import/Export', () => {
 
     const md = exportEntityMarkdown(entity, relations, relatedEntities);
 
-    expect(md).toContain('wskazowka do');
-    expect(md).toContain('Mocna wskazowka');
+    expect(md).toContain('wskazówka do');
+    expect(md).toContain('Mocna wskazówka');
     expect(md).toContain('Mroczny Kult');
   });
 });

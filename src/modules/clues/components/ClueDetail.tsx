@@ -168,8 +168,8 @@ export function ClueDetail() {
       ) : (
         <div className="flex flex-col gap-5">
           <DetailSection
-            title="Kontekst wskaz?wki"
-            description="Status tropu, jego rdze? i najkr?tsza informacja, z kt?rej korzysta MG przy stole."
+            title="Kontekst wskazówki"
+            description="Status tropu, jego rdzeń i najkrótsza informacja, z której korzysta MG przy stole."
             tone="accent"
           >
           {/* Toggle discovered */}
@@ -224,7 +224,7 @@ export function ClueDetail() {
 
           <DetailSection
             title="Prowadzi do"
-            description="Docelowe byty fabularne oraz si?a tropu dla ka?dego kierunku."
+            description="Docelowe byty fabularne oraz siła tropu dla każdego kierunku."
           >
             <div>
             <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
@@ -233,7 +233,7 @@ export function ClueDetail() {
                   Prowadzi do
                 </h2>
                 <p className="mt-1 text-sm text-surface-400">
-                  Okre?l, czy wskaz?wka prowadzi do w?tku, zagro?enia albo frontu oraz jak mocny to trop.
+                  Określ, czy wskazówka prowadzi do wątku, zagrożenia albo frontu oraz jak mocny to trop.
                 </p>
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -242,14 +242,14 @@ export function ClueDetail() {
                   onClick={() => setTargetPickerType('thread')}
                   className="rounded-full border border-surface-300 px-2.5 py-1 text-xs font-medium text-surface-600 hover:bg-surface-50"
                 >
-                  + Watek
+                  + Wątek
                 </button>
                 <button
                   type="button"
                   onClick={() => setTargetPickerType('threat')}
                   className="rounded-full border border-surface-300 px-2.5 py-1 text-xs font-medium text-surface-600 hover:bg-surface-50"
                 >
-                  + Zagro?enie
+                  + Zagrożenie
                 </button>
                 <button
                   type="button"
@@ -282,9 +282,9 @@ export function ClueDetail() {
             )}
 
             <NarrativeLinksSection
-              title="Cele wskaz?wki"
+              title="Cele wskazówki"
               items={resolvedClueTargets}
-              emptyMessage="Ta wskaz?wka nie wskazuje jeszcze jawnie na front, zagro?enie ani w?tek."
+              emptyMessage="Ta wskazówka nie wskazuje jeszcze jawnie na front, zagrożenie ani wątek."
               meta={(item) => (
                 item.relation.meta?.clueStrength
                   ? getClueStrengthLabel(item.relation.meta.clueStrength)
@@ -295,8 +295,8 @@ export function ClueDetail() {
           </DetailSection>
 
           <DetailSection
-            title="Powi?zania ?wiata"
-            description="Relacje dodatkowe poza g??wnym kontraktem wskaz?wki."
+            title="Powiązania świata"
+            description="Relacje dodatkowe poza głównym kontraktem wskazówki."
             action={(
               <button
                 onClick={() => setShowRelPicker(true)}
@@ -319,19 +319,19 @@ export function ClueDetail() {
             <RelationList
               entityId={clue.id}
               excludeRelationTypes={['clues_for']}
-              emptyMessage="Brak dodatkowych powi?za? dla tej wskaz?wki."
+              emptyMessage="Brak dodatkowych powiązań dla tej wskazówki."
             />
           </div>
           </DetailSection>
 
           <DetailSection
             title="Notatki MG"
-            description="Zaplecze robocze dla prowadz?cego, poza czystym tropem i jego celem."
+            description="Zaplecze robocze dla prowadzącego, poza czystym tropem i jego celem."
           >
             <NotesList
               entityId={clue.id}
               showTitle={false}
-              emptyMessage="Brak notatek podpi?tych do tej wskaz?wki."
+              emptyMessage="Brak notatek podpiętych do tej wskazówki."
             />
           </DetailSection>
         </div>

@@ -69,7 +69,7 @@ export const THREAD_DERIVATION_DIRECTION_LABELS: Record<
 > = {
   followup: {
     outgoing: 'Nastepstwo po',
-    incoming: 'Prowadzi do nast?pstwa',
+    incoming: 'Prowadzi do następstwa',
   },
   alternative: {
     outgoing: 'Alternatywa dla',
@@ -117,15 +117,15 @@ export const CLUE_STRENGTH_OPTIONS = ['weak', 'standard', 'strong'] as const;
 export type ClueStrengthOption = (typeof CLUE_STRENGTH_OPTIONS)[number];
 
 export const CLUE_STRENGTH_LABELS: Record<ClueStrengthOption, string> = {
-  weak: 'Luzny trop',
-  standard: 'Standardowa wskaz?wka',
-  strong: 'Mocna wskaz?wka',
+  weak: 'Luźny trop',
+  standard: 'Standardowa wskazówka',
+  strong: 'Mocna wskazówka',
 };
 
 export const CLUE_STRENGTH_DESCRIPTIONS: Record<ClueStrengthOption, string> = {
-  weak: 'Sugestia lub trop, ktory pomaga, ale nie prowadzi jeszcze jednoznacznie.',
-  standard: 'Pe?nowarto?ciowa wskaz?wka prowadz?ca sensownie do obiektu fabularnego.',
-  strong: 'Bardzo mocna wskaz?wka, niemal wprost prowadz?ca do obiektu fabularnego.',
+  weak: 'Sugestia lub trop, który pomaga, ale nie prowadzi jeszcze jednoznacznie.',
+  standard: 'Pełnowartościowa wskazówka prowadząca sensownie do obiektu fabularnego.',
+  strong: 'Bardzo mocna wskazówka, niemal wprost prowadząca do obiektu fabularnego.',
 };
 
 export function getClueStrengthLabel(kind: ClueStrengthOption): string {

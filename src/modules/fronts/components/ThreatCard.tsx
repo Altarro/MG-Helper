@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { AlertTriangle, Plus } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { isClock } from '@modules/clocks/types';
@@ -100,7 +100,13 @@ export const ThreatCard = memo(function ThreatCard({ threat, onClick }: ThreatCa
               const isActive = clock.data.isActive !== false;
               const bgClass = isFilled ? (isActive ? 'bg-amber-500' : 'bg-surface-400') : 'bg-surface-200';
               const isNext = i === clock.data.filled && clock.data.filled < clock.data.segments;
-              const isClickable = (i === clock.data.filled || i === clock.data.filled - 1) && isActive;
+              const isUndo = i === clock.data.filled - 1 && clock.data.filled > 0;
+              const isClickable = (isNext || isUndo) && isActive;
+              const clickHintClass = isClickable
+                ? isNext
+                  ? 'cursor-pointer hover:z-10 hover:scale-y-[1.15] hover:ring-1 hover:ring-amber-400/70 hover:ring-offset-1 hover:ring-offset-amber-50'
+                  : 'cursor-pointer hover:z-10 hover:scale-y-[1.15] hover:ring-1 hover:ring-surface-400/80 hover:ring-offset-1 hover:ring-offset-amber-50'
+                : '';
 
               async function handleSegmentClick(e: React.MouseEvent) {
                 e.stopPropagation();
@@ -114,7 +120,7 @@ export const ThreatCard = memo(function ThreatCard({ threat, onClick }: ThreatCa
                   await updateEntity(db, clock.id, {
                     data: { ...clock.data, filled: newFilled },
                   });
-                } catch (err) {
+                } catch {
                   toast.error('Nie udało się zaktualizować zegara');
                 }
               }
@@ -126,17 +132,10 @@ export const ThreatCard = memo(function ThreatCard({ threat, onClick }: ThreatCa
                   onClick={handleSegmentClick}
                   onMouseDown={(e) => e.stopPropagation()}
                   disabled={!isClickable}
+                  title={isClickable ? (isNext ? 'Dodaj 1 tick' : 'Cofnij 1 tick') : undefined}
                   aria-label={isClickable ? (i === clock.data.filled ? `Wypełnij segment ${i + 1}` : `Cofnij segment ${i + 1}`) : undefined}
-                  className={`group relative h-3 flex-1 rounded-[3px] transition-all focus:outline-none ${bgClass} ${isClickable ? 'cursor-pointer' : ''} ${isNext ? 'hover:z-10 hover:scale-y-[1.2] hover:bg-amber-100 hover:ring-1 hover:ring-amber-300/70 hover:ring-offset-1 hover:ring-offset-amber-50' : ''}`}
-                >
-                  {isNext && (
-                    <span className="pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 opacity-0 transition-all duration-150 group-hover:opacity-100">
-                      <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white/70">
-                        <Plus size={9} strokeWidth={2.75} className="text-amber-500/90" />
-                      </span>
-                    </span>
-                  )}
-                </button>
+                  className={`h-3 flex-1 overflow-hidden rounded-[3px] transition-all focus:outline-none ${bgClass} ${clickHintClass}`}
+                />
               );
             })}
           </div>

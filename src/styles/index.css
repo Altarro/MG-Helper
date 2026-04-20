@@ -94,6 +94,40 @@ main > * {
   animation: fadein 150ms ease-out;
 }
 
+/* Neutral outline actions: stronger hover/focus feedback across the app */
+button.border-surface-200.hover\:bg-surface-50,
+button.border-surface-300.hover\:bg-surface-50,
+a.border-surface-200.hover\:bg-surface-50,
+a.border-surface-300.hover\:bg-surface-50 {
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+button.border-surface-200.hover\:bg-surface-50:hover,
+button.border-surface-300.hover\:bg-surface-50:hover,
+a.border-surface-200.hover\:bg-surface-50:hover,
+a.border-surface-300.hover\:bg-surface-50:hover {
+  border-color: var(--color-surface-400);
+  background-color: var(--color-surface-100);
+}
+
+button.border-surface-200.hover\:bg-surface-50:active,
+button.border-surface-300.hover\:bg-surface-50:active,
+a.border-surface-200.hover\:bg-surface-50:active,
+a.border-surface-300.hover\:bg-surface-50:active {
+  background-color: var(--color-surface-200);
+}
+
+button.border-surface-200.hover\:bg-surface-50:focus-visible,
+button.border-surface-300.hover\:bg-surface-50:focus-visible,
+a.border-surface-200.hover\:bg-surface-50:focus-visible,
+a.border-surface-300.hover\:bg-surface-50:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(92, 124, 250, 0.22);
+}
+
 /* ── Print styles ─────────────────────────────────────────────────────────── */
 @media print {
   [data-sidebar],

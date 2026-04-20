@@ -10,11 +10,13 @@ import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { EmptyState } from '@shared/components/EmptyState';
 import { addEntity, addRelation } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
+import { getThreatStatus } from '@shared/utils/entityData';
 import { normalizeThreatLifecycle } from '@shared/utils/threatLifecycle';
 import { toast } from 'sonner';
 import type { ThreatFormValues } from './ThreatForm';
 
 type OwnershipFilter = 'all' | 'fronted' | 'free';
+type StatusFilter = 'all' | 'active' | 'completed';
 
 export function ThreatList() {
   const threats = useThreats();
@@ -24,6 +26,7 @@ export function ThreatList() {
 
   const [query, setQuery] = useState('');
   const [ownershipFilter, setOwnershipFilter] = useState<OwnershipFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedFrontId, setSelectedFrontId] = useState('');
@@ -64,7 +67,10 @@ export function ThreatList() {
       (ownershipFilter === 'fronted' && isFronted) ||
       (ownershipFilter === 'free' && !isFronted);
 
-    return matchesQuery && matchesOwnership;
+    const threatStatus = getThreatStatus(threat);
+    const matchesStatus = statusFilter === 'all' || threatStatus === statusFilter;
+
+    return matchesQuery && matchesOwnership && matchesStatus;
   });
 
   const frontSections = useMemo(() => {
@@ -238,25 +244,50 @@ export function ThreatList() {
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {([
-          ['all', 'Wszystkie'],
-          ['fronted', 'Podpiete do frontu'],
-          ['free', 'Wolne'],
-        ] as const).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setOwnershipFilter(value)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-              ownershipFilter === value
-                ? 'bg-amber-100 text-amber-700'
-                : 'bg-surface-100 text-surface-600 hover:bg-surface-200'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap gap-2">
+          {([
+            ['all', 'Wszystkie'],
+            ['fronted', 'Podpięte do frontu'],
+            ['free', 'Wolne'],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setOwnershipFilter(value)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                ownershipFilter === value
+                  ? 'bg-amber-100 text-amber-700'
+                  : 'bg-surface-100 text-surface-600 hover:bg-surface-200'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <span aria-hidden="true" className="h-6 w-px bg-surface-300" />
+
+        <div className="flex flex-wrap gap-2">
+          {([
+            ['all', 'Status: wszystkie'],
+            ['active', 'Status: aktywne'],
+            ['completed', 'Status: zakończone'],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setStatusFilter(value)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                statusFilter === value
+                  ? 'bg-primary-100 text-primary-700'
+                  : 'bg-surface-100 text-surface-600 hover:bg-surface-200'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {isLoading ? (

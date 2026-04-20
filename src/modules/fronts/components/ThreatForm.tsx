@@ -12,6 +12,7 @@ import {
   THREAT_STATUS_LABELS,
   THREAT_TYPES,
   THREAT_TYPE_LABELS,
+  THREAT_TYPE_PRESETS,
 } from '../types';
 import { CLOCK_SEGMENTS } from '@modules/clocks/types';
 import type { ClockSegments } from '@modules/clocks/types';
@@ -76,7 +77,9 @@ export function ThreatForm({
     register,
     control,
     handleSubmit,
+    getValues,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<ThreatFormRaw>({
     resolver: zodResolver(threatFormSchema),
@@ -97,7 +100,27 @@ export function ThreatForm({
     },
   });
 
-  const { fields, append, remove } = useFieldArray({ control, name: 'moves' });
+  const { fields, append, remove, replace } = useFieldArray({ control, name: 'moves' });
+  const selectedThreatType = watch('threatType');
+  const selectedPreset = THREAT_TYPE_PRESETS[selectedThreatType];
+
+  function applyThreatTypePreset() {
+    const preset = THREAT_TYPE_PRESETS[getValues('threatType')];
+    if (!preset) return;
+
+    if (!getValues('impulse').trim()) {
+      setValue('impulse', preset.impulse, { shouldDirty: true, shouldValidate: true });
+    }
+
+    if (!getValues('trigger').trim()) {
+      setValue('trigger', preset.trigger, { shouldDirty: true, shouldValidate: true });
+    }
+
+    const hasAnyMove = getValues('moves').some((move) => move.value.trim().length > 0);
+    if (!hasAnyMove) {
+      replace(preset.moves.map((value) => ({ value })));
+    }
+  }
 
   function handleValidSubmit(raw: ThreatFormRaw) {
     return onSubmit({
@@ -145,6 +168,19 @@ export function ThreatForm({
               <option key={t} value={t}>{THREAT_TYPE_LABELS[t]}</option>
             ))}
           </select>
+          <div className="mt-1 flex items-center justify-between gap-2">
+            <p className="text-xs text-surface-500">
+              Szybki start: uzupełnij puste pola propozycją dla wybranego rodzaju.
+            </p>
+            <button
+              type="button"
+              onClick={applyThreatTypePreset}
+              disabled={!selectedPreset}
+              className="shrink-0 rounded-full border border-surface-300 px-2.5 py-1 text-xs text-surface-600 hover:bg-surface-50 disabled:opacity-50"
+            >
+              Wstaw szablon
+            </button>
+          </div>
         </div>
         <div className="flex flex-col gap-1">
           <label htmlFor="threat-status" className="text-sm font-medium text-surface-700">

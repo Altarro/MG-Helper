@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
 import { ArrowLeft, MapPin, CheckCircle2, Users, GitBranch, Trash2, Plus, AlertTriangle } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -204,7 +204,7 @@ function NpcCleanupRow({ npc, sessionId }: { npc: Entity; sessionId: string }) {
       </button>
       <ConfirmDialog
         open={confirmDelete}
-        title={`Usu?ąć ${npc.name}?`}
+        title={`Usunąć ${npc.name}?`}
         description="Postać i jej relacje zostaną permanentnie usunięte."
         confirmLabel="Usuń"
         onConfirm={() => void handleDelete()}
@@ -270,8 +270,8 @@ function EntityCleanupRow({
       )}
       <ConfirmDialog
         open={confirmDelete}
-        title={`Usu?ąć „${entity.name}"?`}
-        description="Encj? i jej relacje zostaną permanentnie usunięte."
+        title={`Usunąć „${entity.name}"?`}
+        description="Encja i jej relacje zostaną permanentnie usunięte."
         confirmLabel="Usuń"
         onConfirm={() => void handleDelete()}
         onCancel={() => setConfirmDelete(false)}
@@ -327,19 +327,19 @@ function CreateThreatFromThreadModal({
         await addRelation(db, { type: 'tracks', sourceId: threat.id, targetId: clock.id });
       }
       await addRelation(db, { type: 'affects', sourceId: thread.id, targetId: threat.id });
-      toast.success(`Dodano zagro?enie na bazie w?tku "${thread.name}"`);
+      toast.success(`Dodano zagrożenie na bazie wątku "${thread.name}"`);
       onClose();
     } catch {
-      toast.error('Nie uda?o si? utworzy? zagro?enia');
+      toast.error('Nie udało się utworzyć zagrożenia');
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <Modal title="Nowe zagro?enie z w?tku" size="lg" onClose={onClose}>
+    <Modal title="Nowe zagrożenie z wątku" size="lg" onClose={onClose}>
       <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-surface-700">
-        Powsta?e zagro?enie zostanie od razu powi?zane z w?tkiem przez relacj? `affects`.
+        Powstałe zagrożenie zostanie od razu powiązane z wątkiem przez relację `affects`.
       </div>
       <ThreatForm
         defaultValues={{
@@ -350,7 +350,7 @@ function CreateThreatFromThreadModal({
         onSubmit={handleSubmit}
         onCancel={onClose}
         isSaving={saving}
-        submitLabel="Dodaj zagro?enie"
+        submitLabel="Dodaj zagrożenie"
       />
     </Modal>
   );
@@ -371,15 +371,15 @@ function ThreadCleanupRow({
   async function handleDelete() {
     try {
       await deleteEntity(db, thread.id);
-      toast.success(`"${thread.name}" usuni?to`);
+      toast.success(`"${thread.name}" usunięto`);
     } catch {
-      toast.error('Nie uda?o si? usun??');
+      toast.error('Nie udało się usunąć');
     }
   }
 
   function handleLeaveFree() {
     onLeaveFree(thread.id);
-    toast.success(`"${thread.name}" pozostawiono jako wolny w?tek`);
+    toast.success(`"${thread.name}" pozostawiono jako wolny wątek`);
   }
 
   return (
@@ -391,13 +391,13 @@ function ThreadCleanupRow({
               {thread.name}
             </Link>
             <p className="mt-1 text-xs text-surface-500">
-              Ten w?tek jest w sesji, ale nie ma jeszcze rodzica ani powi?zanego zagro?enia.
+              Ten wątek jest w sesji, ale nie ma jeszcze rodzica ani powiązanego zagrożenia.
             </p>
           </div>
           <button
             type="button"
             onClick={() => setConfirmDelete(true)}
-            aria-label="Usu?"
+            aria-label="Usuń"
             className="rounded-md border border-surface-200 p-1.5 text-surface-400 hover:bg-red-50 hover:text-red-600"
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -410,14 +410,14 @@ function ThreadCleanupRow({
             onClick={() => setShowRelationPicker(true)}
             className="flex items-center gap-1 rounded-md border border-surface-300 px-2.5 py-1 text-xs text-surface-700 hover:bg-surface-50"
           >
-            <Plus className="h-3 w-3" /> Powi?? z zagro?eniem
+            <Plus className="h-3 w-3" /> Powiąż z zagrożeniem
           </button>
           <button
             type="button"
             onClick={() => setShowCreateThreat(true)}
             className="flex items-center gap-1 rounded-md border border-amber-300 px-2.5 py-1 text-xs text-amber-700 hover:bg-amber-50"
           >
-            <Plus className="h-3 w-3" /> Nowe zagro?enie
+            <Plus className="h-3 w-3" /> Nowe zagrożenie
           </button>
           <button
             type="button"
@@ -445,9 +445,9 @@ function ThreadCleanupRow({
       )}
       <ConfirmDialog
         open={confirmDelete}
-        title={`Usun?? "${thread.name}"?`}
-        description="Encja i jej relacje zostan? permanentnie usuni?te."
-        confirmLabel="Usu?"
+        title={`Usunąć "${thread.name}"?`}
+        description="Encja i jej relacje zostaną permanentnie usunięte."
+        confirmLabel="Usuń"
         onConfirm={() => void handleDelete()}
         onCancel={() => setConfirmDelete(false)}
       />

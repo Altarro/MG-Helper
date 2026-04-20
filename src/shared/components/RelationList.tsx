@@ -125,7 +125,7 @@ function RelationRow({
         }`}
         onClick={handleOpenTarget}
         disabled={!canOpen}
-        title={canOpen ? `Otw?rz detail: ${other.name}` : other.name}
+        title={canOpen ? `Otwórz detail: ${other.name}` : other.name}
         aria-label={`Przejdź do: ${other.name}`}
       >
         {other.name}
@@ -143,7 +143,7 @@ function RelationRow({
           type={other.type}
           size="sm"
           onClick={canOpen ? handleOpenTarget : undefined}
-          ariaLabel={canOpen ? `Otw?rz detail ${other.name}` : undefined}
+          ariaLabel={canOpen ? `Otwórz detail ${other.name}` : undefined}
         />
         <button
           type="button"

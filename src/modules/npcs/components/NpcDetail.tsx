@@ -422,7 +422,7 @@ export function NpcDetail() {
                         onClick={() => navigate(`/locations/${entry.data.locationId}`)}
                         className="shrink-0 rounded-md border border-surface-300 px-2.5 py-1 text-xs text-surface-700 hover:bg-white"
                       >
-                        Otw?rz
+                        Otwórz
                       </button>
                     </div>
                   </div>

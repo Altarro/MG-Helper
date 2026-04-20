@@ -101,7 +101,7 @@ export function ClueSection({ parentId, title = 'Wskazówki' }: ClueSectionProps
       {showForm && (
         <div className="mb-3 rounded-lg border border-surface-200 bg-white p-3 shadow-sm">
           <div className="mb-3 flex flex-col gap-1">
-            <label className="text-xs font-medium text-surface-600">Si?a wskaz?wki dla tej relacji</label>
+            <label className="text-xs font-medium text-surface-600">Siła wskazówki dla tej relacji</label>
             <select
               value={clueStrength}
               onChange={(e) => setClueStrength(e.target.value)}

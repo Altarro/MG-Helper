@@ -52,7 +52,7 @@ describe('PrimaryTopBar', () => {
     const breadcrumb = screen.getByRole('navigation', { name: 'Breadcrumb' });
 
     await waitFor(() => {
-      expect(within(breadcrumb).getByText('Watki')).toBeInTheDocument();
+      expect(within(breadcrumb).getByText('Wątki')).toBeInTheDocument();
       expect(within(breadcrumb).getByText('Cena Ocalenia')).toBeInTheDocument();
     });
 
@@ -75,7 +75,7 @@ describe('PrimaryTopBar', () => {
     await waitFor(() => {
       expect(within(breadcrumb).getByText('Sesje')).toBeInTheDocument();
       expect(within(breadcrumb).getByText('Sesja 7 - Targ pod Latarnia')).toBeInTheDocument();
-      expect(within(breadcrumb).getByText('Na zywo')).toBeInTheDocument();
+      expect(within(breadcrumb).getByText('Na żywo')).toBeInTheDocument();
     });
 
     expect(within(breadcrumb).queryByText(session.id)).not.toBeInTheDocument();
