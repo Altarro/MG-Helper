@@ -55,6 +55,8 @@ export function ItemForm({
     },
   });
 
+  const nameErrorId = errors.name ? 'item-name-error' : undefined;
+
   const propertiesArr = useFieldArray({ control, name: 'properties' });
 
   function handleValidSubmit(raw: ItemFormRaw) {
@@ -67,25 +69,26 @@ export function ItemForm({
   return (
     <form onSubmit={handleSubmit(handleValidSubmit)} className="flex flex-col gap-4" noValidate>
       <div className="grid grid-cols-2 gap-4">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="item-name" className="text-sm font-medium text-surface-700">
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="item-name" className="text-sm font-medium text-surface-800">
             Nazwa <span className="text-red-500" aria-hidden="true">*</span>
           </label>
           <input
             id="item-name"
             {...register('name')}
-            className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="app-input rounded-2xl px-3.5 py-3 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
             placeholder="Nazwa przedmiotu…"
             aria-invalid={errors.name ? 'true' : 'false'}
+            aria-describedby={nameErrorId}
           />
-          {errors.name && <p role="alert" className="text-xs text-red-600">{errors.name.message}</p>}
+          {errors.name && <p id="item-name-error" role="alert" className="text-xs text-red-600">{errors.name.message}</p>}
         </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="item-type" className="text-sm font-medium text-surface-700">Typ</label>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="item-type" className="text-sm font-medium text-surface-800">Typ</label>
           <select
             id="item-type"
             {...register('itemType')}
-            className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="app-input rounded-2xl px-3.5 py-3 text-sm text-surface-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           >
             {ITEM_TYPES.map((t) => (
               <option key={t} value={t}>{ITEM_TYPE_LABELS[t]}</option>
@@ -96,11 +99,11 @@ export function ItemForm({
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-surface-700">Właściwości</label>
+          <label className="text-sm font-medium text-surface-800">Właściwości</label>
           <button
             type="button"
             onClick={() => propertiesArr.append({ value: '' })}
-            className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700"
+            className="app-button-secondary inline-flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-xs font-medium transition-colors"
           >
             <Plus className="h-3.5 w-3.5" /> Dodaj właściwość
           </button>
@@ -112,13 +115,13 @@ export function ItemForm({
           <div key={field.id} className="flex gap-2">
             <input
               {...register(`properties.${i}.value`)}
-              className="flex-1 rounded-md border border-surface-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="app-input flex-1 rounded-2xl px-3 py-2 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
               placeholder={`Właściwość ${i + 1}…`}
             />
             <button
               type="button"
               onClick={() => propertiesArr.remove(i)}
-              className="rounded-md border border-surface-200 p-1.5 text-surface-400 hover:bg-red-50 hover:text-red-600"
+              className="rounded-xl border border-surface-200 p-2 text-surface-400 transition-colors hover:bg-red-50 hover:text-red-600"
             >
               <X className="h-4 w-4" />
             </button>
@@ -126,8 +129,8 @@ export function ItemForm({
         ))}
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-surface-700">Opis / Historia</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-surface-800">Opis / Historia</label>
         <Controller
           name="description"
           control={control}
@@ -137,8 +140,8 @@ export function ItemForm({
         />
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-surface-700">Tagi</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-surface-800">Tagi</label>
         <Controller
           name="tags"
           control={control}
@@ -146,15 +149,15 @@ export function ItemForm({
         />
       </div>
 
-      <div className="flex justify-end gap-2 pt-2">
+      <div className="flex justify-end gap-3 pt-2">
         {onCancel && (
           <button type="button" onClick={onCancel}
-            className="rounded-md border border-surface-300 px-4 py-2 text-sm font-medium text-surface-700 hover:bg-surface-50">
+            className="app-button-secondary rounded-2xl px-4 py-3 text-sm font-medium transition-colors">
             Anuluj
           </button>
         )}
         <button type="submit" disabled={isSaving}
-          className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50">
+          className="app-button-primary rounded-2xl px-4 py-3 text-sm font-medium transition-colors disabled:opacity-50">
           {isSaving ? 'Zapisywanie…' : submitLabel}
         </button>
       </div>

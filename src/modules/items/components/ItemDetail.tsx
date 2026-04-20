@@ -22,10 +22,11 @@ export function ItemDetail() {
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const returnToSessionLive = typeof location.state === 'object'
-    && location.state !== null
-    && 'returnToSessionLive' in location.state
-    && typeof (location.state as { returnToSessionLive?: unknown }).returnToSessionLive === 'string'
+  const returnToSessionLive =
+    typeof location.state === 'object' &&
+    location.state !== null &&
+    'returnToSessionLive' in location.state &&
+    typeof (location.state as { returnToSessionLive?: unknown }).returnToSessionLive === 'string'
       ? (location.state as { returnToSessionLive: string }).returnToSessionLive
       : null;
   const backPath = returnToSessionLive ? `/sessions/${returnToSessionLive}/live` : '/items';
@@ -34,9 +35,15 @@ export function ItemDetail() {
   if (item === undefined) return <LoadingSpinner />;
   if (!item) {
     return (
-      <div className="p-6">
+      <div className="mx-auto flex max-w-5xl flex-col gap-4 p-6">
         <p className="text-surface-500">Przedmiot nie znaleziony.</p>
-        <Link to="/items" className="text-primary-600 hover:underline">← Powrót</Link>
+        <Link
+          to="/items"
+          className="text-surface-500 hover:text-primary-700 flex w-fit items-center gap-1.5 text-sm transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Przedmioty
+        </Link>
       </div>
     );
   }
@@ -70,35 +77,64 @@ export function ItemDetail() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <Link to={backPath} className="flex w-fit items-center gap-1.5 text-sm text-surface-500 hover:text-surface-800">
+    <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
+      <Link
+        to={backPath}
+        className="text-surface-500 hover:text-primary-700 flex w-fit items-center gap-1.5 text-sm"
+      >
         <ArrowLeft className="h-4 w-4" /> {backLabel}
       </Link>
 
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Package className="h-6 w-6 shrink-0 text-amber-500" />
-          <h1 className="text-xl font-semibold text-surface-900">{item.name}</h1>
-          <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700">
-            {ITEM_TYPE_LABELS[item.data.itemType]}
-          </span>
+      <div className="app-panel-strong flex flex-col gap-5 rounded-[1.9rem] border border-white/40 px-6 py-6 shadow-[0_28px_60px_rgba(18,45,66,0.12)] lg:flex-row lg:items-start lg:justify-between lg:px-7">
+        <div className="flex items-center gap-4">
+          <div className="app-danger-card rounded-[1.25rem] p-3 text-amber-700 shadow-[0_14px_28px_rgba(210,166,67,0.18)]">
+            <Package className="h-5 w-5 shrink-0" />
+          </div>
+          <div>
+            <h1 className="text-surface-900 text-3xl font-semibold tracking-[-0.03em]">
+              {item.name}
+            </h1>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="app-danger-pill rounded-full px-3 py-1 text-xs font-semibold">
+                {ITEM_TYPE_LABELS[item.data.itemType]}
+              </span>
+            </div>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <button onClick={() => setIsEditing(!isEditing)}
-            className="flex items-center gap-1.5 rounded-md border border-surface-300 px-3 py-1.5 text-sm hover:bg-surface-50">
-            {isEditing ? <><X className="h-3.5 w-3.5" /> Anuluj</> : <><Edit2 className="h-3.5 w-3.5" /> Edytuj</>}
+        <div className="flex flex-wrap gap-2 lg:justify-end">
+          <button
+            onClick={() => setIsEditing(!isEditing)}
+            className="app-button-secondary inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
+          >
+            {isEditing ? (
+              <>
+                <X className="h-3.5 w-3.5" /> Anuluj
+              </>
+            ) : (
+              <>
+                <Edit2 className="h-3.5 w-3.5" /> Edytuj
+              </>
+            )}
           </button>
-          <button onClick={() => setConfirmDelete(true)}
-            className="flex items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50">
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="app-button-danger inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
+          >
             <Trash2 className="h-3.5 w-3.5" /> Usuń
           </button>
         </div>
       </div>
 
       {isEditing && (
-        <div className="rounded-xl border border-surface-200 bg-white p-5 shadow-sm">
+        <div className="app-panel rounded-[1.75rem] p-4 shadow-[0_20px_40px_rgba(18,45,66,0.08)] lg:p-6">
           <ItemForm
-            defaultValues={{ name: item.name, itemType: item.data.itemType, properties: item.data.properties, description: item.description, tags: item.tags }}
+            defaultValues={{
+              name: item.name,
+              itemType: item.data.itemType,
+              properties: item.data.properties,
+              description: item.description,
+              tags: item.tags,
+            }}
             onSubmit={handleUpdate}
             isSaving={saving}
             onCancel={() => setIsEditing(false)}
@@ -107,27 +143,38 @@ export function ItemDetail() {
       )}
 
       {!isEditing && item.data.properties.length > 0 && (
-        <div className="rounded-xl border border-surface-200 bg-white p-5">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-surface-500">Właściwości</h2>
+        <div className="app-panel rounded-[1.6rem] p-5 lg:p-6">
+          <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
+            Właściwości
+          </h2>
           <div className="flex flex-wrap gap-2">
             {item.data.properties.map((p, i) => (
-              <span key={i} className="rounded-full bg-surface-100 px-3 py-0.5 text-sm text-surface-700">{p}</span>
+              <span key={i} className="app-pill-muted rounded-full px-3 py-1 text-sm font-medium">
+                {p}
+              </span>
             ))}
           </div>
         </div>
       )}
 
       {!isEditing && item.description && (
-        <div className="rounded-xl border border-surface-200 bg-white p-5">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-surface-500">Opis</h2>
-          <div className="prose prose-sm max-w-none text-surface-700" dangerouslySetInnerHTML={{ __html: item.description }} />
+        <div className="app-panel rounded-[1.6rem] p-5 lg:p-6">
+          <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
+            Opis
+          </h2>
+          <div
+            className="prose prose-sm text-surface-700 max-w-none"
+            dangerouslySetInnerHTML={{ __html: item.description }}
+          />
         </div>
       )}
 
       {!isEditing && item.tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {item.tags.map((t) => (
-            <span key={t} className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs text-amber-700">{t}</span>
+            <span key={t} className="app-danger-pill rounded-full px-2.5 py-1 text-xs font-medium">
+              {t}
+            </span>
           ))}
         </div>
       )}

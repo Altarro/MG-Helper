@@ -10,6 +10,7 @@ import {
 import { ensureSessionDraftLocation } from '../utils/draftScene';
 import { NpcCampaignPickerModal } from './NpcCampaignPickerModal';
 import { toast } from 'sonner';
+import { toastRemoveEntitySuccess, toastRemoveEntityError } from '@shared/utils/toastSessionEntity';
 import { useContainedNpcs, useSessionNpcPanelData } from '../hooks/useLiveSessionQueries';
 import { isPlayerNpc } from '@shared/utils/entityData';
 import {
@@ -93,7 +94,7 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
       });
       await addRelation(db, { type: 'appears_in', sourceId: npc.id, targetId: sessionId });
       await setNpcCurrentLocation(db, npc.id, targetLocationId, sessionId);
-      toast.success(`${trimmed} dodany do sesji i sceny`);
+      toast.success(`Postać "${trimmed}" dodana do sesji i przypięta do sceny`);
       setName('');
       setIsPC(false);
       setQuickAddOpen(false);
@@ -108,7 +109,7 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
     try {
       await setNpcCurrentLocation(db, npcId, null);
     } catch {
-      toast.error('Nie udało się usunąć ze sceny');
+      toast.error('Nie udało się odpiąć ze sceny');
     }
   }
 
@@ -117,7 +118,7 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
       const targetLocationId = currentLocationId ?? (await ensureSessionDraftLocation(db, sessionId)).id;
       await setNpcCurrentLocation(db, npcId, targetLocationId, sessionId);
     } catch {
-      toast.error('Nie udało się dodać do sceny');
+      toast.error('Nie udało się przypiąć do sceny');
     }
   }
 
@@ -125,9 +126,9 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
     try {
       const removed = await removeEntityFromSession(db, npcId, sessionId);
       if (!removed) return;
-      toast.success(`${npcName} usunięty z sesji`);
+      toast.success(toastRemoveEntitySuccess('npc', npcName));
     } catch {
-      toast.error('Nie udało się usunąć z sesji');
+      toast.error(toastRemoveEntityError('npc'));
     }
   }
 
@@ -178,20 +179,21 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
             type="button"
             onClick={() => setPickerOpen(true)}
             className="flex items-center justify-center gap-1 rounded-md border border-surface-300 bg-white px-2 py-1 text-xs text-surface-700 transition-colors hover:bg-surface-50"
-            title="Dodaj z kampanii"
+            title="Dodaj do sesji z kampanii"
           >
             <UserPlus className="h-3.5 w-3.5" />
-            Z kampanii
+            Dodaj do sesji
           </button>
           {npcs.length > 0 ? (
             <button
               type="button"
               onClick={() => void handleToggleAll()}
-              title={allPinned ? 'Usuń wszystkich ze sceny' : 'Dodaj wszystkich do sceny'}
+              title={allPinned ? 'Odepnij wszystkich ze sceny' : 'Przypnij wszystkich do sceny'}
+              aria-label={allPinned ? 'Odepnij wszystkich ze sceny' : 'Przypnij wszystkich do sceny'}
               className="flex items-center justify-center gap-1 rounded-md border border-surface-300 bg-white px-2 py-1 text-xs text-surface-700 transition-colors hover:bg-surface-50"
             >
               {allPinned ? <MapPinOff className="h-3.5 w-3.5" /> : <MapPin className="h-3.5 w-3.5" />}
-              Wszyscy
+              {allPinned ? 'Odepnij' : 'Przypnij'}
             </button>
           ) : (
             <div />
@@ -204,7 +206,7 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
                 ? 'border-primary-400 bg-primary-50 text-primary-700'
                 : 'border-surface-300 bg-white text-surface-700 hover:bg-surface-50'
             }`}
-            title="Szybki NPC"
+            title="Szybkie dodanie postaci do sesji"
           >
             {quickAddOpen ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
             Dodaj NPC
@@ -237,7 +239,7 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
             disabled={!name.trim() || saving}
             className="rounded-md bg-primary-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50"
           >
-            Dodaj
+            Dodaj do sesji
           </button>
         </form>
       )}
@@ -245,7 +247,9 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
       {/* NPC list */}
       <div className="flex-1 overflow-y-auto">
         {npcs.length === 0 ? (
-          <p className="p-6 text-center text-sm text-surface-400">Brak postaci w sesji</p>
+          <p className="p-6 text-center text-sm text-surface-400">
+            Brak postaci w sesji. Dodaj je z kampanii albo szybkim dodaniem.
+          </p>
         ) : (
           <div className="space-y-3 px-2 py-2">
             {[
@@ -290,10 +294,8 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
                         <li key={npc.id} className="group flex items-center gap-2 px-3 py-2 hover:bg-surface-50">
                           <button
                             type="button"
-                            title={inLocation
-                              ? currentLocationId === null ? 'Usuń z pustej sceny' : 'Usuń ze sceny'
-                              : currentLocationId === null ? 'Dodaj do pustej sceny' : 'Dodaj do sceny'
-                            }
+                            title={inLocation ? 'Odepnij ze sceny' : 'Przypnij do sceny'}
+                            aria-label={`${inLocation ? 'Odepnij ze sceny' : 'Przypnij do sceny'}: ${npc.name}`}
                             onClick={onPinClick}
                             className={`shrink-0 rounded p-1 transition-colors ${
                               inLocation
@@ -302,8 +304,8 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
                             }`}
                           >
                             {inLocation
-                              ? <MapPin className="h-3.5 w-3.5" />
-                              : <MapPinOff className="h-3.5 w-3.5" />
+                              ? <MapPinOff className="h-3.5 w-3.5" />
+                              : <MapPin className="h-3.5 w-3.5" />
                             }
                           </button>
                           <Link
@@ -322,8 +324,9 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
                           <button
                             type="button"
                             title="Usuń z sesji"
+                            aria-label={`Usuń z sesji: ${npc.name}`}
                             onClick={() => void handleRemoveFromSession(npc.id, npc.name)}
-                            className="shrink-0 rounded p-1 text-surface-300 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-50 hover:text-red-500"
+                            className="shrink-0 rounded p-1 text-surface-300 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 hover:bg-red-50 hover:text-red-500"
                           >
                             <X className="h-3.5 w-3.5" />
                           </button>

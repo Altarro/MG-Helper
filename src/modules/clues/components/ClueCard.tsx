@@ -1,10 +1,10 @@
 import { memo } from 'react';
-import { User, MapPin, Zap, CheckCircle2, Circle } from 'lucide-react';
+import { User, MapPin, Zap, CheckCircle2, Circle, type LucideIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import type { Clue } from '../types';
 import { CLUE_TYPE_LABELS } from '../types';
 
-const CLUE_ICONS: Record<string, (props: { className?: string }) => JSX.Element> = {
+const CLUE_ICONS: Record<string, LucideIcon> = {
   character: User,
   location: MapPin,
   event: Zap,

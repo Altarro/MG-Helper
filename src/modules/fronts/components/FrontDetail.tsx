@@ -1,16 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link, useSearchParams, useLocation } from 'react-router';
-import {
-  ArrowLeft,
-  Edit2,
-  Trash2,
-  X,
-  Plus,
-  AlertTriangle,
-  Shield,
-} from 'lucide-react';
+import { ArrowLeft, Edit2, Trash2, X, Plus, AlertTriangle, Shield, Search } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useFrontById } from '../hooks/useFrontById';
+import { useFronts } from '../hooks/useFronts';
 import { useThreats } from '../hooks/useThreats';
 import { useThreatById } from '../hooks/useThreatById';
 import { FrontForm } from './FrontForm';
@@ -31,6 +24,7 @@ import { NotesList } from '@modules/notes/components/NotesList';
 import {
   addEntity,
   addRelation,
+  assignBelongsTo,
   deleteEntity,
   updateEntity,
 } from '@shared/db/operations';
@@ -44,8 +38,6 @@ import { getThreatStatus } from '@shared/utils/entityData';
 import { normalizeThreatLifecycle } from '@shared/utils/threatLifecycle';
 import type { FrontFormValues } from './FrontForm';
 import type { ThreatFormValues } from './ThreatForm';
-
-// Threat detail side panel
 
 interface ThreatDetailPanelProps {
   threatId: string;
@@ -64,12 +56,16 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
 
   const linkedClock = useLiveQuery(async () => {
     const rels = await db.relations
-      .where('sourceId').equals(threatId)
-      .filter((r) => r.type === 'tracks')
+      .where('sourceId')
+      .equals(threatId)
+      .filter((relation) => relation.type === 'tracks')
       .toArray();
+
     if (!rels.length) return null;
+
     const rel = rels[0];
     if (!rel) return null;
+
     const entity = await db.entities.get(rel.targetId);
     return entity && isClock(entity) ? entity : null;
   }, [db, threatId]);
@@ -79,6 +75,7 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
     direction: 'outgoing',
     otherTypes: ['front'],
   });
+
   const relatedThreads = useRelatedEntities(threatId, {
     relationTypes: ['affects'],
     direction: 'both',
@@ -88,16 +85,16 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
   if (!threat) return null;
 
   async function handleUpdate(values: ThreatFormValues) {
-    if (!threat) return;
     setSaving(true);
     try {
       const lifecycle = normalizeThreatLifecycle(values.status, values.reasonOfDead);
+
       await updateEntity(db, threatId, {
         name: values.name,
         description: values.description,
         tags: values.tags,
         data: {
-          ...threat.data,
+          ...threat!.data,
           threatType: values.threatType,
           impulse: values.impulse,
           moves: values.moves,
@@ -143,12 +140,13 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
   }
 
   async function handleDelete() {
-    if (!threat) return;
-    const name = threat.name;
+    const name = threat!.name;
+
     try {
       if (linkedClock) {
         await deleteEntity(db, linkedClock.id);
       }
+
       await deleteEntity(db, threatId);
       toast.success(`Zagrożenie "${name}" usunięte`);
       onClose();
@@ -160,17 +158,22 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-end bg-black/30">
       <div
-        className="flex h-full w-full max-w-lg flex-col overflow-y-auto bg-white shadow-2xl"
+        className="app-panel-strong flex h-full w-full max-w-lg flex-col overflow-y-auto rounded-l-[1.8rem] shadow-2xl"
         role="dialog"
         aria-label={`Zagrożenie: ${threat.name}`}
       >
-        <div className="flex items-center justify-between border-b border-surface-200 p-4">
+        <div className="flex items-center justify-between border-b border-[rgba(86,93,94,0.14)] px-5 py-4">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-amber-500" />
-            <h2 className="font-semibold text-surface-900">{threat.name}</h2>
+            <AlertTriangle className="text-warning-600 h-4 w-4" />
+            <h2 className="text-surface-900 font-semibold">{threat.name}</h2>
           </div>
-          <button onClick={onClose} className="rounded-md p-1 hover:bg-surface-100">
-            <X className="h-5 w-5 text-surface-600" />
+          <button
+            type="button"
+            onClick={onClose}
+            className="app-button-secondary text-surface-600 rounded-xl p-2 transition-colors"
+            aria-label="Zamknij panel zagrożenia"
+          >
+            <X className="h-5 w-5" />
           </button>
         </div>
 
@@ -184,7 +187,10 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
                 impulse: threat.data.impulse,
                 trigger: threat.data.trigger ?? '',
                 reasonOfDead: threat.data.reasonOfDead ?? '',
-                inheritanceNotes: typeof threat.data.inheritanceNotes === 'string' ? threat.data.inheritanceNotes : '',
+                inheritanceNotes:
+                  typeof threat.data.inheritanceNotes === 'string'
+                    ? threat.data.inheritanceNotes
+                    : '',
                 forkThreatId: threat.data.forkThreatId,
                 moves: threat.data.moves,
                 description: threat.description,
@@ -202,67 +208,76 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
             <div className="flex flex-col gap-4">
               <div className="flex gap-2">
                 <button
+                  type="button"
                   onClick={() => setIsEditing(true)}
-                  className="flex items-center gap-1.5 rounded-md border border-surface-300 px-3 py-1.5 text-sm hover:bg-surface-50"
+                  className="app-button-secondary flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-sm font-medium transition-colors"
                 >
                   <Edit2 className="h-3.5 w-3.5" /> Edytuj
                 </button>
                 <button
+                  type="button"
                   onClick={() => setConfirmDelete(true)}
-                  className="flex items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+                  className="app-button-danger flex items-center gap-1.5 rounded-2xl px-4 py-2.5 text-sm font-medium transition-colors"
                 >
                   <Trash2 className="h-3.5 w-3.5" /> Usuń
                 </button>
               </div>
 
               <div>
-                <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-surface-500">
+                <h3 className="text-surface-500 mb-1 text-xs font-semibold tracking-wide uppercase">
                   Rodzaj
                 </h3>
-                <p className="text-sm text-surface-700">
+                <p className="text-surface-700 text-sm">
                   {THREAT_TYPE_LABELS[threat.data.threatType]}
                 </p>
               </div>
 
               {threat.data.impulse && (
                 <div>
-                  <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-surface-500">
+                  <h3 className="text-surface-500 mb-1 text-xs font-semibold tracking-wide uppercase">
                     Impuls
                   </h3>
-                  <p className="italic text-surface-700">{threat.data.impulse}</p>
+                  <p className="text-surface-700 italic">{threat.data.impulse}</p>
                 </div>
               )}
 
               {threat.data.trigger && (
                 <div>
-                  <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-surface-500">
+                  <h3 className="text-surface-500 mb-1 text-xs font-semibold tracking-wide uppercase">
                     Trigger tykania
                   </h3>
-                  <p className="whitespace-pre-wrap text-sm text-surface-700">{threat.data.trigger}</p>
+                  <p className="text-surface-700 text-sm whitespace-pre-wrap">
+                    {threat.data.trigger}
+                  </p>
                 </div>
               )}
 
               {forkSourceThreat && (
                 <div>
-                  <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-surface-500">
+                  <h3 className="text-surface-500 mb-1 text-xs font-semibold tracking-wide uppercase">
                     Powstało z zagrożenia
                   </h3>
                   {forkSourcePath ? (
-                    <Link to={forkSourcePath} className="text-sm font-medium text-primary-600 hover:underline">
+                    <Link
+                      to={forkSourcePath}
+                      className="text-primary-700 text-sm font-medium hover:underline"
+                    >
                       {forkSourceThreat.name}
                     </Link>
                   ) : (
-                    <p className="text-sm text-surface-700">{forkSourceThreat.name}</p>
+                    <p className="text-surface-700 text-sm">{forkSourceThreat.name}</p>
                   )}
                 </div>
               )}
 
               {threat.data.reasonOfDead && (
-                <div className="rounded-lg border border-surface-200 bg-surface-50 px-3 py-2">
-                  <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-surface-500">
+                <div className="app-danger-card rounded-[1.2rem] px-4 py-3">
+                  <h3 className="text-surface-500 mb-1 text-xs font-semibold tracking-wide uppercase">
                     Powód wygaszenia / śmierci
                   </h3>
-                  <p className="whitespace-pre-wrap text-sm text-surface-700">{threat.data.reasonOfDead}</p>
+                  <p className="text-surface-700 text-sm whitespace-pre-wrap">
+                    {threat.data.reasonOfDead}
+                  </p>
                 </div>
               )}
 
@@ -282,12 +297,12 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
 
               {threat.data.moves.length > 0 && (
                 <div>
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-500">
+                  <h3 className="text-surface-500 mb-2 text-xs font-semibold tracking-wide uppercase">
                     Ruchy zagrożenia
                   </h3>
                   <ul className="list-inside list-disc space-y-1">
-                    {threat.data.moves.map((move, i) => (
-                      <li key={i} className="text-sm text-surface-700">
+                    {threat.data.moves.map((move, index) => (
+                      <li key={index} className="text-surface-700 text-sm">
                         {move}
                       </li>
                     ))}
@@ -297,24 +312,21 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
 
               {threat.description && (
                 <div>
-                  <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-surface-500">
+                  <h3 className="text-surface-500 mb-1 text-xs font-semibold tracking-wide uppercase">
                     Opis
                   </h3>
                   <div
-                    className="prose prose-sm max-w-none text-surface-700"
+                    className="prose prose-sm text-surface-700 max-w-none"
                     dangerouslySetInnerHTML={{ __html: threat.description }}
                   />
                 </div>
               )}
 
               {threat.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {threat.tags.map((t) => (
-                    <span
-                      key={t}
-                      className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700"
-                    >
-                      {t}
+                <div className="flex flex-wrap gap-2">
+                  {threat.tags.map((tag) => (
+                    <span key={tag} className="app-danger-pill rounded-full px-2.5 py-1 text-xs">
+                      {tag}
                     </span>
                   ))}
                 </div>
@@ -322,25 +334,34 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
 
               {linkedClock && (
                 <div>
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-500">
+                  <h3 className="text-surface-500 mb-2 text-xs font-semibold tracking-wide uppercase">
                     Powiązany zegar
                   </h3>
                   <Link
                     to={`/clocks/${linkedClock.id}`}
-                    className="m-[-0.5rem] flex items-center gap-3 rounded-lg border border-transparent p-2 transition-colors hover:border-primary-200 hover:bg-primary-50"
+                    className="app-input-shell hover:border-primary-300 m-[-0.25rem] flex items-center gap-3 rounded-[1.2rem] p-3 transition-colors hover:bg-[rgba(229,231,223,0.98)]"
                   >
                     <ClockWidget clock={linkedClock} size={48} showLabel />
-                    <span className="text-sm text-surface-700">{linkedClock.name}</span>
+                    <span className="text-surface-700 text-sm">{linkedClock.name}</span>
                   </Link>
                   {linkedClock.data.tickLabels && linkedClock.data.tickLabels.length > 0 && (
                     <div className="mt-2">
-                      <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-surface-400">
+                      <h4 className="text-surface-400 mb-1 text-xs font-semibold tracking-wide uppercase">
                         Opisy tyknięć
                       </h4>
                       <ul className="space-y-1">
-                        {linkedClock.data.tickLabels.map((label, i) => (
-                          <li key={i} className={`text-xs ${i === Math.max(0, linkedClock.data.filled - 1) ? 'font-semibold text-surface-800' : i === linkedClock.data.filled ? 'italic text-surface-500' : 'text-surface-400'}`}>
-                            <span className="mr-1.5 text-surface-300">{i + 1}.</span>
+                        {linkedClock.data.tickLabels.map((label, index) => (
+                          <li
+                            key={index}
+                            className={`text-xs ${
+                              index === Math.max(0, linkedClock.data.filled - 1)
+                                ? 'text-surface-800 font-semibold'
+                                : index === linkedClock.data.filled
+                                  ? 'text-surface-500 italic'
+                                  : 'text-surface-400'
+                            }`}
+                          >
+                            <span className="text-surface-300 mr-1.5">{index + 1}.</span>
                             {label}
                           </li>
                         ))}
@@ -368,6 +389,7 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
           onConfirm={handleDelete}
           onCancel={() => setConfirmDelete(false)}
         />
+
         {showThreadPicker && (
           <RelationPicker
             sourceId={threat.id}
@@ -384,8 +406,6 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
   );
 }
 
-// FrontDetail
-
 export function FrontDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -394,20 +414,28 @@ export function FrontDetail() {
   const { db } = useCampaign();
   const { front } = useFrontById(id);
   const threats = useThreats(id);
+  const allThreats = useThreats();
+  const fronts = useFronts();
 
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showThreatForm, setShowThreatForm] = useState(false);
+  const [threatComposerMode, setThreatComposerMode] = useState<'create' | 'existing'>('create');
   const [savingThreat, setSavingThreat] = useState(false);
+  const [existingThreatQuery, setExistingThreatQuery] = useState('');
+  const [assigningThreatId, setAssigningThreatId] = useState<string | null>(null);
   const [showRelPicker, setShowRelPicker] = useState(false);
   const selectedThreatId = searchParams.get('threat');
-  const returnToSessionLive = typeof location.state === 'object'
-    && location.state !== null
-    && 'returnToSessionLive' in location.state
-    && typeof (location.state as { returnToSessionLive?: unknown }).returnToSessionLive === 'string'
+
+  const returnToSessionLive =
+    typeof location.state === 'object' &&
+    location.state !== null &&
+    'returnToSessionLive' in location.state &&
+    typeof (location.state as { returnToSessionLive?: unknown }).returnToSessionLive === 'string'
       ? (location.state as { returnToSessionLive: string }).returnToSessionLive
       : null;
+
   const backPath = returnToSessionLive ? `/sessions/${returnToSessionLive}/live` : '/fronts';
   const backLabel = returnToSessionLive ? 'Sesja na żywo' : 'Fronty';
 
@@ -417,25 +445,56 @@ export function FrontDetail() {
     setSearchParams(next);
   }
 
+  const threatFrontRelations = useLiveQuery(
+    async () => db.relations.where('type').equals('belongs_to').toArray(),
+    [db],
+  );
+
+  const threatFrontMap = useMemo(
+    () =>
+      new Map(
+        (threatFrontRelations ?? []).map((relation) => [relation.sourceId, relation.targetId]),
+      ),
+    [threatFrontRelations],
+  );
+
+  const frontNameById = useMemo(
+    () => new Map((fronts ?? []).map((frontEntity) => [frontEntity.id, frontEntity.name])),
+    [fronts],
+  );
+
+  const filteredExistingThreats = useMemo(() => {
+    const normalizedQuery = existingThreatQuery.trim().toLowerCase();
+
+    return (allThreats ?? []).filter((threatEntity) => {
+      if (!normalizedQuery) return true;
+
+      return (
+        threatEntity.name.toLowerCase().includes(normalizedQuery) ||
+        THREAT_TYPE_LABELS[threatEntity.data.threatType].toLowerCase().includes(normalizedQuery) ||
+        threatEntity.data.impulse.toLowerCase().includes(normalizedQuery) ||
+        threatEntity.tags.some((tag) => tag.toLowerCase().includes(normalizedQuery))
+      );
+    });
+  }, [allThreats, existingThreatQuery]);
+
   if (front === undefined) return <LoadingSpinner />;
 
   if (!front) {
     return (
       <div className="p-6">
         <p className="text-surface-500">Front nie znaleziony.</p>
-        <Link to="/fronts" className="text-primary-600 hover:underline">
+        <Link to="/fronts" className="text-primary-700 hover:underline">
           ← Powrót do frontów
         </Link>
       </div>
     );
   }
 
-  const currentFront = front;
-
   async function handleUpdate(values: FrontFormValues) {
     setSaving(true);
     try {
-      await updateEntity(db, currentFront.id, {
+      await updateEntity(db, front!.id, {
         name: values.name,
         description: values.description,
         tags: values.tags,
@@ -445,6 +504,7 @@ export function FrontDetail() {
           stakes: values.stakes,
         },
       });
+
       toast.success('Front zaktualizowany');
       setIsEditing(false);
     } catch {
@@ -457,10 +517,11 @@ export function FrontDetail() {
   async function handleDelete() {
     try {
       if (threats && threats.length > 0) {
-        await Promise.all(threats.map((t) => deleteEntity(db, t.id)));
+        await Promise.all(threats.map((threat) => deleteEntity(db, threat.id)));
       }
-      await deleteEntity(db, currentFront.id);
-      toast.success(`Front "${currentFront.name}" usunięty`);
+
+      await deleteEntity(db, front!.id);
+      toast.success(`Front "${front!.name}" usunięty`);
       navigate(backPath);
     } catch {
       toast.error('Nie udało się usunąć frontu');
@@ -471,6 +532,7 @@ export function FrontDetail() {
     setSavingThreat(true);
     try {
       const lifecycle = normalizeThreatLifecycle(values.status, values.reasonOfDead);
+
       const entity = await addEntity(db, {
         type: 'threat',
         name: values.name,
@@ -486,7 +548,8 @@ export function FrontDetail() {
           ...lifecycle,
         },
       });
-      await addRelation(db, { type: 'belongs_to', sourceId: entity.id, targetId: currentFront.id });
+
+      await addRelation(db, { type: 'belongs_to', sourceId: entity.id, targetId: front!.id });
 
       if (values.clock) {
         const clockEntity = await addEntity(db, {
@@ -501,11 +564,13 @@ export function FrontDetail() {
             isActive: lifecycle.status !== 'completed',
           },
         });
+
         await addRelation(db, { type: 'tracks', sourceId: entity.id, targetId: clockEntity.id });
       }
 
       toast.success(`Zagrożenie "${values.name}" dodane`);
       setShowThreatForm(false);
+      setThreatComposerMode('create');
     } catch {
       toast.error('Nie udało się dodać zagrożenia');
     } finally {
@@ -513,47 +578,115 @@ export function FrontDetail() {
     }
   }
 
+  async function handleAssignExistingThreat(threatId: string) {
+    const assignedFrontId = threatFrontMap.get(threatId);
+    if (assignedFrontId === front!.id) return;
+
+    setAssigningThreatId(threatId);
+    try {
+      await assignBelongsTo(db, {
+        sourceId: threatId,
+        targetId: front!.id,
+      });
+
+      const selectedThreat = (allThreats ?? []).find(
+        (threatEntity) => threatEntity.id === threatId,
+      );
+      const selectedThreatName = selectedThreat?.name ?? 'Wybrane zagrożenie';
+
+      if (assignedFrontId) {
+        const previousFrontName = frontNameById.get(assignedFrontId) ?? 'inny front';
+        toast.success(`Przepięto "${selectedThreatName}" z frontu "${previousFrontName}"`);
+      } else {
+        toast.success(`Podpięto istniejące zagrożenie "${selectedThreatName}"`);
+      }
+
+      setShowThreatForm(false);
+      setThreatComposerMode('create');
+      setExistingThreatQuery('');
+    } catch {
+      toast.error('Nie udało się podpiąć istniejącego zagrożenia');
+    } finally {
+      setAssigningThreatId(null);
+    }
+  }
+
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
       <Link
         to={backPath}
-        className="flex w-fit items-center gap-1.5 text-sm text-surface-500 hover:text-surface-800"
+        className="text-surface-500 hover:text-surface-800 flex w-fit items-center gap-1.5 text-sm"
       >
         <ArrowLeft className="h-4 w-4" /> {backLabel}
       </Link>
 
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Shield className="h-6 w-6 shrink-0 text-primary-500" />
-          <div>
-            <h1 className="text-xl font-semibold text-surface-900">{front.name}</h1>
-            <span className="text-sm text-surface-500">
-              {FRONT_CATEGORY_LABELS[front.data.category]}
-            </span>
+      <section className="app-panel-strong rounded-[2rem] px-6 py-7 lg:px-8 lg:py-8">
+        <div className="flex flex-wrap items-start justify-between gap-5">
+          <div className="flex min-w-0 items-start gap-4">
+            <div className="text-primary-700 mt-1 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[rgba(33,71,102,0.1)]">
+              <Shield className="h-6 w-6" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-primary-700 mb-3 inline-flex items-center rounded-full border border-[rgba(33,71,102,0.16)] bg-[rgba(111,146,164,0.12)] px-3 py-1 text-[11px] font-semibold tracking-[0.18em] uppercase">
+                Front
+              </div>
+              <h1 className="text-primary-900 text-3xl font-semibold tracking-[-0.04em] lg:text-[2.2rem]">
+                {front.name}
+              </h1>
+              <span className="text-surface-600 mt-2 inline-flex rounded-full border border-[rgba(86,93,94,0.14)] bg-[rgba(223,225,218,0.72)] px-3 py-1 text-sm">
+                {FRONT_CATEGORY_LABELS[front.data.category]}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2.5">
+            <button
+              type="button"
+              onClick={() => setIsEditing((current) => !current)}
+              className="app-button-secondary flex items-center gap-1.5 rounded-2xl px-4 py-3 text-sm font-medium transition-colors"
+            >
+              {isEditing ? (
+                <>
+                  <X className="h-4 w-4" /> Anuluj
+                </>
+              ) : (
+                <>
+                  <Edit2 className="h-4 w-4" /> Edytuj
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              className="app-button-danger flex items-center gap-1.5 rounded-2xl px-4 py-3 text-sm font-medium transition-colors"
+            >
+              <Trash2 className="h-4 w-4" /> Usuń
+            </button>
           </div>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setIsEditing(!isEditing)}
-            className="flex items-center gap-1.5 rounded-md border border-surface-300 px-3 py-1.5 text-sm hover:bg-surface-50"
-          >
-            {isEditing ? (
-              <><X className="h-3.5 w-3.5" /> Anuluj</>
-            ) : (
-              <><Edit2 className="h-3.5 w-3.5" /> Edytuj</>
-            )}
-          </button>
-          <button
-            onClick={() => setConfirmDelete(true)}
-            className="flex items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
-          >
-            <Trash2 className="h-3.5 w-3.5" /> Usuń
-          </button>
-        </div>
-      </div>
+      </section>
 
-      {isEditing && (
-        <div className="rounded-xl border border-surface-200 bg-white p-5 shadow-sm">
+      {isEditing ? (
+        <div className="app-panel rounded-[1.8rem] p-5 lg:p-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-primary-900 text-base font-semibold tracking-[-0.02em]">
+                Edycja frontu
+              </h2>
+              <p className="text-surface-600 mt-1 text-sm leading-6">
+                Uporządkuj cel, stawki i notatki bez wychodzenia z ekranu detalu.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsEditing(false)}
+              className="app-button-secondary text-surface-600 rounded-xl p-2 transition-colors"
+              aria-label="Zamknij edycję frontu"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
           <FrontForm
             defaultValues={{
               name: front.name,
@@ -568,72 +701,73 @@ export function FrontDetail() {
             onCancel={() => setIsEditing(false)}
           />
         </div>
-      )}
+      ) : (
+        <>
+          {front.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {front.tags.map((tag) => (
+                <span key={tag} className="app-pill rounded-full px-2.5 py-1 text-xs">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
 
-      {!isEditing && front.data.goal && (
-        <DetailSection
-          title="Kontekst frontu"
-          description="Główna oś kampanii i najważniejszy cel, wokół którego porządkujesz zagrożenia."
-          tone="accent"
-        >
-          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary-600">Cel frontu</h2>
-          <p className="whitespace-pre-wrap text-sm text-surface-800">{front.data.goal}</p>
-        </DetailSection>
-      )}
-
-      {!isEditing && front.data.stakes.length > 0 && (
-        <DetailSection
-          title="Stawki"
-          description="Pytania i ryzyka, które ten front stawia przed kampanią."
-        >
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-surface-500">
-            Stawki
-          </h2>
-          <ul className="list-inside list-disc space-y-1.5">
-            {front.data.stakes.map((stake, i) => (
-              <li key={i} className="text-sm text-surface-700">
-                {stake}
-              </li>
-            ))}
-          </ul>
-        </DetailSection>
-      )}
-
-      {!isEditing && front.description && (
-        <DetailSection
-          title="Opis"
-          description="Pełny opis frontu i jego roli w strukturze kampanii."
-        >
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-surface-500">
-            Opis
-          </h2>
-          <div
-            className="prose prose-sm max-w-none text-surface-700"
-            dangerouslySetInnerHTML={{ __html: front.description }}
-          />
-        </DetailSection>
-      )}
-
-      {!isEditing && front.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {front.tags.map((tag) => (
-            <span
-              key={tag}
-              className="rounded-full bg-primary-50 px-2.5 py-0.5 text-xs text-primary-700"
+          {front.data.goal && (
+            <DetailSection
+              title="Kontekst frontu"
+              description="Główna oś kampanii i najważniejszy cel, wokół którego porządkujesz zagrożenia."
+              tone="accent"
             >
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
+              <h2 className="text-primary-600 mb-2 text-xs font-semibold tracking-wide uppercase">
+                Cel frontu
+              </h2>
+              <p className="text-surface-800 text-sm whitespace-pre-wrap">{front.data.goal}</p>
+            </DetailSection>
+          )}
 
-      {!isEditing && id && (
-        <DetailSection
-          title="Wskazówki frontu"
-          description="Tropy i sekrety, które prowadzą bezpośrednio do głównej osi kampanii."
-        >
-          <ClueSection parentId={id} title="Wskazówki frontu" />
-        </DetailSection>
+          {front.data.stakes.length > 0 && (
+            <DetailSection
+              title="Stawki"
+              description="Pytania i ryzyka, które ten front stawia przed kampanią."
+            >
+              <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
+                Stawki
+              </h2>
+              <ul className="list-inside list-disc space-y-1.5">
+                {front.data.stakes.map((stake, index) => (
+                  <li key={index} className="text-surface-700 text-sm">
+                    {stake}
+                  </li>
+                ))}
+              </ul>
+            </DetailSection>
+          )}
+
+          {front.description && (
+            <DetailSection
+              title="Opis"
+              description="Pełny opis frontu i jego roli w strukturze kampanii."
+            >
+              <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
+                Opis
+              </h2>
+              <div
+                className="prose prose-sm text-surface-700 max-w-none"
+                dangerouslySetInnerHTML={{ __html: front.description }}
+              />
+            </DetailSection>
+          )}
+
+          {id && (
+            <DetailSection
+              title="Wskazówki frontu"
+              description="Tropy i sekrety, które prowadzą bezpośrednio do głównej osi kampanii."
+            >
+              <ClueSection parentId={id} title="Wskazówki frontu" />
+            </DetailSection>
+          )}
+        </>
       )}
 
       <DetailSection
@@ -641,32 +775,203 @@ export function FrontDetail() {
         description="Główne presje podpięte do tej osi kampanii."
       >
         <div>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-base font-semibold text-surface-900">
-              Zagrożenia
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <h2 className="text-surface-900 text-base font-semibold">Zagrożenia</h2>
               {threats && threats.length > 0 && (
-                <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-normal text-amber-700">
+                <span className="app-danger-pill rounded-full px-2.5 py-1 text-xs">
                   {threats.length}
                 </span>
               )}
-            </h2>
+            </div>
+
             <button
-              onClick={() => setShowThreatForm(true)}
-              className="flex items-center gap-1.5 rounded-md bg-amber-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-600"
+              type="button"
+              onClick={() => {
+                setThreatComposerMode('create');
+                setShowThreatForm(true);
+              }}
+              className="app-button-primary flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-transform hover:-translate-y-0.5"
             >
               <Plus className="h-4 w-4" /> Nowe zagrożenie
             </button>
           </div>
 
           {showThreatForm && (
-            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-5">
-              <h3 className="mb-4 text-sm font-semibold text-surface-900">Nowe zagrożenie</h3>
-              <ThreatForm
-                onSubmit={handleAddThreat}
-                isSaving={savingThreat}
-                onCancel={() => setShowThreatForm(false)}
-                submitLabel="Dodaj zagrożenie"
-              />
+            <div className="app-panel rounded-[1.5rem] p-5">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-primary-900 text-sm font-semibold">
+                    {threatComposerMode === 'create'
+                      ? 'Nowe zagrożenie'
+                      : 'Podepnij istniejące zagrożenie'}
+                  </h3>
+                  <p className="text-surface-600 mt-1 text-sm leading-6">
+                    {threatComposerMode === 'create'
+                      ? 'Dodaj kolejną presję przypiętą do tego frontu.'
+                      : 'Wybierz zagrożenie z kampanii i przypisz je do tego frontu.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowThreatForm(false)}
+                  className="app-button-secondary text-surface-600 rounded-xl p-2 transition-colors"
+                  aria-label="Zamknij formularz zagrożenia"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="mb-4 flex flex-wrap gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setThreatComposerMode('create')}
+                  className={`rounded-full px-4 py-2 text-xs font-semibold tracking-[0.01em] transition-all ${
+                    threatComposerMode === 'create'
+                      ? 'app-pill'
+                      : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+                  }`}
+                >
+                  Nowe
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setThreatComposerMode('existing')}
+                  className={`rounded-full px-4 py-2 text-xs font-semibold tracking-[0.01em] transition-all ${
+                    threatComposerMode === 'existing'
+                      ? 'app-pill'
+                      : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+                  }`}
+                >
+                  Istniejące
+                </button>
+              </div>
+
+              {threatComposerMode === 'create' ? (
+                <ThreatForm
+                  onSubmit={handleAddThreat}
+                  isSaving={savingThreat}
+                  onCancel={() => setShowThreatForm(false)}
+                  submitLabel="Dodaj zagrożenie"
+                />
+              ) : (
+                <div className="flex flex-col gap-4">
+                  <div className="relative">
+                    <Search className="text-surface-500 pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2" />
+                    <input
+                      type="search"
+                      value={existingThreatQuery}
+                      onChange={(event) => setExistingThreatQuery(event.target.value)}
+                      placeholder="Szukaj zagrożeń po nazwie, typie, impulsie albo tagach..."
+                      className="app-input text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:ring-primary-500/20 w-full rounded-2xl py-3 pr-4 pl-11 text-sm focus:ring-2 focus:outline-none"
+                    />
+                  </div>
+
+                  {allThreats === undefined ? (
+                    <LoadingSpinner />
+                  ) : filteredExistingThreats.length === 0 ? (
+                    <div className="app-input-shell rounded-[1.35rem] px-4 py-5 text-center">
+                      <p className="text-surface-600 text-sm">
+                        Nie znaleziono istniejących zagrożeń pasujących do wyszukiwania.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-3 lg:grid-cols-2">
+                      {filteredExistingThreats.map((threatEntity) => {
+                        const assignedFrontId = threatFrontMap.get(threatEntity.id);
+                        const assignedFrontName = assignedFrontId
+                          ? (frontNameById.get(assignedFrontId) ?? 'Nieznany front')
+                          : null;
+                        const isAlreadyAttached = assignedFrontId === front.id;
+                        const isCompleted = getThreatStatus(threatEntity) === 'completed';
+
+                        return (
+                          <article
+                            key={threatEntity.id}
+                            className="app-danger-card flex min-h-52 flex-col gap-3 rounded-[1.35rem] p-5"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <h4 className="text-surface-900 truncate text-[1.02rem] font-semibold tracking-[-0.02em]">
+                                  {threatEntity.name}
+                                </h4>
+                                {threatEntity.data.impulse && (
+                                  <p className="text-surface-700 mt-2 line-clamp-2 text-sm leading-6 italic">
+                                    {threatEntity.data.impulse}
+                                  </p>
+                                )}
+                              </div>
+                              <span className="app-danger-pill shrink-0 rounded-full px-2.5 py-1 text-xs font-medium">
+                                {THREAT_TYPE_LABELS[threatEntity.data.threatType]}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                              <span
+                                className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                                  isCompleted
+                                    ? 'app-pill-muted'
+                                    : 'text-success-600 border border-[rgba(95,155,125,0.22)] bg-[rgba(95,155,125,0.16)]'
+                                }`}
+                              >
+                                {isCompleted ? 'Wygaszone' : 'Aktywne'}
+                              </span>
+                              <span className="app-pill-muted rounded-full px-2.5 py-1 text-xs">
+                                {assignedFrontName
+                                  ? isAlreadyAttached
+                                    ? 'Już w tym froncie'
+                                    : `Obecnie: ${assignedFrontName}`
+                                  : 'Bez przypisanego frontu'}
+                              </span>
+                              {threatEntity.tags.slice(0, 2).map((tag) => (
+                                <span
+                                  key={`${threatEntity.id}:${tag}`}
+                                  className="app-danger-pill rounded-full px-2.5 py-1 text-xs"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+
+                            <div className="mt-auto flex items-center justify-between gap-3">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  navigate(`/threats/${threatEntity.id}`, {
+                                    state: returnToSessionLive
+                                      ? { returnToSessionLive }
+                                      : undefined,
+                                  })
+                                }
+                                className="text-primary-700 text-sm font-medium hover:underline"
+                              >
+                                Otwórz detal
+                              </button>
+                              <button
+                                type="button"
+                                disabled={assigningThreatId !== null || isAlreadyAttached}
+                                onClick={() => {
+                                  void handleAssignExistingThreat(threatEntity.id);
+                                }}
+                                className={`rounded-2xl px-4 py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 ${
+                                  isAlreadyAttached ? 'app-button-secondary' : 'app-button-primary'
+                                }`}
+                              >
+                                {assigningThreatId === threatEntity.id
+                                  ? 'Przypinam...'
+                                  : isAlreadyAttached
+                                    ? 'Już przypięte'
+                                    : assignedFrontId
+                                      ? 'Przepnij do frontu'
+                                      : 'Podepnij do frontu'}
+                              </button>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -674,17 +979,21 @@ export function FrontDetail() {
             <LoadingSpinner />
           ) : threats.length === 0 ? (
             <EmptyState
-              icon={<AlertTriangle className="h-8 w-8 text-surface-300" />}
+              icon={<AlertTriangle className="text-surface-300 h-8 w-8" />}
               title="Brak zagrożeń"
               description="Dodaj pierwsze zagrożenie do tego frontu."
-              action={(
+              action={
                 <button
-                  onClick={() => setShowThreatForm(true)}
-                  className="flex items-center gap-2 rounded-md bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-600"
+                  type="button"
+                  onClick={() => {
+                    setThreatComposerMode('create');
+                    setShowThreatForm(true);
+                  }}
+                  className="app-button-primary flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold"
                 >
                   <Plus className="h-4 w-4" /> Nowe zagrożenie
                 </button>
-              )}
+              }
             />
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -692,9 +1001,11 @@ export function FrontDetail() {
                 <ThreatCard
                   key={threat.id}
                   threat={threat}
-                  onClick={() => navigate(`/threats/${threat.id}`, {
-                    state: returnToSessionLive ? { returnToSessionLive } : undefined,
-                  })}
+                  onClick={() =>
+                    navigate(`/threats/${threat.id}`, {
+                      state: returnToSessionLive ? { returnToSessionLive } : undefined,
+                    })
+                  }
                 />
               ))}
             </div>
@@ -711,12 +1022,7 @@ export function FrontDetail() {
         </DetailSection>
       )}
 
-      {selectedThreatId && (
-        <ThreatDetailPanel
-          threatId={selectedThreatId}
-          onClose={closeThreat}
-        />
-      )}
+      {selectedThreatId && <ThreatDetailPanel threatId={selectedThreatId} onClose={closeThreat} />}
 
       {showRelPicker && (
         <RelationPicker
@@ -729,15 +1035,15 @@ export function FrontDetail() {
       <DetailSection
         title="Powiązania świata"
         description="Relacje dodatkowe poza główną osią fabularną i przypiętymi zagrożeniami."
-        action={(
+        action={
           <button
             type="button"
             onClick={() => setShowRelPicker(true)}
-            className="text-xs text-primary-600 hover:underline"
+            className="text-primary-700 text-xs hover:underline"
           >
             + Dodaj
           </button>
-        )}
+        }
       >
         <RelationList
           entityId={front.id}

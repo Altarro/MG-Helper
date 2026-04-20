@@ -116,7 +116,7 @@ export function NoteDetail() {
           {!isEditing && (
             <button
               onClick={startEdit}
-              className="flex items-center gap-1.5 rounded-md border border-surface-300 px-3 py-1.5 text-sm text-surface-600 hover:bg-surface-50"
+              className="app-button-secondary inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
             >
               <Edit2 className="h-3.5 w-3.5" />
               Edytuj
@@ -124,7 +124,7 @@ export function NoteDetail() {
           )}
           <button
             onClick={() => setConfirmDelete(true)}
-            className="flex items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+            className="app-button-danger inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
           >
             <Trash2 className="h-3.5 w-3.5" />
             Usuń

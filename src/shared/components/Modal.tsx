@@ -4,10 +4,10 @@ import { X } from 'lucide-react';
 import { Backdrop } from './Backdrop';
 
 const SIZE_CLASSES = {
-  sm: 'w-80',
-  md: 'w-[480px]',
-  lg: 'w-[640px]',
-  xl: 'max-w-5xl w-full',
+  sm: 'w-full max-w-sm',
+  md: 'w-full max-w-[32rem]',
+  lg: 'w-full max-w-[44rem]',
+  xl: 'w-full max-w-5xl',
 } as const;
 
 interface ModalProps {
@@ -119,27 +119,30 @@ export function Modal({
         <div
           ref={panelRef}
           tabIndex={-1}
-          className={`relative ${SIZE_CLASSES[size]} max-h-[90vh] overflow-y-auto rounded-xl border border-surface-200 bg-white shadow-2xl`}
+          className={`app-panel-strong relative ${SIZE_CLASSES[size]} max-h-[90vh] overflow-y-auto rounded-[1.75rem] shadow-2xl`}
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
         >
           {title !== undefined && (
             <>
-              <div className="flex items-center justify-between border-b border-surface-200 px-5 py-3.5">
-                <h2 id={titleId} className="text-sm font-semibold text-surface-900">
+              <div className="flex items-center justify-between border-b border-[rgba(86,93,94,0.14)] px-5 py-4">
+                <h2
+                  id={titleId}
+                  className="text-primary-900 text-sm font-semibold tracking-[-0.02em]"
+                >
                   {title}
                 </h2>
                 <button
                   type="button"
                   onClick={onClose}
                   aria-label="Zamknij"
-                  className="rounded p-1 text-surface-400 hover:text-surface-700"
+                  className="app-button-secondary rounded-xl p-2 text-surface-500 transition-colors hover:text-primary-700"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <div className="p-5">{children}</div>
+              <div className="p-5 lg:p-6">{children}</div>
             </>
           )}
           {title === undefined && children}

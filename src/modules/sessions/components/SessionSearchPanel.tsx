@@ -93,6 +93,7 @@ export function SessionSearchPanel({ sessionId }: SessionSearchPanelProps) {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Szukaj po wszystkim w sesji..."
+            aria-label="Szukaj encji w sesji"
             className="text-surface-900 placeholder:text-surface-500 w-full bg-transparent text-sm outline-none"
             autoFocus
           />
@@ -127,7 +128,9 @@ export function SessionSearchPanel({ sessionId }: SessionSearchPanelProps) {
       <div className="min-h-0 flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
           <p className="text-surface-600 rounded-[1.35rem] border border-[rgba(86,93,94,0.12)] bg-[rgba(223,225,218,0.64)] p-4 text-sm">
-            {normalized ? 'Brak wyników dla tego zapytania.' : 'Brak encji przypiętych do sesji.'}
+            {normalized
+              ? 'Brak wyników dla tego zapytania. Spróbuj innej frazy lub typu encji.'
+              : 'Brak encji w sesji. Dodaj encje z paneli sesji.'}
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-2.5">
@@ -193,6 +196,7 @@ export function SessionSearchPanel({ sessionId }: SessionSearchPanelProps) {
                               : 'text-surface-600 hover:text-primary-800 border-[rgba(86,93,94,0.12)] bg-[rgba(223,225,218,0.82)]'
                           }`}
                           title={isPinned ? 'Odepnij ze sceny' : 'Przypnij do sceny'}
+                          aria-label={`${isPinned ? 'Odepnij ze sceny' : 'Przypnij do sceny'}: ${entity.name}`}
                         >
                           <span className="inline-flex items-center gap-1">
                             {isPinned ? (
@@ -200,7 +204,7 @@ export function SessionSearchPanel({ sessionId }: SessionSearchPanelProps) {
                             ) : (
                               <MapPin className="h-3 w-3" />
                             )}
-                            {isPinned ? 'Odepnij' : 'Przypnij'}
+                            {isPinned ? 'Odepnij ze sceny' : 'Przypnij do sceny'}
                           </span>
                         </button>
                       )}
@@ -220,6 +224,7 @@ export function SessionSearchPanel({ sessionId }: SessionSearchPanelProps) {
                           }}
                           className="text-surface-600 hover:text-primary-800 rounded-xl border border-[rgba(86,93,94,0.12)] bg-[rgba(223,225,218,0.82)] px-2 py-1 text-[10px] font-semibold transition-colors"
                           title="Szybki podgląd"
+                          aria-label={`Szybki podgląd: ${entity.name}`}
                         >
                           <span className="inline-flex items-center gap-1">
                             <Eye className="h-3 w-3" />

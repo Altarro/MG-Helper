@@ -8,8 +8,9 @@ import { toast } from 'sonner';
 import type { Entity } from '@shared/types';
 import { THREAD_KIND_LABELS, THREAD_KINDS } from '@modules/threads/types';
 import { THREAD_DERIVATION_KIND_LABELS, THREAD_DERIVATION_KIND_OPTIONS } from '@shared/domain/storyContracts';
-import { removeEntityFromSession } from '../utils/liveSessionCommands';
+import { removeEntityFromSession, ensureEntitiesAppearInSession } from '../utils/liveSessionCommands';
 import { Modal } from '@shared/components/Modal';
+import { toastRemoveEntitySuccess, toastRemoveEntityError } from '@shared/utils/toastSessionEntity';
 
 interface ThreadTreePanelProps {
   sessionId: string;
@@ -135,7 +136,7 @@ function ThreadCampaignPickerModal({ excludedIds, onAdd, onClose }: ThreadCampai
             disabled={selected.size === 0 || saving}
             className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
           >
-            Dodaj
+            Dodaj do sesji
           </button>
         </div>
       </div>
@@ -380,19 +381,20 @@ export function ThreadTreePanel({ sessionId, openCardIds, onOpenCard, onCloseCar
       const removed = await removeEntityFromSession(db, thread.id, sessionId);
       if (!removed) return;
       onCloseCard(thread.id);
-      toast.success(`${thread.name} usunięty z sesji`);
+      toast.success(toastRemoveEntitySuccess('thread', thread.name));
     } catch {
-      toast.error('Nie udało się usunąć z sesji');
+      toast.error(toastRemoveEntityError('thread'));
     }
   }
 
   async function handleAddFromCampaign(entityIds: string[]) {
     try {
-      await Promise.all(
-        entityIds.map((entityId) =>
-          addRelation(db, { type: 'appears_in', sourceId: entityId, targetId: sessionId })),
-      );
-      toast.success(`Dodano ${entityIds.length} ${entityIds.length === 1 ? 'wątek' : 'wątki'} z kampanii`);
+      const addedCount = await ensureEntitiesAppearInSession(db, entityIds, sessionId);
+      if (addedCount === 0) {
+        toast.message('Wybrane wątki są już w sesji');
+        return;
+      }
+      toast.success(`Dodano do sesji ${addedCount} ${addedCount === 1 ? 'wątek' : 'wątki'} z kampanii`);
     } catch {
       toast.error('Nie udało się dodać wątków z kampanii');
     }
@@ -410,24 +412,30 @@ export function ThreadTreePanel({ sessionId, openCardIds, onOpenCard, onCloseCar
         className={`group flex items-center gap-2 px-3 py-2 hover:bg-surface-50 ${isCompleted ? 'opacity-70' : ''}`}
         style={{ paddingLeft: `${12 + depth * 14}px` }}
       >
+        {hasChildren ? (
+          <button
+            type="button"
+            onClick={() => {
+              setCollapsedIds((prev) => {
+                const next = new Set(prev);
+                if (next.has(thread.id)) next.delete(thread.id);
+                else next.add(thread.id);
+                return next;
+              });
+            }}
+            className="shrink-0 rounded p-0.5 text-surface-400 hover:bg-surface-100 hover:text-surface-600"
+            title={isCollapsed ? `Rozwiń podwątki: ${thread.name}` : `Zwiń podwątki: ${thread.name}`}
+            aria-label={isCollapsed ? `Rozwiń podwątki: ${thread.name}` : `Zwiń podwątki: ${thread.name}`}
+          >
+            <ChevronRight className={`h-3.5 w-3.5 transition-transform ${!isCollapsed ? 'rotate-90' : ''}`} />
+          </button>
+        ) : (
+          <span aria-hidden="true" className="h-4 w-4 shrink-0" />
+        )}
         <button
           type="button"
-          onClick={() => {
-            if (!hasChildren) return;
-            setCollapsedIds((prev) => {
-              const next = new Set(prev);
-              if (next.has(thread.id)) next.delete(thread.id);
-              else next.add(thread.id);
-              return next;
-            });
-          }}
-          className={`shrink-0 rounded p-0.5 ${hasChildren ? 'text-surface-400 hover:bg-surface-100 hover:text-surface-600' : 'text-transparent'}`}
-        >
-          <ChevronRight className={`h-3.5 w-3.5 transition-transform ${hasChildren && !isCollapsed ? 'rotate-90' : ''}`} />
-        </button>
-        <button
-          type="button"
-          title={inScene ? 'Usuń ze sceny' : 'Dodaj do sceny'}
+          title={inScene ? 'Odepnij ze sceny' : 'Przypnij do sceny'}
+          aria-label={`${inScene ? 'Odepnij ze sceny' : 'Przypnij do sceny'}: ${thread.name}`}
           onClick={() => (inScene ? onCloseCard(thread.id) : onOpenCard(thread.id))}
           className={`shrink-0 rounded p-1 transition-colors ${
             inScene
@@ -435,7 +443,7 @@ export function ThreadTreePanel({ sessionId, openCardIds, onOpenCard, onCloseCar
               : 'text-surface-300 hover:bg-surface-100 hover:text-surface-500'
           }`}
         >
-          {inScene ? <MapPin className="h-3.5 w-3.5" /> : <MapPinOff className="h-3.5 w-3.5" />}
+          {inScene ? <MapPinOff className="h-3.5 w-3.5" /> : <MapPin className="h-3.5 w-3.5" />}
         </button>
         <Link
           to={`/threads/${thread.id}`}
@@ -455,19 +463,21 @@ export function ThreadTreePanel({ sessionId, openCardIds, onOpenCard, onCloseCar
         <button
           type="button"
           title="Dodaj podwątek"
+          aria-label={`Dodaj podwątek do: ${thread.name}`}
           onClick={() => {
             setAddingMode('child');
             setParentThreadId(thread.id);
           }}
-          className="shrink-0 rounded p-1 text-surface-300 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-surface-100 hover:text-primary-600"
+          className="shrink-0 rounded p-1 text-surface-300 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 hover:bg-surface-100 hover:text-primary-600"
         >
           <Plus className="h-3.5 w-3.5" />
         </button>
         <button
           type="button"
           title="Usuń z sesji"
+          aria-label={`Usuń z sesji: ${thread.name}`}
           onClick={() => void handleRemoveFromSession(thread)}
-          className="shrink-0 rounded p-1 text-surface-300 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-50 hover:text-red-500"
+          className="shrink-0 rounded p-1 text-surface-300 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 hover:bg-red-50 hover:text-red-500"
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -498,7 +508,7 @@ export function ThreadTreePanel({ sessionId, openCardIds, onOpenCard, onCloseCar
             className="flex items-center justify-center gap-1 rounded-md border border-surface-300 bg-white px-2 py-1 text-xs text-surface-700 transition-colors hover:bg-surface-50"
           >
             <Plus className="h-3.5 w-3.5" />
-            Dodaj wątek
+            Dodaj do sesji
           </button>
           <button
             type="button"
@@ -601,7 +611,9 @@ export function ThreadTreePanel({ sessionId, openCardIds, onOpenCard, onCloseCar
 
       <div className="flex-1 overflow-y-auto">
         {!groupedRows.hasAnyRows ? (
-          <p className="p-6 text-center text-sm text-surface-400">Brak wątków w sesji</p>
+          <p className="p-6 text-center text-sm text-surface-400">
+            Brak wątków w sesji. Dodaj wątek do sesji albo podepnij go z kampanii.
+          </p>
         ) : (
           <div className="space-y-3 p-2">
             {groupedRows.threatSections.map((section) => (

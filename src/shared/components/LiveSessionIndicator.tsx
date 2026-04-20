@@ -35,6 +35,7 @@ export function LiveSessionIndicator() {
   }
 
   function handleNavigate() {
+    if (!marker) return;
     navigate(`/sessions/${marker.sessionId}/live`);
   }
 

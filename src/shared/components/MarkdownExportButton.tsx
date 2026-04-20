@@ -19,9 +19,7 @@ export function MarkdownExportButton({ entity }: MarkdownExportProps) {
         db.relations.where('targetId').equals(entity.id).toArray(),
       ]);
       const relations: Relation[] = [...asSource, ...asTarget];
-      const otherIds = relations.map((r) =>
-        r.sourceId === entity.id ? r.targetId : r.sourceId,
-      );
+      const otherIds = relations.map((r) => (r.sourceId === entity.id ? r.targetId : r.sourceId));
       const others = await Promise.all(otherIds.map((id) => db.entities.get(id)));
       const relatedMap = new Map<string, Entity>();
       others.forEach((e) => {
@@ -38,7 +36,7 @@ export function MarkdownExportButton({ entity }: MarkdownExportProps) {
     <button
       onClick={handleExport}
       title="Eksportuj do Markdown"
-      className="flex items-center gap-1.5 rounded-md border border-surface-300 px-3 py-1.5 text-sm text-surface-600 hover:bg-surface-50"
+      className="app-button-secondary text-surface-700 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
     >
       <FileDown className="h-3.5 w-3.5" />
       .md

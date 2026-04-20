@@ -59,14 +59,14 @@ export function NpcForm({
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
       {/* Name */}
-      <div className="flex flex-col gap-1">
-        <label htmlFor="npc-name" className="text-sm font-medium text-surface-700">
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="npc-name" className="text-sm font-medium text-surface-800">
           Nazwa <span className="text-red-500" aria-hidden="true">*</span>
         </label>
         <input
           id="npc-name"
           {...register('name')}
-          className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="app-input rounded-2xl px-3.5 py-3 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           placeholder="Imię / nazwa NPC…"
           aria-invalid={errors.name ? 'true' : 'false'}
           aria-describedby={errors.name ? 'npc-name-error' : undefined}
@@ -79,55 +79,47 @@ export function NpcForm({
       </div>
 
       {/* Instinct */}
-      <div className="flex flex-col gap-1">
-        <label htmlFor="npc-instinct" className="text-sm font-medium text-surface-700">
-          Instynkt
-        </label>
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="npc-instinct" className="text-sm font-medium text-surface-800">Instynkt</label>
         <input
           id="npc-instinct"
           {...register('instinct')}
-          className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="app-input rounded-2xl px-3.5 py-3 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           placeholder={'np. \u201ePolować na słabych\u201d'}
         />
       </div>
 
       {/* Motivation */}
-      <div className="flex flex-col gap-1">
-        <label htmlFor="npc-motivation" className="text-sm font-medium text-surface-700">
-          Motywacja
-        </label>
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="npc-motivation" className="text-sm font-medium text-surface-800">Motywacja</label>
         <input
           id="npc-motivation"
           {...register('motivation')}
-          className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="app-input rounded-2xl px-3.5 py-3 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           placeholder="Co chce osiągnąć?"
         />
       </div>
 
       {/* Appearance */}
-      <div className="flex flex-col gap-1">
-        <label htmlFor="npc-appearance" className="text-sm font-medium text-surface-700">
-          Wygląd
-        </label>
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="npc-appearance" className="text-sm font-medium text-surface-800">Wygląd</label>
         <textarea
           id="npc-appearance"
           {...register('appearance')}
           rows={3}
-          className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none"
+          className="app-input rounded-2xl px-3.5 py-3 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none"
           placeholder="Jak wygląda? Co rzuca się w oczy?"
         />
       </div>
 
       {/* Play style */}
-      <div className="flex flex-col gap-1">
-        <label htmlFor="npc-playStyle" className="text-sm font-medium text-surface-700">
-          Sposób odgrywania
-        </label>
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="npc-playStyle" className="text-sm font-medium text-surface-800">Sposób odgrywania</label>
         <textarea
           id="npc-playStyle"
           {...register('playStyle')}
           rows={3}
-          className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none"
+          className="app-input rounded-2xl px-3.5 py-3 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-none"
           placeholder="Jak go grać? Ton głosu, gesty, zachowanie…"
         />
       </div>
@@ -151,27 +143,27 @@ export function NpcForm({
             </button>
           )}
         />
-        <label className="text-sm font-medium text-surface-700">Postać gracza</label>
+        <label className="text-sm font-medium text-surface-800">Postać gracza</label>
       </div>
 
       {/* Player name (visible when isPC) */}
       {isPC && (
-        <div className="flex flex-col gap-1">
-          <label htmlFor="npc-playerName" className="text-sm font-medium text-surface-700">
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="npc-playerName" className="text-sm font-medium text-surface-800">
             Imię gracza
           </label>
           <input
             id="npc-playerName"
             {...register('playerName')}
-            className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="app-input rounded-2xl px-3.5 py-3 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
             placeholder="Kto gra tą postacią?"
           />
         </div>
       )}
 
       {/* Description */}
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-surface-700">Notatki</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-surface-800">Notatki</label>
         <Controller
           name="description"
           control={control}
@@ -186,8 +178,8 @@ export function NpcForm({
       </div>
 
       {/* Tags */}
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-surface-700">Tagi</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-surface-800">Tagi</label>
         <Controller
           name="tags"
           control={control}
@@ -198,12 +190,12 @@ export function NpcForm({
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-2 pt-2">
+      <div className="flex justify-end gap-3 pt-2">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md border border-surface-300 px-4 py-2 text-sm font-medium text-surface-700 hover:bg-surface-50"
+            className="app-button-secondary rounded-2xl px-4 py-3 text-sm font-medium transition-colors"
           >
             Anuluj
           </button>
@@ -211,7 +203,7 @@ export function NpcForm({
         <button
           type="submit"
           disabled={isSaving}
-          className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+          className="app-button-primary rounded-2xl px-4 py-3 text-sm font-medium transition-colors disabled:opacity-50"
         >
           {isSaving ? 'Zapisywanie…' : submitLabel}
         </button>

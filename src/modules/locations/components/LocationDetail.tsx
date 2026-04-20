@@ -34,7 +34,14 @@ import { moveNpcToLocation } from '@modules/sessions/utils/liveSessionCommands';
 import type { LocationFormValues } from './LocationForm';
 import type { Entity } from '@shared/types/entity';
 
-const DANGER_LABELS = ['Bezpieczna', 'Spokojnie', 'Umiarkowane', 'Niebezpiecznie', 'Śmiertelnie', 'Apokaliptyczne'];
+const DANGER_LABELS = [
+  'Bezpieczna',
+  'Spokojnie',
+  'Umiarkowane',
+  'Niebezpiecznie',
+  'Śmiertelnie',
+  'Apokaliptyczne',
+];
 const DANGER_COLORS = [
   'text-green-700 bg-green-100',
   'text-lime-700 bg-lime-100',
@@ -50,7 +57,8 @@ export function LocationDetail() {
   const locationState = useLocation();
   const { db } = useCampaign();
   const { location } = useLocationById(id);
-  const returnToSessionLive = (locationState.state as { returnToSessionLive?: string } | null)?.returnToSessionLive;
+  const returnToSessionLive = (locationState.state as { returnToSessionLive?: string } | null)
+    ?.returnToSessionLive;
   const backPath = returnToSessionLive ? `/sessions/${returnToSessionLive}/live` : '/locations';
   const { tree, children: descendantLocations } = useLocationTree(id);
   const contained = useContained(id);
@@ -82,7 +90,7 @@ export function LocationDetail() {
           <button
             type="button"
             onClick={() => navigate('/locations')}
-            className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+            className="app-button-primary rounded-full px-4 py-2 text-sm font-medium"
           >
             Wróć do lokacji
           </button>
@@ -191,20 +199,20 @@ export function LocationDetail() {
   const containedThreats = contained.filter((e) => e.type === 'threat');
 
   return (
-    <div className="mx-auto max-w-2xl p-6">
+    <div className="mx-auto max-w-5xl p-6">
       {/* Back */}
       <button
         type="button"
         onClick={() => navigate(backPath)}
-        className="mb-4 flex items-center gap-1.5 text-sm text-surface-500 hover:text-surface-800"
+        className="text-surface-500 hover:text-primary-700 mb-4 flex items-center gap-1.5 text-sm"
       >
         <ArrowLeft className="h-4 w-4" />
         {returnToSessionLive ? 'Sesja na żywo' : 'Lokacje'}
       </button>
 
       {editing ? (
-        <div className="rounded-xl border border-surface-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-base font-semibold text-surface-900">Edytuj lokację</h2>
+        <div className="app-panel rounded-[1.75rem] p-5 shadow-[0_20px_40px_rgba(18,45,66,0.08)] lg:p-6">
+          <h2 className="text-surface-900 mb-4 text-base font-semibold">Edytuj lokację</h2>
           <LocationForm
             key={`${location.id}:${currentParentLocationId ?? 'root'}`}
             defaultValues={{
@@ -230,68 +238,83 @@ export function LocationDetail() {
       ) : (
         <>
           {/* Header */}
-          <div className="mb-6 flex items-start justify-between gap-4">
+          <div className="app-panel-strong mb-6 flex flex-col gap-5 rounded-[1.9rem] border border-white/40 px-6 py-6 shadow-[0_28px_60px_rgba(18,45,66,0.12)] lg:flex-row lg:items-start lg:justify-between lg:px-7">
             <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-2xl font-bold text-surface-900">{location.name}</h1>
-                <span className="rounded-full bg-surface-100 px-2.5 py-1 text-xs text-surface-600">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-surface-900 text-3xl font-semibold tracking-[-0.03em]">
+                  {location.name}
+                </h1>
+                <span className="app-pill-muted rounded-full px-2.5 py-1 text-xs font-medium">
                   {LOCATION_TYPE_LABELS[locationType]}
                 </span>
                 {danger > 0 && (
-                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${DANGER_COLORS[danger] ?? ''}`}>
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${DANGER_COLORS[danger] ?? ''}`}
+                  >
                     ⚠ {DANGER_LABELS[danger] ?? `Danger ${danger}`}
                   </span>
                 )}
               </div>
-              <p className="mt-1 text-xs text-surface-400">
-                Utworzona {formatDate(location.createdAt)} · Edytowana {formatDate(location.updatedAt)}
+              <p className="text-surface-400 mt-1 text-xs">
+                Utworzona {formatDate(location.createdAt)} · Edytowana{' '}
+                {formatDate(location.updatedAt)}
               </p>
             </div>
-            <div className="flex gap-1.5">
+            <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setEditing(true)}
                 aria-label="Edytuj"
-                className="rounded-md border border-surface-200 p-2 text-surface-500 hover:bg-surface-50 hover:text-surface-800"
+                className="app-button-secondary inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
               >
                 <Pencil className="h-4 w-4" />
+                Edytuj
               </button>
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
                 aria-label="Usuń"
-                className="rounded-md border border-surface-200 p-2 text-surface-500 hover:bg-red-50 hover:text-red-600"
+                className="app-button-danger inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
               >
                 <Trash2 className="h-4 w-4" />
+                Usuń
               </button>
             </div>
           </div>
 
           {/* Senses */}
           {(senses.see || senses.hear || senses.smell || senses.feel) && (
-            <div className="mb-6 grid grid-cols-2 gap-3 rounded-xl border border-surface-200 bg-white p-5 shadow-sm">
+            <div className="app-panel mb-6 grid grid-cols-2 gap-4 rounded-[1.6rem] p-5 shadow-[0_16px_32px_rgba(18,45,66,0.08)] lg:p-6">
               {senses.see && (
                 <div>
-                  <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-surface-400">Widzisz</p>
-                  <p className="text-sm text-surface-700">{senses.see}</p>
+                  <p className="text-surface-400 mb-0.5 text-xs font-medium tracking-wide uppercase">
+                    Widzisz
+                  </p>
+                  <p className="text-surface-700 text-sm">{senses.see}</p>
                 </div>
               )}
               {senses.hear && (
                 <div>
-                  <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-surface-400">Słyszysz</p>
-                  <p className="text-sm text-surface-700">{senses.hear}</p>
+                  <p className="text-surface-400 mb-0.5 text-xs font-medium tracking-wide uppercase">
+                    Słyszysz
+                  </p>
+                  <p className="text-surface-700 text-sm">{senses.hear}</p>
                 </div>
               )}
               {senses.smell && (
                 <div>
-                  <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-surface-400">Czujesz (zapach)</p>
-                  <p className="text-sm text-surface-700">{senses.smell}</p>
+                  <p className="text-surface-400 mb-0.5 text-xs font-medium tracking-wide uppercase">
+                    Czujesz (zapach)
+                  </p>
+                  <p className="text-surface-700 text-sm">{senses.smell}</p>
                 </div>
               )}
               {senses.feel && (
                 <div>
-                  <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-surface-400">Atmosfera</p>
-                  <p className="text-sm text-surface-700">{senses.feel}</p>
+                  <p className="text-surface-400 mb-0.5 text-xs font-medium tracking-wide uppercase">
+                    Atmosfera
+                  </p>
+                  <p className="text-surface-700 text-sm">{senses.feel}</p>
                 </div>
               )}
             </div>
@@ -301,7 +324,10 @@ export function LocationDetail() {
           {location.tags.length > 0 && (
             <div className="mb-4 flex flex-wrap gap-1.5">
               {location.tags.map((tag) => (
-                <span key={tag} className="rounded-full bg-surface-100 px-2.5 py-1 text-xs text-surface-600">
+                <span
+                  key={tag}
+                  className="app-pill-muted rounded-full px-2.5 py-1 text-xs font-medium"
+                >
                   {tag}
                 </span>
               ))}
@@ -310,20 +336,25 @@ export function LocationDetail() {
 
           {/* Description */}
           {location.description && (
-            <div
-              className="prose prose-sm mb-6 max-w-none text-surface-700"
-              dangerouslySetInnerHTML={{ __html: location.description }}
-            />
+            <section className="app-panel mb-6 rounded-[1.6rem] p-5 shadow-[0_16px_32px_rgba(18,45,66,0.08)] lg:p-6">
+              <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
+                Opis
+              </h2>
+              <div
+                className="prose prose-sm text-surface-700 max-w-none"
+                dangerouslySetInnerHTML={{ __html: location.description }}
+              />
+            </section>
           )}
 
           {/* Sub-location tree */}
           <section className="mb-6">
             <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-surface-800">Podlokacje</h2>
+              <h2 className="text-surface-800 text-sm font-semibold">Podlokacje</h2>
               <button
                 type="button"
                 onClick={() => setAddChildToId(id)}
-                className="flex items-center gap-1 rounded-md border border-surface-200 px-2.5 py-1 text-xs text-surface-600 hover:bg-surface-50"
+                className="app-button-secondary flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Dodaj
@@ -331,8 +362,8 @@ export function LocationDetail() {
             </div>
 
             {addChildToId === id && (
-              <div className="mb-3 rounded-xl border border-surface-200 bg-white p-4 shadow-sm">
-                <h3 className="mb-3 text-sm font-semibold text-surface-900">Nowa podlokacja</h3>
+              <div className="app-panel mb-3 rounded-[1.4rem] p-4 shadow-[0_16px_30px_rgba(18,45,66,0.08)]">
+                <h3 className="text-surface-900 mb-3 text-sm font-semibold">Nowa podlokacja</h3>
                 <LocationForm
                   onSubmit={(v) => handleAddChild(id, v)}
                   onCancel={() => setAddChildToId(null)}
@@ -344,7 +375,7 @@ export function LocationDetail() {
             )}
 
             {tree.length === 0 && !addChildToId && (
-              <p className="text-sm text-surface-400">Brak podlokacji</p>
+              <p className="text-surface-400 text-sm">Brak podlokacji</p>
             )}
             <LocationTree
               nodes={tree}
@@ -354,12 +385,16 @@ export function LocationDetail() {
           </section>
 
           {/* Contained entities */}
-          {(containedNpcs.length > 0 || containedItems.length > 0 || containedThreats.length > 0) && (
+          {(containedNpcs.length > 0 ||
+            containedItems.length > 0 ||
+            containedThreats.length > 0) && (
             <section className="mb-6 flex flex-col gap-4">
               {containedNpcs.length > 0 && (
                 <DndContext onDragEnd={handleNpcDrop}>
                   <DroppableLocationZone locationId={location.id}>
-                    <h2 className="mb-2 text-sm font-semibold text-surface-800">Postacie w tej lokacji</h2>
+                    <h2 className="text-surface-800 mb-2 text-sm font-semibold">
+                      Postacie w tej lokacji
+                    </h2>
                     <ul className="flex flex-col gap-1">
                       {containedNpcs.map((e) => (
                         <li key={e.id}>
@@ -371,7 +406,7 @@ export function LocationDetail() {
                             <button
                               type="button"
                               onClick={() => navigate(`/npcs/${e.id}`)}
-                              className="w-full rounded-md px-3 py-2 text-left text-sm text-surface-700 hover:bg-surface-50"
+                              className="app-input-shell text-surface-700 hover:border-primary-300 w-full rounded-[1.1rem] px-3 py-2.5 text-left text-sm transition-colors hover:bg-[rgba(229,231,223,0.98)]"
                             >
                               {e.name}
                             </button>
@@ -384,14 +419,14 @@ export function LocationDetail() {
               )}
               {containedItems.length > 0 && (
                 <div>
-                  <h2 className="mb-2 text-sm font-semibold text-surface-800">Przedmioty</h2>
+                  <h2 className="text-surface-800 mb-2 text-sm font-semibold">Przedmioty</h2>
                   <ul className="flex flex-col gap-1">
                     {containedItems.map((e) => (
                       <li key={e.id}>
                         <button
                           type="button"
                           onClick={() => navigate(`/items/${e.id}`)}
-                          className="w-full rounded-md px-3 py-2 text-left text-sm text-surface-700 hover:bg-surface-50"
+                          className="app-input-shell text-surface-700 hover:border-primary-300 w-full rounded-[1.1rem] px-3 py-2.5 text-left text-sm transition-colors hover:bg-[rgba(229,231,223,0.98)]"
                         >
                           {e.name}
                         </button>
@@ -402,14 +437,14 @@ export function LocationDetail() {
               )}
               {containedThreats.length > 0 && (
                 <div>
-                  <h2 className="mb-2 text-sm font-semibold text-surface-800">Zagrożenia</h2>
+                  <h2 className="text-surface-800 mb-2 text-sm font-semibold">Zagrożenia</h2>
                   <ul className="flex flex-col gap-1">
                     {containedThreats.map((e) => (
                       <li key={e.id}>
                         <button
                           type="button"
                           onClick={() => navigate(`/fronts/${e.id}`)}
-                          className="w-full rounded-md px-3 py-2 text-left text-sm text-surface-700 hover:bg-surface-50"
+                          className="app-input-shell text-surface-700 hover:border-primary-300 w-full rounded-[1.1rem] px-3 py-2.5 text-left text-sm transition-colors hover:bg-[rgba(229,231,223,0.98)]"
                         >
                           {e.name}
                         </button>
@@ -424,11 +459,11 @@ export function LocationDetail() {
           {/* Relations */}
           <section className="mb-6">
             <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-surface-800">Relacje</h2>
+              <h2 className="text-surface-800 text-sm font-semibold">Relacje</h2>
               <button
                 type="button"
                 onClick={() => setShowRelationPicker(true)}
-                className="flex items-center gap-1 rounded-md border border-surface-200 px-2.5 py-1 text-xs text-surface-600 hover:bg-surface-50"
+                className="app-button-secondary flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Dodaj

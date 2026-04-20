@@ -14,29 +14,37 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import type { FactionFormValues } from './FactionForm';
 
 function useFactionMembers(db: MgHelperDb, factionId: string | undefined) {
-  return useLiveQuery(async () => {
-    if (!factionId) return [];
-    const rels = await db.relations
-      .where('targetId')
-      .equals(factionId)
-      .filter((r) => r.type === 'belongs_to')
-      .toArray();
-    const entities = await Promise.all(rels.map((r) => getEntityById(db, r.sourceId)));
-    return entities.filter((e): e is NonNullable<typeof e> => e !== undefined && e.type === 'npc');
-  }, [db, factionId]) ?? [];
+  return (
+    useLiveQuery(async () => {
+      if (!factionId) return [];
+      const rels = await db.relations
+        .where('targetId')
+        .equals(factionId)
+        .filter((r) => r.type === 'belongs_to')
+        .toArray();
+      const entities = await Promise.all(rels.map((r) => getEntityById(db, r.sourceId)));
+      return entities.filter(
+        (e): e is NonNullable<typeof e> => e !== undefined && e.type === 'npc',
+      );
+    }, [db, factionId]) ?? []
+  );
 }
 
 function useFactionLocations(db: MgHelperDb, factionId: string | undefined) {
-  return useLiveQuery(async () => {
-    if (!factionId) return [];
-    const rels = await db.relations
-      .where('targetId')
-      .equals(factionId)
-      .filter((r) => r.type === 'belongs_to')
-      .toArray();
-    const entities = await Promise.all(rels.map((r) => getEntityById(db, r.sourceId)));
-    return entities.filter((e): e is NonNullable<typeof e> => e !== undefined && e.type === 'location');
-  }, [db, factionId]) ?? [];
+  return (
+    useLiveQuery(async () => {
+      if (!factionId) return [];
+      const rels = await db.relations
+        .where('targetId')
+        .equals(factionId)
+        .filter((r) => r.type === 'belongs_to')
+        .toArray();
+      const entities = await Promise.all(rels.map((r) => getEntityById(db, r.sourceId)));
+      return entities.filter(
+        (e): e is NonNullable<typeof e> => e !== undefined && e.type === 'location',
+      );
+    }, [db, factionId]) ?? []
+  );
 }
 
 export function FactionDetail() {
@@ -54,9 +62,15 @@ export function FactionDetail() {
   if (faction === undefined) return <LoadingSpinner />;
   if (!faction) {
     return (
-      <div className="p-6">
+      <div className="mx-auto flex max-w-5xl flex-col gap-4 p-6">
         <p className="text-surface-500">Frakcja nie znaleziona.</p>
-        <Link to="/factions" className="text-primary-600 hover:underline">← Powrót</Link>
+        <Link
+          to="/factions"
+          className="text-surface-500 hover:text-primary-700 flex w-fit items-center gap-1.5 text-sm transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Frakcje
+        </Link>
       </div>
     );
   }
@@ -90,30 +104,57 @@ export function FactionDetail() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <Link to="/factions" className="flex w-fit items-center gap-1.5 text-sm text-surface-500 hover:text-surface-800">
+    <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
+      <Link
+        to="/factions"
+        className="text-surface-500 hover:text-primary-700 flex w-fit items-center gap-1.5 text-sm"
+      >
         <ArrowLeft className="h-4 w-4" /> Frakcje
       </Link>
 
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Flag className="h-6 w-6 shrink-0 text-primary-500" />
-          <h1 className="text-xl font-semibold text-surface-900">{faction.name}</h1>
+      <div className="app-panel-strong flex flex-col gap-5 rounded-[1.9rem] border border-white/40 px-6 py-6 shadow-[0_28px_60px_rgba(18,45,66,0.12)] lg:flex-row lg:items-start lg:justify-between lg:px-7">
+        <div className="flex items-center gap-4">
+          <div className="app-panel text-primary-700 rounded-[1.25rem] p-3 shadow-[0_14px_28px_rgba(18,45,66,0.12)]">
+            <Flag className="h-5 w-5 shrink-0" />
+          </div>
+          <h1 className="text-surface-900 text-3xl font-semibold tracking-[-0.03em]">
+            {faction.name}
+          </h1>
         </div>
-        <div className="flex gap-2">
-          <button onClick={() => setIsEditing(!isEditing)} className="flex items-center gap-1.5 rounded-md border border-surface-300 px-3 py-1.5 text-sm hover:bg-surface-50">
-            {isEditing ? <><X className="h-3.5 w-3.5" /> Anuluj</> : <><Edit2 className="h-3.5 w-3.5" /> Edytuj</>}
+        <div className="flex flex-wrap gap-2 lg:justify-end">
+          <button
+            onClick={() => setIsEditing(!isEditing)}
+            className="app-button-secondary inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
+          >
+            {isEditing ? (
+              <>
+                <X className="h-3.5 w-3.5" /> Anuluj
+              </>
+            ) : (
+              <>
+                <Edit2 className="h-3.5 w-3.5" /> Edytuj
+              </>
+            )}
           </button>
-          <button onClick={() => setConfirmDelete(true)} className="flex items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50">
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="app-button-danger inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
+          >
             <Trash2 className="h-3.5 w-3.5" /> Usuń
           </button>
         </div>
       </div>
 
       {isEditing && (
-        <div className="rounded-xl border border-surface-200 bg-white p-5 shadow-sm">
+        <div className="app-panel rounded-[1.75rem] p-4 shadow-[0_20px_40px_rgba(18,45,66,0.08)] lg:p-6">
           <FactionForm
-            defaultValues={{ name: faction.name, goals: faction.data.goals, resources: faction.data.resources, description: faction.description, tags: faction.tags }}
+            defaultValues={{
+              name: faction.name,
+              goals: faction.data.goals,
+              resources: faction.data.resources,
+              description: faction.description,
+              tags: faction.tags,
+            }}
             onSubmit={handleUpdate}
             isSaving={saving}
             onCancel={() => setIsEditing(false)}
@@ -122,51 +163,81 @@ export function FactionDetail() {
       )}
 
       {!isEditing && faction.data.goals.length > 0 && (
-        <div className="rounded-xl border border-surface-200 bg-white p-5">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-surface-500">Cele</h2>
-          <ul className="list-disc list-inside space-y-1.5">
-            {faction.data.goals.map((g, i) => <li key={i} className="text-sm text-surface-700">{g}</li>)}
+        <div className="app-panel rounded-[1.6rem] p-5 lg:p-6">
+          <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
+            Cele
+          </h2>
+          <ul className="list-inside list-disc space-y-1.5">
+            {faction.data.goals.map((g, i) => (
+              <li key={i} className="text-surface-700 text-sm">
+                {g}
+              </li>
+            ))}
           </ul>
         </div>
       )}
 
       {!isEditing && faction.data.resources.length > 0 && (
-        <div className="rounded-xl border border-surface-200 bg-white p-5">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-surface-500">Zasoby</h2>
-          <ul className="list-disc list-inside space-y-1.5">
-            {faction.data.resources.map((r, i) => <li key={i} className="text-sm text-surface-700">{r}</li>)}
+        <div className="app-panel rounded-[1.6rem] p-5 lg:p-6">
+          <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
+            Zasoby
+          </h2>
+          <ul className="list-inside list-disc space-y-1.5">
+            {faction.data.resources.map((r, i) => (
+              <li key={i} className="text-surface-700 text-sm">
+                {r}
+              </li>
+            ))}
           </ul>
         </div>
       )}
 
       {!isEditing && faction.description && (
-        <div className="rounded-xl border border-surface-200 bg-white p-5">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-surface-500">Opis</h2>
-          <div className="prose prose-sm max-w-none text-surface-700" dangerouslySetInnerHTML={{ __html: faction.description }} />
+        <div className="app-panel rounded-[1.6rem] p-5 lg:p-6">
+          <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
+            Opis
+          </h2>
+          <div
+            className="prose prose-sm text-surface-700 max-w-none"
+            dangerouslySetInnerHTML={{ __html: faction.description }}
+          />
         </div>
       )}
 
       {!isEditing && faction.tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {faction.tags.map((t) => <span key={t} className="rounded-full bg-primary-50 px-2.5 py-0.5 text-xs text-primary-700">{t}</span>)}
+          {faction.tags.map((t) => (
+            <span key={t} className="app-pill rounded-full px-2.5 py-1 text-xs font-medium">
+              {t}
+            </span>
+          ))}
         </div>
       )}
 
       {/* Members */}
       {!isEditing && (
-        <div className="rounded-xl border border-surface-200 bg-white p-5">
+        <div className="app-panel rounded-[1.6rem] p-5 lg:p-6">
           <div className="mb-3 flex items-center gap-2">
-            <Users className="h-4 w-4 text-surface-400" />
-            <h2 className="text-sm font-semibold text-surface-700">Członkowie (Postacie)</h2>
-            <span className="ml-auto rounded-full bg-surface-100 px-2 py-0.5 text-xs text-surface-500">{members.length}</span>
+            <Users className="text-surface-400 h-4 w-4" />
+            <h2 className="text-surface-700 text-sm font-semibold">Członkowie (Postacie)</h2>
+            <span className="app-pill-muted ml-auto rounded-full px-2 py-0.5 text-xs font-medium">
+              {members.length}
+            </span>
           </div>
           {members.length === 0 ? (
-            <p className="text-xs text-surface-400">Brak — przypisz postać do tej frakcji z widoku Postaci.</p>
+            <p className="text-surface-400 text-xs">
+              Brak — przypisz postać do tej frakcji z widoku Postaci.
+            </p>
           ) : (
-            <ul className="space-y-1">
+            <ul className="space-y-2">
               {members.map((e) => (
                 <li key={e.id}>
-                  <Link to={`/npcs/${e.id}`} className="text-sm text-primary-600 hover:underline">{e.name}</Link>
+                  <Link
+                    to={`/npcs/${e.id}`}
+                    className="app-input-shell text-surface-700 hover:border-primary-300 hover:text-primary-700 inline-flex w-full rounded-[1rem] px-3 py-2 text-sm font-medium transition-colors"
+                  >
+                    {e.name}
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -176,19 +247,28 @@ export function FactionDetail() {
 
       {/* Headquarters (locations) */}
       {!isEditing && (
-        <div className="rounded-xl border border-surface-200 bg-white p-5">
+        <div className="app-panel rounded-[1.6rem] p-5 lg:p-6">
           <div className="mb-3 flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-surface-400" />
-            <h2 className="text-sm font-semibold text-surface-700">Siedziby (lokacje)</h2>
-            <span className="ml-auto rounded-full bg-surface-100 px-2 py-0.5 text-xs text-surface-500">{locations.length}</span>
+            <MapPin className="text-surface-400 h-4 w-4" />
+            <h2 className="text-surface-700 text-sm font-semibold">Siedziby (lokacje)</h2>
+            <span className="app-pill-muted ml-auto rounded-full px-2 py-0.5 text-xs font-medium">
+              {locations.length}
+            </span>
           </div>
           {locations.length === 0 ? (
-            <p className="text-xs text-surface-400">Brak — przypisz lokację do tej frakcji z widoku lokacji.</p>
+            <p className="text-surface-400 text-xs">
+              Brak — przypisz lokację do tej frakcji z widoku lokacji.
+            </p>
           ) : (
-            <ul className="space-y-1">
+            <ul className="space-y-2">
               {locations.map((e) => (
                 <li key={e.id}>
-                  <Link to={`/locations/${e.id}`} className="text-sm text-primary-600 hover:underline">{e.name}</Link>
+                  <Link
+                    to={`/locations/${e.id}`}
+                    className="app-input-shell text-surface-700 hover:border-primary-300 hover:text-primary-700 inline-flex w-full rounded-[1rem] px-3 py-2 text-sm font-medium transition-colors"
+                  >
+                    {e.name}
+                  </Link>
                 </li>
               ))}
             </ul>

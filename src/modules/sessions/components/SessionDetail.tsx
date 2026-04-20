@@ -30,12 +30,14 @@ import { addRelation, deleteEntity, updateEntity, getEntityById } from '@shared/
 import { useCampaign } from '@shared/db/CampaignContext';
 import type { MgHelperDb } from '@shared/db/database';
 import { toast } from 'sonner';
+import { toastRemoveEntitySuccess, toastRemoveEntityError } from '@shared/utils/toastSessionEntity';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Modal } from '@shared/components/Modal';
 import { NpcCampaignPickerModal } from './NpcCampaignPickerModal';
 import { LocationPickerModal } from './LocationPickerModal';
 import type { SessionFormValues } from './SessionForm';
 import type { Entity } from '@shared/types/entity';
+import { removeEntityFromSession } from '../utils/liveSessionCommands';
 
 function useSessionAppearances(db: MgHelperDb, sessionId: string | undefined) {
   return (
@@ -228,8 +230,9 @@ function SessionEntityColumn({
   items,
   hrefBase,
   onAdd,
+  onRemove,
   accent = 'default',
-}: SessionEntityColumnProps) {
+}: SessionEntityColumnProps & { onRemove?: (id: string, name: string) => void }) {
   const iconShellClass =
     accent === 'gold'
       ? 'bg-[rgba(242,196,88,0.16)] text-[#9a6710]'
@@ -246,7 +249,8 @@ function SessionEntityColumn({
           type="button"
           onClick={onAdd}
           className="text-surface-600 hover:text-primary-700 rounded-xl border border-[rgba(86,93,94,0.12)] p-1.5 transition-colors hover:bg-[rgba(223,225,218,0.75)]"
-          title={`Dodaj: ${title}`}
+          title={`Dodaj do sesji: ${title}`}
+          aria-label={`Dodaj do sesji: ${title}`}
         >
           <Plus className="h-3.5 w-3.5" />
         </button>
@@ -254,17 +258,30 @@ function SessionEntityColumn({
       </div>
 
       {items.length === 0 ? (
-        <p className="text-surface-500 text-xs">Brak</p>
+        <p className="text-surface-500 text-xs">Brak w sesji</p>
       ) : (
         <ul className="space-y-2">
           {items.map((item) => (
-            <li key={item.id}>
+            <li key={item.id} className="group flex items-center pl-0 pr-0 relative">
               <Link
                 to={`${hrefBase}/${item.id}`}
-                className="text-primary-800 hover:text-primary-900 text-sm leading-6 transition-colors hover:underline"
+                className="text-primary-800 hover:text-primary-900 text-sm leading-6 transition-colors hover:underline flex-1 min-w-0 pl-0"
               >
                 {item.name}
               </Link>
+              {onRemove && (
+                <button
+                  type="button"
+                  className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 rounded p-1.5 hover:bg-[rgba(223,225,218,0.75)] transition-all focus:opacity-100"
+                  style={{marginRight: '0.25rem'}} // 1rem = 16px, 0.25rem = 4px, matches left padding
+                  title={`Usuń z sesji: ${item.name}`}
+                  aria-label={`Usuń z sesji: ${item.name}`}
+                  onClick={() => onRemove(item.id, item.name)}
+                  tabIndex={0}
+                >
+                  <X className="h-3.5 w-3.5 text-danger-600" />
+                </button>
+              )}
             </li>
           ))}
         </ul>
@@ -303,6 +320,19 @@ export function SessionDetail() {
     );
   }
 
+  // Generyczny handler usuwania encji z sesji dla wszystkich typów
+  function handleRemoveEntityFromSession(entityType: string) {
+    return async (entityId: string, entityName: string) => {
+      try {
+        const removed = await removeEntityFromSession(db, entityId, id!);
+        if (!removed) return;
+        toast.success(toastRemoveEntitySuccess(entityType, entityName));
+      } catch {
+        toast.error(toastRemoveEntityError(entityType));
+      }
+    };
+  }
+
   const title = session.name || `Sesja ${session.data.number}`;
   const formattedDate = session.data.date
     ? format(parseISO(session.data.date), 'd MMMM yyyy', { locale: pl })
@@ -311,7 +341,7 @@ export function SessionDetail() {
   async function handleUpdate(values: SessionFormValues) {
     setSaving(true);
     try {
-      await updateEntity(db, session.id, {
+      await updateEntity(db, session!.id, {
         name: values.name || `Sesja ${values.number}`,
         description: values.description,
         tags: values.tags,
@@ -332,7 +362,7 @@ export function SessionDetail() {
 
   async function handleDelete() {
     try {
-      await deleteEntity(db, session.id);
+      await deleteEntity(db, session!.id);
       toast.success(`${title} usunięta`);
       navigate('/sessions');
     } catch {
@@ -454,7 +484,7 @@ export function SessionDetail() {
             <button
               type="button"
               onClick={() => setConfirmDelete(true)}
-              className="text-danger-700 inline-flex items-center gap-2 rounded-2xl border border-[rgba(176,108,103,0.32)] bg-[rgba(176,108,103,0.08)] px-4 py-3 text-sm font-medium transition-colors hover:bg-[rgba(176,108,103,0.14)]"
+              className="app-button-danger inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium transition-colors"
             >
               <Trash2 className="h-4 w-4" />
               Usuń
@@ -535,6 +565,7 @@ export function SessionDetail() {
             items={appearances.npcs}
             hrefBase="/npcs"
             onAdd={() => setNpcPickerOpen(true)}
+            onRemove={handleRemoveEntityFromSession('npc')}
           />
           <SessionEntityColumn
             title="Lokacje"
@@ -543,6 +574,7 @@ export function SessionDetail() {
             items={appearances.locations}
             hrefBase="/locations"
             onAdd={() => setLocationPickerOpen(true)}
+            onRemove={handleRemoveEntityFromSession('location')}
           />
           <SessionEntityColumn
             title="Przedmioty"
@@ -551,6 +583,7 @@ export function SessionDetail() {
             items={appearances.items}
             hrefBase="/items"
             onAdd={() => setItemPickerOpen(true)}
+            onRemove={handleRemoveEntityFromSession('item')}
           />
           <SessionEntityColumn
             title="Wątki"
@@ -559,6 +592,7 @@ export function SessionDetail() {
             items={appearances.threads}
             hrefBase="/threads"
             onAdd={() => setThreadPickerOpen(true)}
+            onRemove={handleRemoveEntityFromSession('thread')}
           />
           <SessionEntityColumn
             title="Wskazówki"
@@ -567,6 +601,7 @@ export function SessionDetail() {
             items={appearances.clues}
             hrefBase="/clues"
             onAdd={() => setCluePickerOpen(true)}
+            onRemove={handleRemoveEntityFromSession('clue')}
           />
           <SessionEntityColumn
             title="Zagrożenia"
@@ -575,6 +610,7 @@ export function SessionDetail() {
             items={appearances.threats}
             hrefBase="/threats"
             onAdd={() => setThreatPickerOpen(true)}
+            onRemove={handleRemoveEntityFromSession('threat')}
             accent="gold"
           />
         </section>

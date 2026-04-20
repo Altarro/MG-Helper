@@ -45,7 +45,7 @@ describe('EntityCard', () => {
     const longDesc = 'A'.repeat(200);
     const entity = { ...SAMPLE_ENTITY, description: longDesc };
     renderWithProviders(<EntityCard entity={entity} />);
-    const preview = screen.getByText(/A+…/);
+    const preview = screen.getByText(/A+(…|\.\.\.)/);
     expect(preview.textContent!.length).toBeLessThanOrEqual(155); // 150 + ellipsis
   });
 

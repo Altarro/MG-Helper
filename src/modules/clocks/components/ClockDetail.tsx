@@ -194,17 +194,19 @@ export function ClockDetail() {
                 type="button"
                 onClick={() => setEditing(true)}
                 aria-label="Edytuj"
-                className="rounded-md border border-surface-200 p-2 text-surface-500 hover:bg-surface-50 hover:text-surface-800"
+                className="app-button-secondary inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
               >
                 <Pencil className="h-4 w-4" />
+                Edytuj
               </button>
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
                 aria-label="Usuń"
-                className="rounded-md border border-surface-200 p-2 text-surface-500 hover:bg-red-50 hover:text-red-600"
+                className="app-button-danger inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
               >
                 <Trash2 className="h-4 w-4" />
+                Usuń
               </button>
             </div>
           </div>

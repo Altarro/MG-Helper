@@ -1512,3 +1512,176 @@ Zrealizowane:
 - Wszystkie kluczowe byty i relacje, ktore logicznie powinny byc otwieralne, sa klikalne.
 - Detail, lista i breadcrumb mowia tym samym jezykiem domenowym.
 - Aplikacja nie ma juz przypadkowych martwych koncowek w nawigacji MG.
+
+---
+
+## Aneks aktywny - QoL plan od 2026-04-20
+
+Status:
+- [x] Aktywny
+
+Wazne:
+- [x] Data startu tego aneksu: `2026-04-20`.
+- [x] Wszystko powyzej tej sekcji traktujemy jako archiwum i material referencyjny.
+- [ ] Zadania ponizej sa aktualnym planem wykonawczym QoL.
+
+### QOL.1 - Sesje: symetria akcji `Dodaj` / `Odepnij`
+
+Status:
+ - [x] Wykonane
+
+Zakres:
+ - [x] QOL.1a Dodac szybkie `Usun z sesji` na ekranie detail sesji dla wszystkich kolumn encji:
+   - [x] Postacie
+   - [x] Lokacje
+   - [x] Przedmioty
+   - [x] Watki
+   - [x] Wskazowki
+   - [x] Zagrozenia
+ - [x] QOL.1b Podpiac akcje usuwania pod wspolna komende `removeEntityFromSession`, aby nie dublowac logiki.
+ - [x] QOL.1c Ujednolicic komunikaty sukcesu/bledow przy dodawaniu i odpinaniu encji z sesji.
+ - [x] QOL.1d Potwierdzic spojne zachowanie miedzy:
+   - [x] `SessionDetail`
+   - [x] `SessionNpcPanel`
+   - [x] `SessionHudTray`
+
+Wynik:
+ - [x] W kazdym glownym wejsciu do sesji da sie encje i szybko dodac, i szybko odpiac.
+
+### QOL.2 - Standaryzacja formatek i formularzy
+
+Status:
+- [x] Wykonane
+
+Zakres:
+  - [x] QOL.2a Spisac jeden kontrakt UI formularzy (spacing, label, helper/error, focus, przyciski, stany zapisu).
+
+#### Kontrakt UI formularzy (QOL.2a)
+
+- Pola tekstowe: `app-input` (input, textarea), shell: `app-input-shell` (np. TagInput, RichTextEditor)
+- Przycisk główny: `app-button-primary`, przycisk anuluj: `app-button-secondary`
+- Label: `text-sm font-medium text-surface-700` lub `text-surface-800`
+- Helper/error: `text-xs text-red-600` pod polem, aria-describedby
+- Focus: `focus:border-primary-500 focus:ring-primary-500/20` (inputy), `focus:outline-none`
+- Spacing: `flex flex-col gap-1.5` dla pól, `gap-4` dla sekcji
+- Stany zapisu: disabled + `disabled:opacity-50`, tekst „Zapisywanie…”
+- Wszystkie formularze mają `noValidate` i obsługę błędów przez aria-invalid/aria-describedby
+- Przycisk submit zawsze po prawej, anuluj po lewej, w jednym rzędzie
+- Komponenty złożone (TagInput, RichTextEditor) mają shell i focus ring
+
+Wzorzec referencyjny: `src/shared/components/EntityForm.tsx`
+- [x] QOL.2b Ujednolicic formularze encji wokol wspolnych prymitywow (`app-input`, `app-input-shell`, `app-button-primary`, `app-button-secondary`).
+- [x] QOL.2c Przejsc moduly formularz po formularzu:
+  - [x] `NpcForm`
+  - [x] `LocationForm`
+  - [x] `SessionForm`
+  - [x] `ThreadForm`
+  - [x] `ClueForm`
+  - [x] `ItemForm`
+  - [x] `FactionForm`
+ - [x] QOL.2d Zostawic lokalne odstepstwa tylko tam, gdzie sa uzasadnione domenowo i opisane komentarzem.
+
+#### Odstępstwa lokalne (QOL.2d)
+
+NpcForm: brak odstępstw – całość zgodna z kontraktem UI.
+LocationForm: brak odstępstw – całość zgodna z kontraktem UI.
+SessionForm: brak odstępstw – całość zgodna z kontraktem UI.
+ThreadForm: lokalne odstępstwo domenowe – selektory statusu/typu/priorytetu oraz paleta kolorów pozostają jako przyciski typu "chip", bo dają szybszą zmianę stanu niż select.
+ClueForm: lokalne odstępstwo domenowe – przełącznik "Odkryta przez graczy" pozostaje jako switch (rola `switch`) dla czytelnej binarnej akcji przy stole.
+ItemForm: lokalne odstępstwo domenowe – dynamiczna lista właściwości używa kompaktowych przycisków dodaj/usuń w wierszu dla szybkiej edycji wielu elementów.
+FactionForm: lokalne odstępstwo domenowe – dynamiczne listy celów i zasobów używają kompaktowych przycisków dodaj/usuń dla szybkiej pracy na listach.
+
+Wynik:
+- [x] Formatki przestaja wygladac jak osobne epoki projektu i dzialaja wg jednego wzorca.
+
+### QOL.3 - Ergonomia i semantyka akcji
+
+Status:
+- [x] Zrobione
+
+Cel:
+- [x] Użytkownik ma wszędzie ten sam język i ten sam model akcji: `Dodaj do sesji`, `Usuń z sesji`, `Przypnij do sceny`, `Odepnij ze sceny`.
+
+Zakres:
+- [x] QOL.3a Ujednolicono akcje destrukcyjne i edycyjne w detailach (`Edytuj` / `Usuń`) oraz wspólny styl `app-button-danger`.
+- [x] QOL.3b Ujednolicono słownictwo akcji w panelach live (`SessionDetail`, `SessionNpcPanel`, `SessionHudTray`, `SessionSearchPanel`, `ThreadTreePanel`):
+  - [x] jedna semantyka dla sesji: `Dodaj do sesji` / `Usuń z sesji`
+  - [x] jedna semantyka dla sceny: `Przypnij do sceny` / `Odepnij ze sceny`
+- [x] QOL.3c Domknięto affordance akcji kontekstowych:
+  - [x] kompletne `title` i `aria-label` dla akcji ikonowych
+  - [x] spójna mapa ikon: `Plus`, `X`, `Trash2`, `MapPin`, `MapPinOff`
+- [x] QOL.3d Dopracowano empty state i mikrocopy paneli sesji:
+  - [x] każdy pusty stan mówi, co zrobić jako następny krok
+  - [x] brak technicznych i niejednoznacznych komunikatów
+- [x] QOL.3e Wykonano audyt martwych klików i elementów pozornie klikalnych.
+
+Kryteria odbioru:
+- [x] Każda akcja live ma jednoznaczną etykietę i przewidywalny efekt.
+- [x] Akcje ikonowe mają `title` i `aria-label`.
+- [x] Użytkownik nie musi zgadywać różnicy między operacją „na sesji” i „na scenie”.
+
+Wynik:
+- [x] Obsługa sesji jest intuicyjna przy stole i odporna na pomyłki operatora.
+
+### QOL.4 - Regresje testowe dla QoL
+
+Status:
+- [x] Zrobione
+
+Zakres:
+- [x] QOL.4a Dodano testy scenariuszowe dla `dodaj -> odpinaj` na detailu sesji:
+  - [x] warstwa komend (`liveSessionCommands`)
+  - [x] warstwa UI (`SessionDetail`)
+- [x] QOL.4b Dodano testy regresyjne dla paneli live:
+  - [x] `SessionNpcPanel` (dodaj / usuń / przypnij / odepnij)
+  - [x] `SessionHudTray` (dodaj / usuń / zmiana statusu wątku)
+  - [x] `SessionSearchPanel` (pin/unpin + szybki podgląd)
+- [x] QOL.4c Dodano testy dostępnościowe dla nowych akcji:
+  - [x] `aria-label` dla przycisków ikonowych
+  - [x] focus i klawiatura (`Tab`, `Enter`, `Escape` gdzie dotyczy)
+- [x] QOL.4d Potwierdzono brak regresji poza modułem sesji:
+  - [x] istnieje pokrycie import/export
+  - [x] istnieje pokrycie wielokampanijności
+  - [x] spięto testy w finalny run odbiorowy QoL i zapisano wynik
+
+Kryteria odbioru:
+- [x] Testy QoL przechodzą lokalnie i w CI bez flakiness.
+- [x] Każdy błąd regresyjny QoL jest odtwarzalny testem automatycznym.
+
+Wynik:
+- [x] Usprawnienia QoL są zabezpieczone testami przed nawrotem problemów.
+
+### QOL.5 - Odbiór, bramki i wdrożenie
+
+Status:
+- [x] Zrobione
+
+Zakres:
+- [x] QOL.5a Przejść komplet bramek jakości w jednym finalnym przebiegu:
+  - [x] `pnpm typecheck`
+  - [x] `pnpm lint`
+  - [x] `pnpm test`
+  - [x] `pnpm build`
+- [x] QOL.5b Wykonać smoke test UX sesji (scenariuszowy):
+  - [x] dodanie encji do sesji
+  - [x] usunięcie encji z sesji
+  - [x] przypięcie i odpięcie encji ze sceny
+  - [x] przejścia między detailami bez martwych klików
+- [x] QOL.5c Domknąć dokumentację odbiorową:
+  - [x] dopisać wynik do `docs/CHANGELOG.md`
+  - [x] dodać końcową notę „QoL gotowe do release” w tym aneksie
+
+Wynik:
+- [x] QoL jest gotowy do release bez regresji funkcjonalnych i UX.
+
+Końcowa nota odbiorowa:
+- [x] QoL gotowe do release (`2026-04-20`).
+
+### Definition of Done (Aneks QoL)
+
+- [x] Słownictwo akcji jest spójne między `SessionDetail`, `SessionNpcPanel`, `SessionHudTray`, `SessionSearchPanel` i `ThreadTreePanel`.
+- [x] Użytkownik wykonuje scenariusz `dodaj -> przypnij -> odepnij -> usuń z sesji` bez zgadywania intencji UI.
+- [x] Pokrycie testowe z QOL.4 przechodzi stabilnie.
+- [x] Import/export i wielokampanijność nie regresują po zmianach QoL.
+- [x] Wszystkie bramki jakości są zielone.
+- [x] Changelog i aneks QoL zawierają końcowy zapis odbioru.

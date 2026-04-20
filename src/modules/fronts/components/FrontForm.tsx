@@ -71,96 +71,113 @@ export function FrontForm({
 
   return (
     <form onSubmit={handleSubmit(handleValidSubmit)} className="flex flex-col gap-4" noValidate>
-      <div className="flex flex-col gap-1">
-        <label htmlFor="front-name" className="text-sm font-medium text-surface-700">
-          Nazwa <span className="text-red-500" aria-hidden="true">*</span>
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="front-name" className="text-surface-800 text-sm font-medium">
+          Nazwa{' '}
+          <span className="text-red-500" aria-hidden="true">
+            *
+          </span>
         </label>
         <input
           id="front-name"
           {...register('name')}
-          className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="app-input text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:ring-primary-500/20 rounded-2xl px-3.5 py-3 text-sm focus:ring-2 focus:outline-none"
           placeholder="Nazwa frontu..."
           aria-invalid={errors.name ? 'true' : 'false'}
         />
         {errors.name && (
-          <p role="alert" className="text-xs text-red-600">{errors.name.message}</p>
+          <p role="alert" className="text-xs text-red-600">
+            {errors.name.message}
+          </p>
         )}
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="front-category" className="text-sm font-medium text-surface-700">
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="front-category" className="text-surface-800 text-sm font-medium">
           Kategoria
         </label>
         <select
           id="front-category"
           {...register('category')}
-          className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="app-input text-surface-900 focus:border-primary-500 focus:ring-primary-500/20 rounded-2xl px-3.5 py-3 text-sm focus:ring-2 focus:outline-none"
         >
           {FRONT_CATEGORIES.map((c) => (
-            <option key={c} value={c}>{FRONT_CATEGORY_LABELS[c]}</option>
+            <option key={c} value={c}>
+              {FRONT_CATEGORY_LABELS[c]}
+            </option>
           ))}
         </select>
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="front-goal" className="text-sm font-medium text-surface-700">
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="front-goal" className="text-surface-800 text-sm font-medium">
           Cel frontu
         </label>
         <textarea
           id="front-goal"
           {...register('goal')}
           rows={3}
-          className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none"
+          className="app-input text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:ring-primary-500/20 resize-none rounded-2xl px-3.5 py-3 text-sm focus:ring-2 focus:outline-none"
           placeholder="Co front chce osiągnąć? Jakie jest jego przeznaczenie?"
         />
       </div>
 
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-surface-700">Stawki</label>
+      <div className="app-panel rounded-[1.45rem] p-4">
+        <div className="flex items-center justify-between gap-3">
+          <label className="text-surface-800 text-sm font-medium">Stawki</label>
           <button
             type="button"
             onClick={() => append({ value: '' })}
-            className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700"
+            className="text-primary-700 hover:text-primary-800 inline-flex items-center gap-1 text-xs font-medium transition-colors"
           >
             <Plus className="h-3.5 w-3.5" /> Dodaj stawkę
           </button>
         </div>
+
         {fields.length === 0 && (
-          <p className="text-xs text-surface-400">Brak stawek - dodaj, czym ryzykują bohaterowie.</p>
+          <p className="text-surface-500 mt-2 text-xs leading-6">
+            Brak stawek - dodaj, czym ryzykują bohaterowie.
+          </p>
         )}
-        {fields.map((field, i) => (
-          <div key={field.id} className="flex gap-2">
-            <input
-              {...register(`stakes.${i}.value`)}
-              className="flex-1 rounded-md border border-surface-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              placeholder={`Stawka ${i + 1}...`}
-            />
-            <button
-              type="button"
-              onClick={() => remove(i)}
-              aria-label="Usuń stawkę"
-              className="rounded-md border border-surface-200 p-1.5 text-surface-400 hover:bg-red-50 hover:text-red-600"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        ))}
+
+        <div className="mt-3 flex flex-col gap-2">
+          {fields.map((field, i) => (
+            <div key={field.id} className="flex gap-2">
+              <input
+                {...register(`stakes.${i}.value`)}
+                className="app-input text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:ring-primary-500/20 flex-1 rounded-2xl px-3.5 py-2.5 text-sm focus:ring-2 focus:outline-none"
+                placeholder={`Stawka ${i + 1}...`}
+              />
+              <button
+                type="button"
+                onClick={() => remove(i)}
+                aria-label="Usuń stawkę"
+                className="app-button-secondary text-surface-600 rounded-2xl p-2.5 transition-colors hover:text-red-700"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-surface-700">Opis / Notatki</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-surface-800 text-sm font-medium">Opis / Notatki</label>
         <Controller
           name="description"
           control={control}
           render={({ field }) => (
-            <RichTextEditor value={field.value ?? ''} onChange={field.onChange} onBlur={field.onBlur} />
+            <RichTextEditor
+              value={field.value ?? ''}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+            />
           )}
         />
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-surface-700">Tagi</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-surface-800 text-sm font-medium">Tagi</label>
         <Controller
           name="tags"
           control={control}
@@ -168,12 +185,12 @@ export function FrontForm({
         />
       </div>
 
-      <div className="flex justify-end gap-2 pt-2">
+      <div className="flex justify-end gap-3 pt-2">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md border border-surface-300 px-4 py-2 text-sm font-medium text-surface-700 hover:bg-surface-50"
+            className="app-button-secondary rounded-2xl px-4 py-3 text-sm font-medium transition-colors"
           >
             Anuluj
           </button>
@@ -181,7 +198,7 @@ export function FrontForm({
         <button
           type="submit"
           disabled={isSaving}
-          className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+          className="app-button-primary rounded-2xl px-4 py-3 text-sm font-medium transition-colors disabled:opacity-50"
         >
           {isSaving ? 'Zapisywanie...' : submitLabel}
         </button>

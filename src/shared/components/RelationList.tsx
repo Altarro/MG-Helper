@@ -83,10 +83,12 @@ function RelationRow({
     }
 
     if (detailPath) {
-      const returnToSessionLive = typeof location.state === 'object'
-        && location.state !== null
-        && 'returnToSessionLive' in location.state
-        && typeof (location.state as { returnToSessionLive?: unknown }).returnToSessionLive === 'string'
+      const returnToSessionLive =
+        typeof location.state === 'object' &&
+        location.state !== null &&
+        'returnToSessionLive' in location.state &&
+        typeof (location.state as { returnToSessionLive?: unknown }).returnToSessionLive ===
+          'string'
           ? (location.state as { returnToSessionLive: string }).returnToSessionLive
           : null;
       navigate(detailPath, {
@@ -108,19 +110,19 @@ function RelationRow({
       ? getThreadDerivationKindLabel(relation.meta.threadDerivationKind)
       : relationType === 'clues_for' && relation.meta?.clueStrength
         ? getClueStrengthLabel(relation.meta.clueStrength)
-      : label;
+        : label;
 
   return (
-    <li className="flex items-center gap-2 rounded-md border border-surface-100 bg-surface-50 px-3 py-2 text-sm">
-      <span className="text-surface-400 text-xs font-mono">{directionLabel}</span>
-      <span className="rounded-full bg-surface-200 px-2 py-0.5 text-xs text-surface-600">
-        {relationBadgeLabel}
+    <li className="app-input-shell flex items-center gap-3 rounded-[1.2rem] px-4 py-3 text-sm">
+      <span className="app-pill-muted text-surface-500 rounded-full px-2 py-1 font-mono text-[11px]">
+        {directionLabel}
       </span>
+      <span className="app-pill-muted px-2.5 py-1 text-xs font-medium">{relationBadgeLabel}</span>
       <button
         type="button"
         className={`min-w-0 flex-1 truncate text-left font-medium ${
           canOpen
-            ? 'text-primary-700 hover:underline focus:outline-none focus:ring-2 focus:ring-primary-500/30'
+            ? 'text-primary-700 focus:ring-primary-500/30 hover:underline focus:ring-2 focus:outline-none'
             : 'text-surface-700'
         }`}
         onClick={handleOpenTarget}
@@ -132,12 +134,12 @@ function RelationRow({
       </button>
       <div className="flex shrink-0 items-center gap-2">
         {canOpen && (
-          <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-surface-500 ring-1 ring-inset ring-surface-200">
+          <span className="app-pill-muted rounded-full px-2 py-0.5 text-[11px] font-medium">
             Detail
           </span>
         )}
         {metaLabel && (
-          <span className="max-w-24 truncate text-xs italic text-surface-400">{metaLabel}</span>
+          <span className="text-surface-400 max-w-28 truncate text-xs italic">{metaLabel}</span>
         )}
         <EntityTypeBadge
           type={other.type}
@@ -150,7 +152,7 @@ function RelationRow({
           onClick={handleDelete}
           disabled={deleting}
           aria-label="Usuń relację"
-          className="shrink-0 rounded p-0.5 text-surface-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+          className="text-surface-400 shrink-0 rounded-full p-1.5 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
         >
           <X className="h-4 w-4" />
         </button>
@@ -188,16 +190,11 @@ export function RelationList({
   });
 
   if (!visibleRelations || visibleRelations.length === 0) {
-    return (
-      <InlineEmptyState
-        message={emptyMessage}
-        icon={<LinkIcon className="h-4 w-4" />}
-      />
-    );
+    return <InlineEmptyState message={emptyMessage} icon={<LinkIcon className="h-4 w-4" />} />;
   }
 
   return (
-    <ul className="flex flex-col gap-1.5" aria-label="Relacje encji">
+    <ul className="flex flex-col gap-2.5" aria-label="Relacje encji">
       {visibleRelations.map((rel) => (
         <RelationRow
           key={rel.id}

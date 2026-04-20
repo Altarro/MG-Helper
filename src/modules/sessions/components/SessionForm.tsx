@@ -53,8 +53,8 @@ export function SessionForm({
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
       {/* Number + Date row */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="session-number" className="text-sm font-medium text-surface-700">
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="session-number" className="text-sm font-medium text-surface-800">
             Nr sesji <span className="text-red-500" aria-hidden="true">*</span>
           </label>
           <input
@@ -62,22 +62,22 @@ export function SessionForm({
             type="number"
             min={1}
             {...register('number')}
-            className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="app-input rounded-2xl px-3.5 py-3 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
             aria-invalid={errors.number ? 'true' : 'false'}
           />
           {errors.number && (
             <p role="alert" className="text-xs text-red-600">{errors.number.message}</p>
           )}
         </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="session-date" className="text-sm font-medium text-surface-700">
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="session-date" className="text-sm font-medium text-surface-800">
             Data <span className="text-red-500" aria-hidden="true">*</span>
           </label>
           <input
             id="session-date"
             type="date"
             {...register('date')}
-            className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="app-input rounded-2xl px-3.5 py-3 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
             aria-invalid={errors.date ? 'true' : 'false'}
           />
           {errors.date && (
@@ -87,35 +87,31 @@ export function SessionForm({
       </div>
 
       {/* Optional name */}
-      <div className="flex flex-col gap-1">
-        <label htmlFor="session-name" className="text-sm font-medium text-surface-700">
-          Tytuł sesji (opcjonalny)
-        </label>
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="session-name" className="text-sm font-medium text-surface-800">Tytuł sesji (opcjonalny)</label>
         <input
           id="session-name"
           {...register('name')}
-          className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="app-input rounded-2xl px-3.5 py-3 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           placeholder={'Np. \u201eUcieczka z Czerwonej Wie\u017cy\u201d...'}
         />
       </div>
 
       {/* Summary */}
-      <div className="flex flex-col gap-1">
-        <label htmlFor="session-summary" className="text-sm font-medium text-surface-700">
-          Krótkie streszczenie
-        </label>
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="session-summary" className="text-sm font-medium text-surface-800">Krótkie streszczenie</label>
         <textarea
           id="session-summary"
           {...register('summary')}
           rows={3}
-          className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 resize-y"
+          className="app-input rounded-2xl px-3.5 py-3 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-y"
           placeholder="Co się wydarzyło w skrócie…"
         />
       </div>
 
       {/* Notes (Tiptap) */}
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-surface-700">Notatki (szczegółowe)</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-surface-800">Notatki (szczegółowe)</label>
         <Controller
           name="description"
           control={control}
@@ -126,8 +122,8 @@ export function SessionForm({
       </div>
 
       {/* Tags */}
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-surface-700">Tagi</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-surface-800">Tagi</label>
         <Controller
           name="tags"
           control={control}
@@ -136,12 +132,12 @@ export function SessionForm({
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-2 pt-2">
+      <div className="flex justify-end gap-3 pt-2">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md border border-surface-300 px-4 py-2 text-sm font-medium text-surface-700 hover:bg-surface-50"
+            className="app-button-secondary rounded-2xl px-4 py-3 text-sm font-medium transition-colors"
           >
             Anuluj
           </button>
@@ -149,7 +145,7 @@ export function SessionForm({
         <button
           type="submit"
           disabled={isSaving}
-          className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+          className="app-button-primary rounded-2xl px-4 py-3 text-sm font-medium transition-colors disabled:opacity-50"
         >
           {isSaving ? 'Zapisywanie…' : submitLabel}
         </button>

@@ -55,27 +55,31 @@ export function ThreadForm({ defaultValues, onSubmit, onCancel, isSaving }: Thre
   });
 
   const selectedColor = watch('color');
+  const nameErrorId = errors.name ? 'thread-name-error' : undefined;
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
       {/* Name */}
-      <div>
-        <label className="mb-1 block text-sm font-medium text-surface-700">
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="thread-name" className="text-sm font-medium text-surface-800">
           Nazwa <span className="text-red-500">*</span>
         </label>
         <input
+          id="thread-name"
           {...register('name')}
-          className="w-full rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+          className="app-input w-full rounded-2xl px-3.5 py-3 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           placeholder="np. Zaginięcie klucznika"
+          aria-invalid={errors.name ? 'true' : 'false'}
+          aria-describedby={nameErrorId}
         />
         {errors.name && (
-          <p className="mt-1 text-xs text-red-500">{errors.name.message}</p>
+          <p id="thread-name-error" role="alert" className="text-xs text-red-600">{errors.name.message}</p>
         )}
       </div>
 
       {/* Color */}
-      <div>
-        <label className="mb-2 block text-sm font-medium text-surface-700">Kolor</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-surface-800">Kolor</label>
         <Controller
           control={control}
           name="color"
@@ -96,9 +100,7 @@ export function ThreadForm({ defaultValues, onSubmit, onCancel, isSaving }: Thre
             </div>
           )}
         />
-        <div
-          className="mt-2 inline-flex items-center gap-2 rounded-md border border-surface-200 px-2 py-1"
-        >
+        <div className="app-input-shell inline-flex items-center gap-2 rounded-2xl border-surface-200 px-3 py-2">
           <span
             className="h-3 w-3 rounded-full"
             style={{ backgroundColor: selectedColor }}
@@ -108,8 +110,8 @@ export function ThreadForm({ defaultValues, onSubmit, onCancel, isSaving }: Thre
       </div>
 
       {/* Status */}
-      <div>
-        <label className="mb-1 block text-sm font-medium text-surface-700">Status</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-surface-800">Status</label>
         <Controller
           control={control}
           name="status"
@@ -134,8 +136,8 @@ export function ThreadForm({ defaultValues, onSubmit, onCancel, isSaving }: Thre
         />
       </div>
 
-      <div>
-        <label className="mb-1 block text-sm font-medium text-surface-700">Typ wątku</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-surface-800">Typ wątku</label>
         <Controller
           control={control}
           name="kind"
@@ -160,8 +162,8 @@ export function ThreadForm({ defaultValues, onSubmit, onCancel, isSaving }: Thre
         />
       </div>
 
-      <div>
-        <label className="mb-1 block text-sm font-medium text-surface-700">Priorytet przy stole</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-surface-800">Priorytet przy stole</label>
         <Controller
           control={control}
           name="priority"
@@ -186,31 +188,31 @@ export function ThreadForm({ defaultValues, onSubmit, onCancel, isSaving }: Thre
         />
       </div>
 
-      <div>
-        <label className="mb-1 block text-sm font-medium text-surface-700">Rozwiazanie / efekt</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-surface-800">Rozwiazanie / efekt</label>
         <textarea
           {...register('resolution')}
           rows={3}
-          className="w-full rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+          className="app-input w-full rounded-2xl px-3.5 py-3 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           placeholder="Jak ten wątek zakończył się albo do czego powinien doprowadzić?"
         />
       </div>
 
       {/* Description */}
-      <div>
-        <label className="mb-1 block text-sm font-medium text-surface-700">Opis</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-surface-800">Opis</label>
         <Controller
           control={control}
           name="description"
           render={({ field }) => (
-            <RichTextEditor value={field.value} onChange={field.onChange} />
+            <RichTextEditor value={field.value ?? ''} onChange={field.onChange} onBlur={field.onBlur} />
           )}
         />
       </div>
 
       {/* Tags */}
-      <div>
-        <label className="mb-1 block text-sm font-medium text-surface-700">Tagi</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-surface-800">Tagi</label>
         <Controller
           control={control}
           name="tags"
@@ -221,18 +223,18 @@ export function ThreadForm({ defaultValues, onSubmit, onCancel, isSaving }: Thre
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-2 pt-2">
+      <div className="flex justify-end gap-3 pt-2">
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-md border border-surface-300 px-4 py-2 text-sm hover:bg-surface-50"
+          className="app-button-secondary rounded-2xl px-4 py-3 text-sm font-medium transition-colors"
         >
           Anuluj
         </button>
         <button
           type="submit"
           disabled={isSaving}
-          className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+          className="app-button-primary rounded-2xl px-4 py-3 text-sm font-medium transition-colors disabled:opacity-50"
         >
           {isSaving ? 'Zapisywanie…' : 'Zapisz'}
         </button>

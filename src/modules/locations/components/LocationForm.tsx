@@ -76,14 +76,14 @@ export function LocationForm({
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
       {/* Name */}
-      <div className="flex flex-col gap-1">
-        <label htmlFor="loc-name" className="text-sm font-medium text-surface-700">
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="loc-name" className="text-sm font-medium text-surface-800">
           Nazwa <span className="text-red-500" aria-hidden="true">*</span>
         </label>
         <input
           id="loc-name"
           {...register('name')}
-          className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="app-input rounded-2xl px-3.5 py-3 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           placeholder="Nazwa lokacji…"
           aria-invalid={errors.name ? 'true' : 'false'}
           aria-describedby={errors.name ? 'loc-name-error' : undefined}
@@ -97,20 +97,20 @@ export function LocationForm({
 
       {/* Type + Danger */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="loc-type" className="text-sm font-medium text-surface-700">Typ</label>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="loc-type" className="text-sm font-medium text-surface-800">Typ</label>
           <select
             id="loc-type"
             {...register('locationType')}
-            className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="app-input rounded-2xl px-3.5 py-3 text-sm text-surface-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           >
             {LOCATION_TYPES.map((t) => (
               <option key={t} value={t}>{LOCATION_TYPE_LABELS[t]}</option>
             ))}
           </select>
         </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="loc-danger" className="text-sm font-medium text-surface-700">
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="loc-danger" className="text-sm font-medium text-surface-800">
             Niebezpieczeństwo: <span className="font-normal text-surface-500">{DANGER_LABELS[dangerValue] ?? dangerValue}</span>
           </label>
           <input
@@ -126,10 +126,8 @@ export function LocationForm({
       </div>
 
       {/* Parent location */}
-      <div className="flex flex-col gap-1">
-        <label htmlFor="loc-parent" className="text-sm font-medium text-surface-700">
-          Lokacja nadrzędna
-        </label>
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="loc-parent" className="text-sm font-medium text-surface-800">Lokacja nadrzędna</label>
         <Controller
           name="parentLocationId"
           control={control}
@@ -143,7 +141,7 @@ export function LocationForm({
                   ref={field.ref}
                   readOnly
                 />
-                <div className="rounded-md border border-surface-200 bg-surface-50 px-3 py-2 text-sm text-surface-600">
+                <div className="app-input-shell rounded-2xl border-surface-200 bg-surface-50 px-3 py-2 text-sm text-surface-600">
                   Relacja nadrzedna zostanie ustawiona automatycznie dla tej podlokacji.
                 </div>
               </>
@@ -155,7 +153,7 @@ export function LocationForm({
                 value={field.value ?? ''}
                 onChange={field.onChange}
                 onBlur={field.onBlur}
-                className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="app-input rounded-2xl px-3.5 py-3 text-sm text-surface-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
               >
                 <option value="">— brak —</option>
                 {parentOptions.map((loc) => (
@@ -169,7 +167,7 @@ export function LocationForm({
 
       {/* Senses */}
       <fieldset className="rounded-lg border border-surface-200 p-4">
-        <legend className="px-1 text-sm font-medium text-surface-700">Zmysły</legend>
+        <legend className="px-1 text-sm font-medium text-surface-800">Zmysły</legend>
         <div className="flex flex-col gap-3">
           {(
             [
@@ -179,12 +177,12 @@ export function LocationForm({
               { field: 'feel', label: 'Czujesz (atmosfera)' },
             ] as const
           ).map(({ field, label }) => (
-            <div key={field} className="flex flex-col gap-1">
+            <div key={field} className="flex flex-col gap-1.5">
               <label htmlFor={`loc-${field}`} className="text-xs font-medium text-surface-600">{label}</label>
               <input
                 id={`loc-${field}`}
                 {...register(field)}
-                className="rounded-md border border-surface-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="app-input rounded-2xl px-3.5 py-2 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                 placeholder="…"
               />
             </div>
@@ -193,8 +191,8 @@ export function LocationForm({
       </fieldset>
 
       {/* Description */}
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-surface-700">Opis / Notatki</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-surface-800">Opis / Notatki</label>
         <Controller
           name="description"
           control={control}
@@ -209,8 +207,8 @@ export function LocationForm({
       </div>
 
       {/* Tags */}
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-surface-700">Tagi</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-surface-800">Tagi</label>
         <Controller
           name="tags"
           control={control}
@@ -221,12 +219,12 @@ export function LocationForm({
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-2 pt-2">
+      <div className="flex justify-end gap-3 pt-2">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md border border-surface-300 px-4 py-2 text-sm font-medium text-surface-700 hover:bg-surface-50"
+            className="app-button-secondary rounded-2xl px-4 py-3 text-sm font-medium transition-colors"
           >
             Anuluj
           </button>
@@ -234,7 +232,7 @@ export function LocationForm({
         <button
           type="submit"
           disabled={isSaving}
-          className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+          className="app-button-primary rounded-2xl px-4 py-3 text-sm font-medium transition-colors disabled:opacity-50"
         >
           {isSaving ? 'Zapisywanie…' : submitLabel}
         </button>

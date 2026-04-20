@@ -15,6 +15,7 @@ import { getThreadData } from '@shared/utils/entityData';
 import { isThread, THREAD_COLORS, THREAD_KIND_LABELS, THREAD_KINDS } from '@modules/threads/types';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
+import { toastRemoveEntitySuccess, toastRemoveEntityError } from '@shared/utils/toastSessionEntity';
 import type { SpotlightState } from '../types';
 import type { Thread } from '@modules/threads/types';
 import {
@@ -95,21 +96,30 @@ function ThreadListRow({
         )}
       </div>
       <button
+        type="button"
         onClick={() => onToggleStatus(thread)}
         className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors hover:opacity-75 ${
           data.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-surface-100 text-surface-500'
         }`}
         title={data.status === 'active' ? 'Oznacz jako zakończony' : 'Oznacz jako aktywny'}
+        aria-label={`${data.status === 'active' ? 'Oznacz jako zakończony' : 'Oznacz jako aktywny'}: ${thread.name}`}
       >
         {data.status === 'active' ? 'Aktywny' : 'Zakończony'}
       </button>
-      <Link to={`/threads/${thread.id}`} className="text-surface-300 opacity-0 hover:text-surface-600 group-hover:opacity-100">
+      <Link
+        to={`/threads/${thread.id}`}
+        title={`Otwórz detal wątku: ${thread.name}`}
+        aria-label={`Otwórz detal wątku: ${thread.name}`}
+        className="text-surface-300 opacity-0 hover:text-surface-600 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"
+      >
         <ExternalLink className="h-3.5 w-3.5" />
       </Link>
       <button
+        type="button"
         onClick={() => onRemove(thread.id, thread.name)}
-        className="text-surface-300 opacity-0 hover:text-red-500 group-hover:opacity-100"
+        className="text-surface-300 opacity-0 hover:text-red-500 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"
         title="Usuń z sesji"
+        aria-label={`Usuń z sesji: ${thread.name}`}
       >
         <X className="h-3.5 w-3.5" />
       </button>
@@ -177,9 +187,9 @@ function ThreadsPanel({
     try {
       const removed = await removeEntityFromSession(db, threadId, sessionId);
       if (!removed) return;
-      toast.success(`"${threadName}" usunięty z sesji`);
+      toast.success(toastRemoveEntitySuccess('thread', threadName));
     } catch {
-      toast.error('Nie udało się usunąć');
+      toast.error(toastRemoveEntityError('thread'));
     }
   }
 
@@ -211,16 +221,20 @@ function ThreadsPanel({
         </div>
         <div className="flex-1" />
         <button
+          type="button"
           onClick={() => setQuickAddOpen((v) => !v)}
           className="flex items-center gap-1 rounded-md border border-surface-200 px-2 py-1 text-xs text-surface-600 hover:bg-surface-50"
+          title="Dodaj wątek do sesji"
         >
-          <Plus className="h-3 w-3" /> Nowy
+          <Plus className="h-3 w-3" /> Dodaj do sesji
         </button>
         <button
+          type="button"
           onClick={() => setCampaignPickerOpen(true)}
           className="flex items-center gap-1 rounded-md border border-surface-200 px-2 py-1 text-xs text-surface-600 hover:bg-surface-50"
+          title="Dodaj wątek z kampanii do sesji"
         >
-          <Search className="h-3 w-3" /> Z kampanii
+          <Search className="h-3 w-3" /> Dodaj z kampanii
         </button>
       </div>
 
@@ -258,7 +272,7 @@ function ThreadsPanel({
               autoFocus
               value={quickName}
               onChange={(e) => setQuickName(e.target.value)}
-              placeholder="Nazwa wątku..."
+              placeholder="Nazwa wątku do sesji..."
               className="flex-1 rounded border border-surface-300 px-2 py-1 text-xs focus:border-primary-500 focus:outline-none"
             />
             <button
@@ -266,7 +280,7 @@ function ThreadsPanel({
               disabled={!quickName.trim() || quickSaving}
               className="rounded bg-primary-600 px-2 py-1 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50"
             >
-              {quickSaving ? '...' : 'Dodaj'}
+              {quickSaving ? '...' : 'Dodaj do sesji'}
             </button>
             <button
               type="button"
@@ -287,7 +301,9 @@ function ThreadsPanel({
         {visible.length === 0 && (
           <div className="flex h-full items-center justify-center">
             <p className="text-sm text-surface-400">
-              {sessionThreads.length === 0 ? 'Brak wątków w tej sesji' : 'Brak aktywnych wątków'}
+              {sessionThreads.length === 0
+                ? 'Brak wątków w tej sesji. Dodaj pierwszy wątek do sesji.'
+                : 'Brak wątków dla tego filtra. Zmień filtr lub dodaj nowy wątek.'}
             </p>
           </div>
         )}
@@ -455,7 +471,15 @@ function ThreadCampaignPickerHud({ sessionId, onClose }: { sessionId: string; on
     <div className="absolute inset-x-0 bottom-0 z-10 flex max-h-[300px] flex-col rounded-b-xl border-t border-surface-200 bg-white shadow-lg">
       <div className="flex items-center justify-between border-b border-surface-100 px-3 py-2">
         <span className="text-xs font-semibold text-surface-700">Dodaj wątek z kampanii</span>
-        <button onClick={onClose} className="text-surface-400 hover:text-surface-600"><X className="h-3.5 w-3.5" /></button>
+        <button
+          type="button"
+          onClick={onClose}
+          title="Zamknij listę dodawania wątków"
+          aria-label="Zamknij listę dodawania wątków"
+          className="text-surface-400 hover:text-surface-600"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
       </div>
       <div className="px-3 pt-2">
         <div className="relative">
@@ -470,7 +494,11 @@ function ThreadCampaignPickerHud({ sessionId, onClose }: { sessionId: string; on
         </div>
       </div>
       <div className="flex-1 overflow-y-auto px-3 py-1">
-        {filtered.length === 0 && <p className="py-3 text-center text-xs text-surface-400">Brak wątków do dodania</p>}
+        {filtered.length === 0 && (
+          <p className="py-3 text-center text-xs text-surface-400">
+            Brak wątków do dodania. Wszystkie dostępne są już w sesji albo nie pasują do filtra.
+          </p>
+        )}
         {filtered.map((t) => {
           const color = getThreadData(t).color ?? '#6366f1';
           return (
@@ -483,13 +511,20 @@ function ThreadCampaignPickerHud({ sessionId, onClose }: { sessionId: string; on
         })}
       </div>
       <div className="flex justify-end gap-2 border-t border-surface-100 px-3 py-2">
-        <button onClick={onClose} className="rounded border border-surface-300 px-2 py-1 text-xs text-surface-600 hover:bg-surface-50">Anuluj</button>
         <button
+          type="button"
+          onClick={onClose}
+          className="rounded border border-surface-300 px-2 py-1 text-xs text-surface-600 hover:bg-surface-50"
+        >
+          Anuluj
+        </button>
+        <button
+          type="button"
           onClick={() => { void handleAdd(); }}
           disabled={!selected.size || saving}
           className="rounded bg-primary-600 px-2 py-1 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50"
         >
-          {saving ? '...' : `Dodaj (${selected.size})`}
+          {saving ? '...' : `Dodaj do sesji (${selected.size})`}
         </button>
       </div>
     </div>

@@ -42,29 +42,34 @@ export function ClueForm({ defaultValues, onSubmit, onCancel, isSaving }: ClueFo
     },
   });
 
+  const nameErrorId = errors.name ? 'clue-name-error' : undefined;
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
       {/* Name */}
-      <div>
-        <label className="mb-1 block text-sm font-medium text-surface-700">
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="clue-name" className="text-sm font-medium text-surface-800">
           Nazwa <span className="text-red-500">*</span>
         </label>
         <input
+          id="clue-name"
           {...register('name')}
-          className="w-full rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+          className="app-input w-full rounded-2xl px-3.5 py-3 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           placeholder="np. Odcisk buta przy drzwiach"
+          aria-invalid={errors.name ? 'true' : 'false'}
+          aria-describedby={nameErrorId}
         />
         {errors.name && (
-          <p className="mt-1 text-xs text-red-500">{errors.name.message}</p>
+          <p id="clue-name-error" role="alert" className="text-xs text-red-600">{errors.name.message}</p>
         )}
       </div>
 
       {/* Type */}
-      <div>
-        <label className="mb-1 block text-sm font-medium text-surface-700">Typ wskazówki</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-surface-800">Typ wskazówki</label>
         <select
           {...register('clueType')}
-          className="w-full rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+          className="app-input w-full rounded-2xl px-3.5 py-3 text-sm text-surface-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
         >
           {(Object.entries(CLUE_TYPE_LABELS) as [string, string][]).map(([value, label]) => (
             <option key={value} value={value}>{label}</option>
@@ -73,12 +78,12 @@ export function ClueForm({ defaultValues, onSubmit, onCancel, isSaving }: ClueFo
       </div>
 
       {/* Hint */}
-      <div>
-        <label className="mb-1 block text-sm font-medium text-surface-700">Wskazówka</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-surface-800">Wskazówka</label>
         <textarea
           {...register('hint')}
           rows={3}
-          className="w-full rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+          className="app-input w-full rounded-2xl px-3.5 py-3 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           placeholder="Co gracze mogą z niej wywnioskować lub co bezpośrednio odkrywają…"
         />
       </div>
@@ -106,24 +111,24 @@ export function ClueForm({ defaultValues, onSubmit, onCancel, isSaving }: ClueFo
             </button>
           )}
         />
-        <span className="text-sm text-surface-700">Odkryta przez graczy</span>
+        <span className="text-sm font-medium text-surface-800">Odkryta przez graczy</span>
       </div>
 
       {/* Description (rich text) */}
-      <div>
-        <label className="mb-1 block text-sm font-medium text-surface-700">Opis (opcjonalny)</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-surface-800">Opis (opcjonalny)</label>
         <Controller
           control={control}
           name="description"
           render={({ field }) => (
-            <RichTextEditor value={field.value} onChange={field.onChange} />
+            <RichTextEditor value={field.value ?? ''} onChange={field.onChange} onBlur={field.onBlur} />
           )}
         />
       </div>
 
       {/* Tags */}
-      <div>
-        <label className="mb-1 block text-sm font-medium text-surface-700">Tagi</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-surface-800">Tagi</label>
         <Controller
           control={control}
           name="tags"
@@ -134,18 +139,18 @@ export function ClueForm({ defaultValues, onSubmit, onCancel, isSaving }: ClueFo
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-2 pt-2">
+      <div className="flex justify-end gap-3 pt-2">
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-md border border-surface-300 px-4 py-2 text-sm hover:bg-surface-50"
+          className="app-button-secondary rounded-2xl px-4 py-3 text-sm font-medium transition-colors"
         >
           Anuluj
         </button>
         <button
           type="submit"
           disabled={isSaving}
-          className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+          className="app-button-primary rounded-2xl px-4 py-3 text-sm font-medium transition-colors disabled:opacity-50"
         >
           {isSaving ? 'Zapisywanie…' : 'Zapisz'}
         </button>

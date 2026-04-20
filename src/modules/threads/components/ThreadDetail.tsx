@@ -17,11 +17,7 @@ import { useRelatedEntities } from '@shared/hooks/useRelatedEntities';
 import { deleteEntity, updateEntity } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
-import {
-  THREAD_KIND_LABELS,
-  THREAD_PRIORITY_LABELS,
-  THREAD_STATUS_LABELS,
-} from '../types';
+import { THREAD_KIND_LABELS, THREAD_PRIORITY_LABELS, THREAD_STATUS_LABELS } from '../types';
 import {
   getThreadDerivationDirectionLabel,
   getThreadDerivationKindLabel,
@@ -63,10 +59,11 @@ export function ThreadDetail() {
     mode: 'parent' | 'child';
     initialKind?: (typeof THREAD_DERIVATION_KIND_OPTIONS)[number];
   } | null>(null);
-  const returnToSessionLive = typeof location.state === 'object'
-    && location.state !== null
-    && 'returnToSessionLive' in location.state
-    && typeof (location.state as { returnToSessionLive?: unknown }).returnToSessionLive === 'string'
+  const returnToSessionLive =
+    typeof location.state === 'object' &&
+    location.state !== null &&
+    'returnToSessionLive' in location.state &&
+    typeof (location.state as { returnToSessionLive?: unknown }).returnToSessionLive === 'string'
       ? (location.state as { returnToSessionLive: string }).returnToSessionLive
       : null;
   const backPath = returnToSessionLive ? `/sessions/${returnToSessionLive}/live` : '/threads';
@@ -139,54 +136,63 @@ export function ThreadDetail() {
     kind,
     items: resolvedChildThreads.filter((item) => item.relation.meta?.threadDerivationKind === kind),
   })).filter((group) => group.items.length > 0);
-  const legacyChildThreads = resolvedChildThreads.filter((item) => !item.relation.meta?.threadDerivationKind);
+  const legacyChildThreads = resolvedChildThreads.filter(
+    (item) => !item.relation.meta?.threadDerivationKind,
+  );
 
   return (
-    <div className="flex flex-col gap-6 p-6 max-w-3xl mx-auto">
+    <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
       {/* Back */}
-      <Link to={backPath} className="flex items-center gap-2 text-sm text-surface-500 hover:text-primary-600 w-fit">
+      <Link
+        to={backPath}
+        className="text-surface-500 hover:text-primary-700 flex w-fit items-center gap-2 text-sm"
+      >
         <ArrowLeft className="h-4 w-4" />
         {backLabel}
       </Link>
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="app-panel-strong flex flex-col gap-5 rounded-[1.9rem] border border-white/40 px-6 py-6 shadow-[0_28px_60px_rgba(18,45,66,0.12)] lg:flex-row lg:items-start lg:justify-between lg:px-7">
+        <div className="flex items-center gap-4">
           <div
-            className="h-8 w-1.5 rounded-full shrink-0"
+            className="h-12 w-3 shrink-0 rounded-full shadow-[0_8px_18px_rgba(18,45,66,0.16)]"
             style={{ backgroundColor: thread.data.color }}
             aria-hidden="true"
           />
           <div>
-            <h1 className="text-2xl font-bold text-surface-900">{thread.name}</h1>
-            <span
-              className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                isCompleted
-                  ? 'bg-surface-100 text-surface-500'
-                  : 'bg-green-100 text-green-700'
-              }`}
-            >
-              {THREAD_STATUS_LABELS[thread.data.status]}
-            </span>
-            <span className="ml-2 mt-1 inline-block rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700">
-              {THREAD_KIND_LABELS[thread.data.kind ?? 'side']}
-            </span>
-            <span className="ml-2 mt-1 inline-block rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
-              Priorytet: {THREAD_PRIORITY_LABELS[thread.data.priority ?? 'normal']}
-            </span>
+            <h1 className="text-surface-900 text-3xl font-semibold tracking-[-0.03em]">
+              {thread.name}
+            </h1>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span
+                className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                  isCompleted
+                    ? 'app-pill-muted'
+                    : 'border border-emerald-300/70 bg-emerald-100/80 text-emerald-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.28)]'
+                }`}
+              >
+                {THREAD_STATUS_LABELS[thread.data.status]}
+              </span>
+              <span className="app-pill inline-flex rounded-full px-3 py-1 text-xs font-semibold">
+                {THREAD_KIND_LABELS[thread.data.kind ?? 'side']}
+              </span>
+              <span className="app-danger-pill inline-flex rounded-full px-3 py-1 text-xs font-semibold">
+                Priorytet: {THREAD_PRIORITY_LABELS[thread.data.priority ?? 'normal']}
+              </span>
+            </div>
           </div>
         </div>
-        <div className="flex gap-2 shrink-0 flex-wrap justify-end">
+        <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
           <MarkdownExportButton entity={thread} />
           <button
             onClick={() => setIsEditing(!isEditing)}
-            className="flex items-center gap-1.5 rounded-md border border-surface-300 px-3 py-1.5 text-sm hover:bg-surface-50"
+            className="app-button-secondary inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
           >
             <Edit2 className="h-3.5 w-3.5" /> Edytuj
           </button>
           <button
             onClick={() => setConfirmDelete(true)}
-            className="flex items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+            className="app-button-danger inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
           >
             <Trash2 className="h-3.5 w-3.5" /> Usuń
           </button>
@@ -194,7 +200,7 @@ export function ThreadDetail() {
       </div>
 
       {isEditing ? (
-        <div className="rounded-xl border border-surface-200 bg-white p-5 shadow-sm">
+        <div className="app-panel rounded-[1.75rem] p-4 shadow-[0_20px_40px_rgba(18,45,66,0.08)] lg:p-6">
           <ThreadForm
             defaultValues={{
               name: thread.name,
@@ -217,89 +223,101 @@ export function ThreadDetail() {
             title="Kontekst wątku"
             description="Główne informacje potrzebne do pracy na sprawie przy stole."
             tone="accent"
+            contentClassName="flex flex-col gap-5 lg:gap-6"
           >
-          {/* Status toggle */}
-          <button
-            type="button"
-            onClick={handleToggleStatus}
-            className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium w-fit transition-colors ${
-              isCompleted
-                ? 'border-surface-300 bg-surface-50 text-surface-600 hover:bg-surface-100'
-                : 'border-green-200 bg-green-50 text-green-700 hover:bg-green-100'
-            }`}
-          >
-            {isCompleted ? 'Reaktywuj wątek' : 'Oznacz jako zakończony'}
-          </button>
+            {/* Status toggle */}
+            <button
+              type="button"
+              onClick={handleToggleStatus}
+              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition ${
+                isCompleted
+                  ? 'app-button-secondary'
+                  : 'border border-emerald-300/70 bg-emerald-100/80 text-emerald-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] hover:bg-emerald-100'
+              }`}
+            >
+              {isCompleted ? 'Reaktywuj wątek' : 'Oznacz jako zakończony'}
+            </button>
 
-          {/* Description */}
-          {thread.description && (
-            <div>
-              <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-surface-500">Opis</h2>
-              <div
-                className="prose prose-sm max-w-none text-surface-700"
-                dangerouslySetInnerHTML={{ __html: thread.description }}
-              />
-            </div>
-          )}
+            {/* Description */}
+            {thread.description && (
+              <div>
+                <h2 className="text-surface-500 mb-1 text-xs font-semibold tracking-wide uppercase">
+                  Opis
+                </h2>
+                <div
+                  className="prose prose-sm text-surface-700 max-w-none"
+                  dangerouslySetInnerHTML={{ __html: thread.description }}
+                />
+              </div>
+            )}
 
-          {/* Tags */}
-          {thread.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {thread.tags.map((tag) => (
-                <span key={tag} className="rounded-full bg-surface-100 px-2 py-0.5 text-xs text-surface-500">
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
+            {/* Tags */}
+            {thread.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {thread.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="app-pill-muted rounded-full px-2.5 py-1 text-xs font-medium"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
 
-          {thread.data.resolution && (
-            <div>
-              <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-surface-500">
-                Rozwiazanie / efekt
-              </h2>
-              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-surface-800 whitespace-pre-wrap">
-                {thread.data.resolution}
-              </p>
-            </div>
-          )}
-
+            {thread.data.resolution && (
+              <div>
+                <h2 className="text-surface-500 mb-1 text-xs font-semibold tracking-wide uppercase">
+                  Rozwiazanie / efekt
+                </h2>
+                <p className="app-danger-card text-surface-800 rounded-[1.3rem] px-4 py-3 text-sm whitespace-pre-wrap">
+                  {thread.data.resolution}
+                </p>
+              </div>
+            )}
           </DetailSection>
 
           <DetailSection
             title="Sesje i historia"
             description="Operacyjny ślad tego, gdzie ten wątek był obecny przy stole."
+            contentClassName="flex flex-col gap-5"
           >
             <div>
-            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-500">
-              Sesje ({sessions?.length ?? 0})
-            </h2>
-            {sessions === undefined ? (
-              <LoadingSpinner />
-            ) : sessions.length === 0 ? (
-              <p className="text-sm text-surface-400">Brak powiązanych sesji. Dodaj relację <em>pojawia się w</em> poniżej.</p>
-            ) : (
-              <ul className="flex flex-col gap-1">
-                {sessions.map((session) => (
-                  <li key={session.id}>
-                    <Link
-                      to={`/sessions/${session.id}`}
-                      className="flex items-center gap-2 rounded-md border border-surface-100 bg-surface-50 px-3 py-2 text-sm hover:border-primary-200 hover:bg-primary-50"
-                    >
-                      <BookOpen className="h-3.5 w-3.5 text-surface-400 shrink-0" />
-                      <span className="font-medium text-surface-700">Sesja #{session.data.number}</span>
-                      {session.data.date && (
-                        <span className="text-xs text-surface-400 ml-auto">{formatDate(session.data.date)}</span>
-                      )}
-                      {session.name && session.name !== `Sesja ${session.data.number}` && (
-                        <span className="truncate text-xs text-surface-500">{session.name}</span>
-                      )}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+              <h2 className="text-surface-500 mb-2 text-xs font-semibold tracking-wide uppercase">
+                Sesje ({sessions?.length ?? 0})
+              </h2>
+              {sessions === undefined ? (
+                <LoadingSpinner />
+              ) : sessions.length === 0 ? (
+                <p className="text-surface-400 text-sm">
+                  Brak powiązanych sesji. Dodaj relację <em>pojawia się w</em> poniżej.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {sessions.map((session) => (
+                    <li key={session.id}>
+                      <Link
+                        to={`/sessions/${session.id}`}
+                        className="app-input-shell hover:border-primary-300 flex items-center gap-2 rounded-[1.2rem] px-4 py-3 text-sm transition-colors hover:bg-[rgba(229,231,223,0.98)]"
+                      >
+                        <BookOpen className="text-surface-400 h-3.5 w-3.5 shrink-0" />
+                        <span className="text-surface-700 font-medium">
+                          Sesja #{session.data.number}
+                        </span>
+                        {session.data.date && (
+                          <span className="text-surface-400 ml-auto text-xs">
+                            {formatDate(session.data.date)}
+                          </span>
+                        )}
+                        {session.name && session.name !== `Sesja ${session.data.number}` && (
+                          <span className="text-surface-500 truncate text-xs">{session.name}</span>
+                        )}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </DetailSection>
 
           <DetailSection
@@ -320,65 +338,68 @@ export function ThreadDetail() {
             description="Relacje nadrzędne i pochodne, ktore pozwalają czytać ten wątek jako odnogę, kontynuację albo konsekwencję."
           >
             <NarrativeLinksSection
-            title="Wątki nadrzędne"
-            items={parentThreads}
-            emptyMessage="Ten wątek nie wynika jeszcze z innego wątku."
-            actionLabel="+ Podepnij rodzica"
-            onAction={() => setQuestlinePicker({ mode: 'parent', initialKind: 'followup' })}
-            meta={(item) => {
-              const kind = item.relation.meta?.threadDerivationKind;
-              if (!kind) return 'Relacja legacy bez doprecyzowanego typu questline.';
-              return `${getThreadDerivationDirectionLabel(kind, 'outgoing')} • ${getThreadDerivationKindLabel(kind)}`;
-            }}
+              title="Wątki nadrzędne"
+              items={parentThreads}
+              emptyMessage="Ten wątek nie wynika jeszcze z innego wątku."
+              actionLabel="+ Podepnij rodzica"
+              onAction={() => setQuestlinePicker({ mode: 'parent', initialKind: 'followup' })}
+              meta={(item) => {
+                const kind = item.relation.meta?.threadDerivationKind;
+                if (!kind) return 'Relacja legacy bez doprecyzowanego typu questline.';
+                return `${getThreadDerivationDirectionLabel(kind, 'outgoing')} • ${getThreadDerivationKindLabel(kind)}`;
+              }}
             />
 
             <div>
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-xs font-semibold uppercase tracking-wide text-surface-500">
-                  Wątki pochodne
-                </h2>
-                <p className="mt-1 text-sm text-surface-400">
-                  Podepnij istniejący wątek jako nastepstwo, odnogę, alternatywę albo konsekwencję.
-                </p>
+              <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-surface-500 text-xs font-semibold tracking-wide uppercase">
+                    Wątki pochodne
+                  </h2>
+                  <p className="text-surface-400 mt-1 text-sm">
+                    Podepnij istniejący wątek jako nastepstwo, odnogę, alternatywę albo
+                    konsekwencję.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {THREAD_DERIVATION_KIND_OPTIONS.map((kind) => (
+                    <button
+                      key={kind}
+                      type="button"
+                      onClick={() => setQuestlinePicker({ mode: 'child', initialKind: kind })}
+                      className="app-button-secondary rounded-full px-3 py-1.5 text-xs font-medium"
+                    >
+                      + {THREAD_DERIVATION_KIND_LABELS[kind]}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {THREAD_DERIVATION_KIND_OPTIONS.map((kind) => (
-                  <button
-                    key={kind}
-                    type="button"
-                    onClick={() => setQuestlinePicker({ mode: 'child', initialKind: kind })}
-                    className="rounded-full border border-surface-300 px-2.5 py-1 text-xs font-medium text-surface-600 hover:bg-surface-50"
-                  >
-                    + {THREAD_DERIVATION_KIND_LABELS[kind]}
-                  </button>
-                ))}
-              </div>
-            </div>
 
-            {childGroups.length === 0 && legacyChildThreads.length === 0 ? (
-              <p className="text-sm text-surface-400">Ten wątek nie ma jeszcze odnóg ani następstw.</p>
-            ) : (
-              <div className="flex flex-col gap-4">
-                {childGroups.map((group) => (
-                  <NarrativeLinksSection
-                    key={group.kind}
-                    title={THREAD_DERIVATION_KIND_LABELS[group.kind]}
-                    items={group.items}
-                    emptyMessage=""
-                    meta={() => getThreadDerivationDirectionLabel(group.kind, 'incoming')}
-                  />
-                ))}
-                {legacyChildThreads.length > 0 && (
-                  <NarrativeLinksSection
-                    title="Legacy questline"
-                    items={legacyChildThreads}
-                    emptyMessage=""
-                    meta={() => 'Relacja legacy bez doprecyzowanego typu questline.'}
-                  />
-                )}
-              </div>
-            )}
+              {childGroups.length === 0 && legacyChildThreads.length === 0 ? (
+                <p className="text-surface-400 text-sm">
+                  Ten wątek nie ma jeszcze odnóg ani następstw.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-5">
+                  {childGroups.map((group) => (
+                    <NarrativeLinksSection
+                      key={group.kind}
+                      title={THREAD_DERIVATION_KIND_LABELS[group.kind]}
+                      items={group.items}
+                      emptyMessage=""
+                      meta={() => getThreadDerivationDirectionLabel(group.kind, 'incoming')}
+                    />
+                  ))}
+                  {legacyChildThreads.length > 0 && (
+                    <NarrativeLinksSection
+                      title="Legacy questline"
+                      items={legacyChildThreads}
+                      emptyMessage=""
+                      meta={() => 'Relacja legacy bez doprecyzowanego typu questline.'}
+                    />
+                  )}
+                </div>
+              )}
             </div>
           </DetailSection>
 
@@ -392,30 +413,25 @@ export function ThreadDetail() {
           <DetailSection
             title="Powiązania świata"
             description="Relacje dodatkowe poza głównym kontraktem fabularnym i historia sesji."
-            action={(
-              <button
-                onClick={() => setShowRelPicker(true)}
-                className="text-xs text-primary-600 hover:underline"
-              >
-                + Dodaj
-              </button>
-            )}
+            action={null}
           >
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-surface-500">Pozostałe powiązania</h2>
-              <button
-                onClick={() => setShowRelPicker(true)}
-                className="text-xs text-primary-600 hover:underline"
-              >
-                + Dodaj
-              </button>
-            </div>
-            <RelationList
-              entityId={thread.id}
-              excludeRelationTypes={['affects', 'derives_from', 'clues_for', 'appears_in']}
-              emptyMessage="Brak dodatkowych relacji świata dla tego wątku."
-            />
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="text-surface-500 text-xs font-semibold tracking-wide uppercase">
+                  Pozostałe powiązania
+                </h2>
+                <button
+                  onClick={() => setShowRelPicker(true)}
+                  className="app-button-secondary rounded-full px-3 py-1.5 text-xs font-medium"
+                >
+                  + Dodaj
+                </button>
+              </div>
+              <RelationList
+                entityId={thread.id}
+                excludeRelationTypes={['affects', 'derives_from', 'clues_for', 'appears_in']}
+                emptyMessage="Brak dodatkowych relacji świata dla tego wątku."
+              />
             </div>
           </DetailSection>
           <DetailSection

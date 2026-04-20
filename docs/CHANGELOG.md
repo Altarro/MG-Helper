@@ -20,10 +20,17 @@ Wersjonowanie: [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.PATCH
 
 ### Added
 - Workflow `.github/workflows/deploy-pages.yml` do automatycznego deploymentu na GitHub Pages po pushu do `main`
+- Zestaw testów regresyjnych QoL dla paneli live sesji: `tests/modules/sessions/livePanels.qol.test.tsx` (SessionNpcPanel, SessionHudTray, SessionSearchPanel) z pokryciem akcji `dodaj / usuń / przypnij / odepnij`, statusów wątków i szybkiego podglądu
 
 ### Changed
 - Routing aplikacji zmieniony z `BrowserRouter` na `HashRouter` dla zgodnosci z GitHub Pages
 - Konfiguracja Vite otrzymala `base: '/MG-Helper/'` dla poprawnego ladowania assetow z Project Pages
+- Domknięto pakiet QOL.1-5: ujednolicone słownictwo akcji sesja/scena, pełniejsze etykiety a11y (`title`, `aria-label`), poprawione mikrocopy empty state oraz spójność akcji w panelach live
+- Potwierdzono finalny odbiór QoL kompletem bramek jakości: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`
+
+### Fixed
+- Naprawiono konfigurację TypeScript dla bramki typecheck (`ignoreDeprecations: "5.0"`)
+- Ustabilizowano asercję testu obcięcia opisu w `EntityCard`, aby poprawnie obsługiwała format wielokropka
 
 ---
 

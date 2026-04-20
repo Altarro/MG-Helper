@@ -61,7 +61,8 @@ export function ThreatDetail() {
   const [showFrontRelinkModal, setShowFrontRelinkModal] = useState(false);
   const [relinkFrontId, setRelinkFrontId] = useState('');
   const [relinkFrontSaving, setRelinkFrontSaving] = useState(false);
-  const returnToSessionLive = (location.state as { returnToSessionLive?: string } | null)?.returnToSessionLive;
+  const returnToSessionLive = (location.state as { returnToSessionLive?: string } | null)
+    ?.returnToSessionLive;
   const backPath = returnToSessionLive ? `/sessions/${returnToSessionLive}/live` : '/threats';
 
   const forkSourcePath = useThreatDetailPath(forkSourceThreat?.id);
@@ -398,40 +399,48 @@ export function ThreatDetail() {
   }
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6 p-6">
+    <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
       <Link
         to={backPath}
-        className="flex w-fit items-center gap-2 text-sm text-surface-500 hover:text-primary-600"
+        className="text-surface-500 hover:text-primary-700 flex w-fit items-center gap-2 text-sm"
       >
         <ArrowLeft className="h-4 w-4" />
         {returnToSessionLive ? 'Sesja na żywo' : 'Zagrożenia'}
       </Link>
 
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="rounded-xl bg-amber-100 p-2 text-amber-600">
+      <div className="app-panel-strong flex flex-col gap-5 rounded-[1.9rem] border border-white/40 px-6 py-6 shadow-[0_28px_60px_rgba(18,45,66,0.12)] lg:flex-row lg:items-start lg:justify-between lg:px-7">
+        <div className="flex items-center gap-4">
+          <div className="app-danger-card rounded-[1.25rem] p-3 text-amber-700 shadow-[0_14px_28px_rgba(210,166,67,0.18)]">
             <AlertTriangle className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-surface-900">{currentThreat.name}</h1>
-            <span className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-              {THREAT_TYPE_LABELS[currentThreat.data.threatType]}
-            </span>
-            <span className={`ml-2 mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-              threatStatus === 'completed' ? 'bg-surface-200 text-surface-700' : 'bg-green-100 text-green-700'
-            }`}>
-              {threatStatus === 'completed' ? 'Zakończone' : 'Aktywne'}
-            </span>
+            <h1 className="text-surface-900 text-3xl font-semibold tracking-[-0.03em]">
+              {currentThreat.name}
+            </h1>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="app-danger-pill inline-flex rounded-full px-3 py-1 text-xs font-semibold">
+                {THREAT_TYPE_LABELS[currentThreat.data.threatType]}
+              </span>
+              <span
+                className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                  threatStatus === 'completed'
+                    ? 'app-pill-muted'
+                    : 'border border-emerald-300/70 bg-emerald-100/80 text-emerald-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.28)]'
+                }`}
+              >
+                {threatStatus === 'completed' ? 'Zakończone' : 'Aktywne'}
+              </span>
+            </div>
           </div>
         </div>
-        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+        <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
           <button
             type="button"
             onClick={() => openToggleFlow()}
-            className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm ${
+            className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition ${
               threatStatus === 'completed'
-                ? 'border-green-200 text-green-700 hover:bg-green-50'
-                : 'border-surface-300 hover:bg-surface-50'
+                ? 'border border-emerald-300/70 bg-emerald-100/75 text-emerald-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.32)] hover:bg-emerald-100'
+                : 'app-button-secondary'
             }`}
           >
             {threatStatus === 'completed' ? 'Wznów' : 'Zakończ'}
@@ -439,7 +448,7 @@ export function ThreatDetail() {
           <button
             type="button"
             onClick={() => setIsEditing((current) => !current)}
-            className="flex items-center gap-1.5 rounded-md border border-surface-300 px-3 py-1.5 text-sm hover:bg-surface-50"
+            className="app-button-secondary inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
           >
             <Edit2 className="h-3.5 w-3.5" /> {isEditing ? 'Anuluj' : 'Edytuj'}
           </button>
@@ -447,7 +456,7 @@ export function ThreatDetail() {
             <button
               type="button"
               onClick={() => setShowDerivedModal(true)}
-              className="flex items-center gap-1.5 rounded-md border border-primary-200 px-3 py-1.5 text-sm text-primary-700 hover:bg-primary-50"
+              className="app-button-primary inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
             >
               <GitBranchPlus className="h-3.5 w-3.5" /> Utwórz zagrożenie wynikające
             </button>
@@ -455,7 +464,7 @@ export function ThreatDetail() {
           <button
             type="button"
             onClick={() => setConfirmDelete(true)}
-            className="flex items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+            className="app-button-danger inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
           >
             <Trash2 className="h-3.5 w-3.5" /> Usuń
           </button>
@@ -463,7 +472,7 @@ export function ThreatDetail() {
       </div>
 
       {isEditing ? (
-        <div className="rounded-xl border border-surface-200 bg-white p-5 shadow-sm">
+        <div className="app-panel rounded-[1.75rem] p-4 shadow-[0_20px_40px_rgba(18,45,66,0.08)] lg:p-6">
           <ThreatForm
             defaultValues={{
               name: currentThreat.name,
@@ -472,7 +481,10 @@ export function ThreatDetail() {
               impulse: currentThreat.data.impulse,
               trigger: currentThreat.data.trigger ?? '',
               reasonOfDead: currentThreat.data.reasonOfDead ?? '',
-              inheritanceNotes: typeof currentThreat.data.inheritanceNotes === 'string' ? currentThreat.data.inheritanceNotes : '',
+              inheritanceNotes:
+                typeof currentThreat.data.inheritanceNotes === 'string'
+                  ? currentThreat.data.inheritanceNotes
+                  : '',
               forkThreatId: currentThreat.data.forkThreatId,
               moves: currentThreat.data.moves,
               description: currentThreat.description,
@@ -493,16 +505,19 @@ export function ThreatDetail() {
             title="Kontekst zagrożenia"
             description="Główne informacje o presji fabularnej i jej miejscu w kampanii."
             tone="accent"
+            contentClassName="flex flex-col gap-5 lg:gap-6"
           >
             {currentThreat.data.impulse && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
-                <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-700">Impuls</h2>
-                <p className="text-sm italic text-surface-800">{currentThreat.data.impulse}</p>
+              <div className="app-danger-card rounded-[1.5rem] px-5 py-6">
+                <h2 className="mb-2 text-xs font-semibold tracking-wide text-amber-700 uppercase">
+                  Impuls
+                </h2>
+                <p className="text-surface-800 text-sm italic">{currentThreat.data.impulse}</p>
               </div>
             )}
 
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div className="rounded-xl border border-surface-200 bg-white p-5">
+            <div className="grid gap-5 lg:grid-cols-2">
+              <div className="app-panel rounded-[1.5rem] p-6">
                 <NarrativeLinksSection
                   title="Front nadrzędny"
                   items={parentFront}
@@ -512,7 +527,7 @@ export function ThreatDetail() {
                 />
               </div>
 
-              <div className="rounded-xl border border-surface-200 bg-white p-5">
+              <div className="app-panel rounded-[1.5rem] p-6">
                 <NarrativeLinksSection
                   title="Powiązane wątki"
                   items={relatedThreads}
@@ -528,38 +543,46 @@ export function ThreatDetail() {
             <DetailSection
               title="Historia i tykanie"
               description="Trigger, pochodzenie i stan wygaszenia zagrożenia."
+              contentClassName="flex flex-col gap-5"
             >
-              <div className="grid gap-4 lg:grid-cols-2">
+              <div className="grid gap-5 lg:grid-cols-2">
                 {currentThreat.data.trigger && (
-                  <div className="rounded-xl border border-surface-200 bg-white p-5">
-                    <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-500">
+                  <div className="app-panel rounded-[1.5rem] p-6">
+                    <h2 className="text-surface-500 mb-2 text-xs font-semibold tracking-wide uppercase">
                       Trigger tykania
                     </h2>
-                    <p className="whitespace-pre-wrap text-sm text-surface-700">{currentThreat.data.trigger}</p>
+                    <p className="text-surface-700 text-sm whitespace-pre-wrap">
+                      {currentThreat.data.trigger}
+                    </p>
                   </div>
                 )}
 
                 {forkSourceThreat && (
-                  <div className="rounded-xl border border-surface-200 bg-white p-5">
-                    <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-500">
+                  <div className="app-panel rounded-[1.5rem] p-6">
+                    <h2 className="text-surface-500 mb-2 text-xs font-semibold tracking-wide uppercase">
                       Powstało z zagrożenia
                     </h2>
                     {forkSourcePath ? (
-                      <Link to={forkSourcePath} className="text-sm font-medium text-primary-600 hover:underline">
+                      <Link
+                        to={forkSourcePath}
+                        className="text-primary-700 text-sm font-medium hover:underline"
+                      >
                         {forkSourceThreat.name}
                       </Link>
                     ) : (
-                      <p className="text-sm text-surface-700">{forkSourceThreat.name}</p>
+                      <p className="text-surface-700 text-sm">{forkSourceThreat.name}</p>
                     )}
                   </div>
                 )}
 
                 {currentThreat.data.reasonOfDead && (
-                  <div className="rounded-xl border border-surface-200 bg-surface-50 p-5 lg:col-span-2">
-                    <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-500">
+                  <div className="app-danger-card rounded-[1.5rem] p-6 lg:col-span-2">
+                    <h2 className="text-surface-500 mb-2 text-xs font-semibold tracking-wide uppercase">
                       Powód wygaszenia / śmierci
                     </h2>
-                    <p className="whitespace-pre-wrap text-sm text-surface-700">{currentThreat.data.reasonOfDead}</p>
+                    <p className="text-surface-700 text-sm whitespace-pre-wrap">
+                      {currentThreat.data.reasonOfDead}
+                    </p>
                   </div>
                 )}
               </div>
@@ -570,13 +593,14 @@ export function ThreatDetail() {
             <DetailSection
               title="Ruchy zagrożenia"
               description="Lista ruchów, po których MG może sięgać podczas eskalacji."
+              contentClassName="flex flex-col gap-5"
             >
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-surface-500">
+              <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
                 Ruchy zagrożenia
               </h2>
               <ul className="list-inside list-disc space-y-1.5">
                 {currentThreat.data.moves.map((move, index) => (
-                  <li key={index} className="text-sm text-surface-700">
+                  <li key={index} className="text-surface-700 text-sm">
                     {move}
                   </li>
                 ))}
@@ -584,31 +608,34 @@ export function ThreatDetail() {
             </DetailSection>
           )}
 
-          {typeof currentThreat.data.inheritanceNotes === 'string' && currentThreat.data.inheritanceNotes.trim().length > 0 && (
-            <DetailSection
-              title="Dziedzictwo zagrożenia"
-              description="To, co przeszło dalej po wcześniejszym zagrożeniu: skutki, etapy i konsekwencje."
-            >
-              <p className="whitespace-pre-wrap text-sm text-surface-700">{currentThreat.data.inheritanceNotes}</p>
-            </DetailSection>
-          )}
+          {typeof currentThreat.data.inheritanceNotes === 'string' &&
+            currentThreat.data.inheritanceNotes.trim().length > 0 && (
+              <DetailSection
+                title="Dziedzictwo zagrożenia"
+                description="To, co przeszło dalej po wcześniejszym zagrożeniu: skutki, etapy i konsekwencje."
+              >
+                <p className="text-surface-700 text-sm whitespace-pre-wrap">
+                  {currentThreat.data.inheritanceNotes}
+                </p>
+              </DetailSection>
+            )}
 
           {linkedClock && (
             <DetailSection
               title="Zegar presji"
               description="Operacyjny licznik eskalacji przypięty do tego zagrożenia."
             >
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-surface-500">
+              <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
                 Powiązany zegar
               </h2>
               <Link
                 to={`/clocks/${linkedClock.id}`}
-                className="m-[-0.5rem] flex items-center gap-4 rounded-lg border border-transparent p-2 transition-colors hover:border-primary-200 hover:bg-primary-50"
+                className="app-input-shell hover:border-primary-300 m-[-0.35rem] flex items-center gap-4 rounded-[1.4rem] p-3 transition-colors hover:bg-[rgba(229,231,223,0.98)]"
               >
                 <ClockWidget clock={linkedClock} size={56} showLabel />
                 <div className="min-w-0">
-                  <p className="font-medium text-surface-900">{linkedClock.name}</p>
-                  <p className="text-sm text-surface-500">
+                  <p className="text-surface-900 font-medium">{linkedClock.name}</p>
+                  <p className="text-surface-500 text-sm">
                     {linkedClock.data.filled}/{linkedClock.data.segments} segmentów
                   </p>
                 </div>
@@ -618,15 +645,18 @@ export function ThreatDetail() {
                   type="button"
                   onClick={() => void handleAdjustLinkedClock(-1)}
                   disabled={linkedClock.data.filled <= 0}
-                  className="rounded-md border border-surface-300 bg-white px-2 py-1 text-xs font-medium text-surface-700 hover:bg-surface-50 disabled:opacity-40"
+                  className="app-button-secondary rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-40"
                 >
                   -1 tick
                 </button>
                 <button
                   type="button"
                   onClick={() => void handleAdjustLinkedClock(1)}
-                  disabled={linkedClock.data.filled >= linkedClock.data.segments || linkedClock.data.isActive === false}
-                  className="rounded-md border border-primary-200 bg-white px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 disabled:opacity-40"
+                  disabled={
+                    linkedClock.data.filled >= linkedClock.data.segments ||
+                    linkedClock.data.isActive === false
+                  }
+                  className="app-button-primary rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-40"
                 >
                   +1 tick
                 </button>
@@ -652,7 +682,7 @@ export function ThreatDetail() {
               <button
                 type="button"
                 onClick={() => setShowQuickClockModal(true)}
-                className="rounded-md border border-primary-200 bg-white px-3 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
+                className="app-button-primary rounded-full px-4 py-2 text-sm font-medium"
               >
                 + Dodaj zegar
               </button>
@@ -660,13 +690,12 @@ export function ThreatDetail() {
           )}
 
           {currentThreat.description && (
-            <DetailSection
-              title="Opis"
-              description="Pełny opis zagrożenia i jego roli w kampanii."
-            >
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-surface-500">Opis</h2>
+            <DetailSection title="Opis" description="Pełny opis zagrożenia i jego roli w kampanii.">
+              <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
+                Opis
+              </h2>
               <div
-                className="prose prose-sm max-w-none text-surface-700"
+                className="prose prose-sm text-surface-700 max-w-none"
                 dangerouslySetInnerHTML={{ __html: currentThreat.description }}
               />
             </DetailSection>
@@ -675,7 +704,10 @@ export function ThreatDetail() {
           {currentThreat.tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {currentThreat.tags.map((tag) => (
-                <span key={tag} className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs text-amber-700">
+                <span
+                  key={tag}
+                  className="app-danger-pill rounded-full px-2.5 py-1 text-xs font-medium"
+                >
                   {tag}
                 </span>
               ))}
@@ -692,15 +724,15 @@ export function ThreatDetail() {
           <DetailSection
             title="Powiązania świata"
             description="Relacje dodatkowe poza głównym kontraktem zagrożenia."
-            action={(
+            action={
               <button
                 type="button"
                 onClick={() => setShowRelPicker(true)}
-                className="text-xs text-primary-600 hover:underline"
+                className="app-button-secondary rounded-full px-3 py-1.5 text-xs font-medium"
               >
                 + Dodaj
               </button>
-            )}
+            }
           >
             <RelationList
               entityId={currentThreat.id}
@@ -732,7 +764,7 @@ export function ThreatDetail() {
 
       {toggleModalOpen && (
         <Modal title="Powód zakończenia" onClose={() => setToggleModalOpen(false)}>
-          <p className="text-sm text-surface-600">Podaj powód zakończenia zagrożenia:</p>
+          <p className="text-surface-600 text-sm">Podaj powód zakończenia zagrożenia:</p>
           <textarea
             placeholder="Podaj powód zakończenia..."
             value={toggleReason}
@@ -741,11 +773,9 @@ export function ThreatDetail() {
               if (toggleReasonError) setToggleReasonError('');
             }}
             rows={4}
-            className="mt-3 w-full rounded-md border border-surface-300 px-3 py-2 text-sm"
+            className="app-input text-surface-800 mt-3 w-full rounded-[1.2rem] px-4 py-3 text-sm"
           />
-          {toggleReasonError && (
-            <p className="mt-2 text-xs text-red-600">{toggleReasonError}</p>
-          )}
+          {toggleReasonError && <p className="mt-2 text-xs text-red-600">{toggleReasonError}</p>}
 
           <div className="mt-3 flex flex-wrap gap-2">
             {THREAT_DEATH_REASON_PRESETS.map((preset) => (
@@ -753,7 +783,7 @@ export function ThreatDetail() {
                 key={preset}
                 type="button"
                 onClick={() => setToggleReason(preset)}
-                className="rounded-full border border-surface-300 px-3 py-1 text-xs text-surface-600 hover:bg-surface-50"
+                className="app-button-secondary rounded-full px-3 py-1.5 text-xs font-medium"
               >
                 {preset}
               </button>
@@ -764,7 +794,7 @@ export function ThreatDetail() {
             <button
               type="button"
               onClick={() => setToggleModalOpen(false)}
-              className="rounded-md border border-surface-300 px-4 py-2 text-sm font-medium text-surface-700 hover:bg-surface-50"
+              className="app-button-secondary rounded-full px-4 py-2 text-sm font-medium"
             >
               Anuluj
             </button>
@@ -772,7 +802,7 @@ export function ThreatDetail() {
               type="button"
               onClick={() => void handleConfirmComplete()}
               disabled={toggleSaving}
-              className={`rounded-md px-4 py-2 text-sm font-medium text-white ${toggleSaving ? 'bg-primary-600/70' : 'bg-danger-600 hover:bg-danger-700'}`}
+              className={`rounded-full px-4 py-2 text-sm font-medium text-white ${toggleSaving ? 'bg-primary-600/70' : 'bg-danger-600 hover:bg-danger-700'}`}
             >
               Zakończ
             </button>
@@ -782,13 +812,13 @@ export function ThreatDetail() {
 
       {showDerivedModal && (
         <Modal title="Nowe zagrożenie wynikające" onClose={() => setShowDerivedModal(false)}>
-          <div className="mb-4 rounded-lg border border-primary-100 bg-primary-50 px-4 py-3 text-sm text-surface-700">
+          <div className="app-panel border-primary-200/50 text-surface-700 mb-4 rounded-[1.35rem] border px-4 py-4 text-sm">
             <p>
-              Źródło: <span className="font-medium text-surface-900">{currentThreat.name}</span>
+              Źródło: <span className="text-surface-900 font-medium">{currentThreat.name}</span>
             </p>
             {completedClockLabels.length > 0 ? (
               <div className="mt-2">
-                <p className="font-medium text-surface-900">Przenoszone ukończone kroki zegara:</p>
+                <p className="text-surface-900 font-medium">Przenoszone ukończone kroki zegara:</p>
                 <ul className="mt-1 list-inside list-disc space-y-1 text-sm">
                   {completedClockLabels.map((label, index) => (
                     <li key={`${index}-${label}`}>{label}</li>
@@ -797,16 +827,18 @@ export function ThreatDetail() {
               </div>
             ) : linkedClock && linkedClock.data.filled > 0 ? (
               <p className="mt-2">
-                Zapiszę w opisie informację, że w źródle ukończono {linkedClock.data.filled} z {linkedClock.data.segments} segmentów zegara.
+                Zapiszę w opisie informację, że w źródle ukończono {linkedClock.data.filled} z{' '}
+                {linkedClock.data.segments} segmentów zegara.
               </p>
             ) : (
-              <p className="mt-2 text-surface-600">
+              <p className="text-surface-600 mt-2">
                 Źródłowy zegar nie ma ukończonych nazwanych kroków do przeniesienia.
               </p>
             )}
             {parentFrontEntity && (
-              <p className="mt-2 text-surface-600">
-                Nowe zagrożenie zostanie też automatycznie podpięte pod front: <span className="font-medium text-surface-900">{parentFrontEntity.name}</span>.
+              <p className="text-surface-600 mt-2">
+                Nowe zagrożenie zostanie też automatycznie podpięte pod front:{' '}
+                <span className="text-surface-900 font-medium">{parentFrontEntity.name}</span>.
               </p>
             )}
           </div>
@@ -826,7 +858,7 @@ export function ThreatDetail() {
         <Modal title="Dodaj zegar do zagrożenia" onClose={() => setShowQuickClockModal(false)}>
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1">
-              <label htmlFor="quick-clock-name" className="text-sm font-medium text-surface-700">
+              <label htmlFor="quick-clock-name" className="text-surface-700 text-sm font-medium">
                 Nazwa zegara
               </label>
               <input
@@ -834,22 +866,27 @@ export function ThreatDetail() {
                 value={quickClockName}
                 onChange={(event) => setQuickClockName(event.target.value)}
                 placeholder="Np. Eskalacja rytuału"
-                className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="app-input text-surface-800 focus:border-primary-500 rounded-[1.1rem] px-3 py-2.5 text-sm focus:outline-none"
                 autoFocus
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label htmlFor="quick-clock-segments" className="text-sm font-medium text-surface-700">
+              <label
+                htmlFor="quick-clock-segments"
+                className="text-surface-700 text-sm font-medium"
+              >
                 Segmenty
               </label>
               <select
                 id="quick-clock-segments"
                 value={quickClockSegments}
                 onChange={(event) => setQuickClockSegments(Number(event.target.value))}
-                className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="app-input text-surface-800 focus:border-primary-500 rounded-[1.1rem] px-3 py-2.5 text-sm focus:outline-none"
               >
                 {CLOCK_SEGMENTS.map((segments) => (
-                  <option key={segments} value={segments}>{segments}</option>
+                  <option key={segments} value={segments}>
+                    {segments}
+                  </option>
                 ))}
               </select>
             </div>
@@ -857,7 +894,7 @@ export function ThreatDetail() {
               <button
                 type="button"
                 onClick={() => setShowQuickClockModal(false)}
-                className="rounded-md border border-surface-300 px-4 py-2 text-sm font-medium text-surface-700 hover:bg-surface-50"
+                className="app-button-secondary rounded-full px-4 py-2 text-sm font-medium"
               >
                 Anuluj
               </button>
@@ -865,7 +902,7 @@ export function ThreatDetail() {
                 type="button"
                 onClick={() => void handleCreateQuickClock()}
                 disabled={!quickClockName.trim() || quickClockSaving}
-                className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+                className="app-button-primary rounded-full px-4 py-2 text-sm font-medium disabled:opacity-50"
               >
                 {quickClockSaving ? 'Zapisywanie...' : 'Dodaj zegar'}
               </button>
@@ -878,17 +915,17 @@ export function ThreatDetail() {
         <Modal title="Przepnij zagrożenie do frontu" onClose={() => setShowFrontRelinkModal(false)}>
           <div className="flex flex-col gap-4">
             {fronts === undefined ? (
-              <p className="text-sm text-surface-600">Ładowanie listy frontów...</p>
+              <p className="text-surface-600 text-sm">Ładowanie listy frontów...</p>
             ) : fronts.length === 0 ? (
               <>
-                <p className="text-sm text-surface-600">
+                <p className="text-surface-600 text-sm">
                   Brak frontów do wyboru. Utwórz najpierw front, a potem wróć do tego zagrożenia.
                 </p>
                 <div className="flex justify-end gap-3">
                   <button
                     type="button"
                     onClick={() => setShowFrontRelinkModal(false)}
-                    className="rounded-md border border-surface-300 px-4 py-2 text-sm font-medium text-surface-700 hover:bg-surface-50"
+                    className="app-button-secondary rounded-full px-4 py-2 text-sm font-medium"
                   >
                     Zamknij
                   </button>
@@ -897,23 +934,28 @@ export function ThreatDetail() {
             ) : (
               <>
                 <div className="flex flex-col gap-1">
-                  <label htmlFor="threat-front-select" className="text-sm font-medium text-surface-700">
+                  <label
+                    htmlFor="threat-front-select"
+                    className="text-surface-700 text-sm font-medium"
+                  >
                     Wybierz front
                   </label>
                   <select
                     id="threat-front-select"
                     value={relinkFrontId}
                     onChange={(event) => setRelinkFrontId(event.target.value)}
-                    className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    className="app-input text-surface-800 focus:border-primary-500 rounded-[1.1rem] px-3 py-2.5 text-sm focus:outline-none"
                     autoFocus
                   >
                     {fronts.map((front) => (
-                      <option key={front.id} value={front.id}>{front.name}</option>
+                      <option key={front.id} value={front.id}>
+                        {front.name}
+                      </option>
                     ))}
                   </select>
                 </div>
 
-                <div className="rounded-md border border-surface-200 bg-surface-50 px-3 py-2 text-xs text-surface-600">
+                <div className="app-panel text-surface-600 rounded-[1.15rem] px-3 py-2.5 text-xs">
                   Zmiana zaktualizuje relację belongs_to tego zagrożenia.
                 </div>
 
@@ -921,7 +963,7 @@ export function ThreatDetail() {
                   <button
                     type="button"
                     onClick={() => setShowFrontRelinkModal(false)}
-                    className="rounded-md border border-surface-300 px-4 py-2 text-sm font-medium text-surface-700 hover:bg-surface-50"
+                    className="app-button-secondary rounded-full px-4 py-2 text-sm font-medium"
                   >
                     Anuluj
                   </button>
@@ -929,7 +971,7 @@ export function ThreatDetail() {
                     type="button"
                     onClick={() => void handleRelinkFront()}
                     disabled={!relinkFrontId || relinkFrontSaving}
-                    className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+                    className="app-button-primary rounded-full px-4 py-2 text-sm font-medium disabled:opacity-50"
                   >
                     {relinkFrontSaving ? 'Zapisywanie...' : 'Zapisz'}
                   </button>
