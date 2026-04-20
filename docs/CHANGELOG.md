@@ -27,6 +27,7 @@ Wersjonowanie: [Semantic Versioning](https://semver.org/) — `MAJOR.MINOR.PATCH
 - Konfiguracja Vite otrzymala `base: '/MG-Helper/'` dla poprawnego ladowania assetow z Project Pages
 - Domknięto pakiet QOL.1-5: ujednolicone słownictwo akcji sesja/scena, pełniejsze etykiety a11y (`title`, `aria-label`), poprawione mikrocopy empty state oraz spójność akcji w panelach live
 - Potwierdzono finalny odbiór QoL kompletem bramek jakości: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`
+- Uporządkowano dokumentację techniczną: usunięto duplikację treści z `requirements.md`, zdefiniowano pojedyncze źródła prawdy w `docs/README.md` i oznaczono `quickfix-technical-notes.md` jako archiwum historyczne
 
 ### Fixed
 - Naprawiono konfigurację TypeScript dla bramki typecheck (`ignoreDeprecations: "5.0"`)
