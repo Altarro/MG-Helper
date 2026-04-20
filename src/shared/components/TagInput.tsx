@@ -8,7 +8,7 @@ interface TagInputProps {
   placeholder?: string;
 }
 
-export function TagInput({ value, onChange, placeholder = 'Dodaj tag…' }: TagInputProps) {
+export function TagInput({ value, onChange, placeholder = 'Dodaj tag...' }: TagInputProps) {
   const allTags = useTags();
   const [input, setInput] = useState('');
   const [open, setOpen] = useState(false);
@@ -42,7 +42,6 @@ export function TagInput({ value, onChange, placeholder = 'Dodaj tag…' }: TagI
     if (e.key === 'Escape') setOpen(false);
   }
 
-  // Close dropdown on outside click
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -55,18 +54,18 @@ export function TagInput({ value, onChange, placeholder = 'Dodaj tag…' }: TagI
 
   return (
     <div ref={containerRef} className="relative">
-      <div className="flex min-h-9 flex-wrap gap-1.5 rounded-md border border-surface-300 bg-white px-2 py-1.5 focus-within:border-primary-500 focus-within:ring-1 focus-within:ring-primary-500">
+      <div className="app-input-shell flex min-h-12 flex-wrap gap-2 rounded-2xl px-3 py-2 focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/20">
         {value.map((tag) => (
           <span
             key={tag}
-            className="flex items-center gap-1 rounded bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700"
+            className="app-pill flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
           >
             {tag}
             <button
               type="button"
               onClick={() => removeTag(tag)}
               aria-label={`Usuń tag ${tag}`}
-              className="text-primary-400 hover:text-primary-700"
+              className="text-primary-500 transition-colors hover:text-primary-800"
             >
               <X className="h-3 w-3" />
             </button>
@@ -81,7 +80,7 @@ export function TagInput({ value, onChange, placeholder = 'Dodaj tag…' }: TagI
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={value.length === 0 ? placeholder : ''}
-          className="min-w-24 flex-1 bg-transparent text-sm outline-none placeholder:text-surface-400"
+          className="min-w-24 flex-1 bg-transparent py-1 text-sm text-surface-900 outline-none placeholder:text-surface-500"
           aria-label="Wprowadź tag"
           aria-autocomplete="list"
           aria-expanded={open && suggestions.length > 0}
@@ -92,7 +91,7 @@ export function TagInput({ value, onChange, placeholder = 'Dodaj tag…' }: TagI
         <ul
           role="listbox"
           aria-label="Sugestie tagów"
-          className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border border-surface-200 bg-white py-1 shadow-lg"
+          className="app-panel-strong absolute z-10 mt-2 max-h-48 w-full overflow-auto rounded-2xl py-1.5"
         >
           {suggestions.map((tag) => (
             <li key={tag}>
@@ -104,7 +103,7 @@ export function TagInput({ value, onChange, placeholder = 'Dodaj tag…' }: TagI
                   e.preventDefault();
                   addTag(tag);
                 }}
-                className="w-full px-3 py-1.5 text-left text-sm text-surface-700 hover:bg-surface-50"
+                className="w-full px-3 py-2 text-left text-sm text-surface-800 transition-colors hover:bg-[rgba(223,225,218,0.72)]"
               >
                 {tag}
               </button>

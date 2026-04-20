@@ -47,7 +47,8 @@ export function ClueList() {
     const relations = await db.relations.toArray();
     const clueRelations = relations.filter((relation) => relation.type === 'clues_for');
     const targetIds = [...new Set(clueRelations.map((relation) => relation.targetId))];
-    const targets = targetIds.length > 0 ? await db.entities.where('id').anyOf(targetIds).toArray() : [];
+    const targets =
+      targetIds.length > 0 ? await db.entities.where('id').anyOf(targetIds).toArray() : [];
     return {
       relations: clueRelations,
       targets: new Map(targets.map((target) => [target.id, target])),
@@ -81,7 +82,9 @@ export function ClueList() {
     const sections = new Map<string, { target: Entity; clues: Clue[] }>();
 
     for (const clue of filtered ?? []) {
-      const relations = (clueLinkData?.relations ?? []).filter((relation) => relation.sourceId === clue.id);
+      const relations = (clueLinkData?.relations ?? []).filter(
+        (relation) => relation.sourceId === clue.id,
+      );
 
       for (const relation of relations) {
         const target = clueLinkData?.targets.get(relation.targetId);
@@ -97,7 +100,8 @@ export function ClueList() {
     }
 
     return [...sections.values()].sort((a, b) => {
-      const typeOrder = (STORY_TARGET_ORDER[a.target.type] ?? 99) - (STORY_TARGET_ORDER[b.target.type] ?? 99);
+      const typeOrder =
+        (STORY_TARGET_ORDER[a.target.type] ?? 99) - (STORY_TARGET_ORDER[b.target.type] ?? 99);
       if (typeOrder !== 0) return typeOrder;
       return a.target.name.localeCompare(b.target.name);
     });
@@ -106,7 +110,8 @@ export function ClueList() {
   const freeClues = useMemo(
     () =>
       (filtered ?? []).filter(
-        (clue) => !(clueLinkData?.relations ?? []).some((relation) => relation.sourceId === clue.id),
+        (clue) =>
+          !(clueLinkData?.relations ?? []).some((relation) => relation.sourceId === clue.id),
       ),
     [filtered, clueLinkData],
   );
@@ -149,141 +154,169 @@ export function ClueList() {
   if (clues === undefined) return <LoadingSpinner />;
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold text-surface-900">Wskazówki</h1>
-          <p className="mt-1 text-sm text-surface-500">
-            Tropy i sekrety kampanii, grupowane względem celu albo pokazywane jako wolne wskazówki.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setViewMode('grouped')}
-            className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              viewMode === 'grouped'
-                ? 'bg-cyan-100 text-cyan-700'
-                : 'bg-surface-100 text-surface-600 hover:bg-surface-200'
-            }`}
-          >
-            Grupowanie
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('flat')}
-            className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              viewMode === 'flat'
-                ? 'bg-cyan-100 text-cyan-700'
-                : 'bg-surface-100 text-surface-600 hover:bg-surface-200'
-            }`}
-          >
-            Siatka
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-          >
-            <Plus className="h-4 w-4" />
-            Nowa wskazówka
-          </button>
-        </div>
-      </div>
+    <div className="flex flex-col gap-6">
+      <section className="app-panel-strong rounded-[2rem] px-6 py-7 lg:px-8 lg:py-8">
+        <div className="flex flex-wrap items-start justify-between gap-5">
+          <div className="max-w-3xl">
+            <div className="text-primary-700 mb-3 inline-flex items-center rounded-full border border-[rgba(33,71,102,0.16)] bg-[rgba(111,146,164,0.12)] px-3 py-1 text-[11px] font-semibold tracking-[0.18em] uppercase">
+              Wskazówki
+            </div>
+            <h1 className="text-primary-900 text-3xl font-semibold tracking-[-0.04em] lg:text-[2.2rem]">
+              Wskazówki
+            </h1>
+            <p className="text-surface-700 mt-2 max-w-[64ch] text-sm leading-7 lg:text-[0.98rem]">
+              Tropy i sekrety kampanii, grupowane względem celu albo pokazywane jako wolne
+              wskazówki.
+            </p>
+          </div>
 
-      <div className="flex flex-wrap gap-1 rounded-lg border border-surface-200 bg-surface-50 p-1 w-fit">
-        {(Object.entries(TAB_LABELS) as [FilterTab, string][]).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setTab(value)}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-              tab === value
-                ? 'bg-white text-surface-900 shadow-sm'
-                : 'text-surface-500 hover:text-surface-800'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setViewMode('grouped')}
+              className={`rounded-full px-4 py-2 text-xs font-semibold tracking-[0.01em] transition-all ${
+                viewMode === 'grouped'
+                  ? 'app-pill'
+                  : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+              }`}
+            >
+              Grupowanie
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('flat')}
+              className={`rounded-full px-4 py-2 text-xs font-semibold tracking-[0.01em] transition-all ${
+                viewMode === 'flat'
+                  ? 'app-pill'
+                  : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+              }`}
+            >
+              Siatka
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowForm(true)}
+              className="app-button-primary flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-transform hover:-translate-y-0.5"
+            >
+              <Plus className="h-4 w-4" />
+              Nowa wskazówka
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-6 flex flex-wrap gap-2.5">
+          {(Object.entries(TAB_LABELS) as [FilterTab, string][]).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setTab(value)}
+              className={`rounded-full px-4 py-2 text-xs font-semibold tracking-[0.01em] transition-all ${
+                tab === value ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="relative mt-6">
+          <Search className="text-surface-500 pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2" />
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Szukaj wskazówek, hintów albo celów..."
+            className="app-input text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:ring-primary-500/20 w-full rounded-2xl py-3 pr-10 pl-11 text-sm focus:ring-2 focus:outline-none"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              className="text-surface-500 hover:text-primary-700 absolute top-1/2 right-3 -translate-y-1/2 rounded-full p-1 transition-colors"
+              aria-label="Wyczyść wyszukiwanie wskazówek"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </section>
 
       {showForm && (
-        <div className="rounded-xl border border-surface-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-base font-semibold text-surface-900">Nowa wskazówka</h2>
-          <ClueForm
-            onSubmit={handleCreate}
-            onCancel={() => setShowForm(false)}
-            isSaving={saving}
-          />
+        <div className="app-panel rounded-[1.8rem] p-5 lg:p-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-primary-900 text-base font-semibold tracking-[-0.02em]">
+              Nowa wskazówka
+            </h2>
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="text-surface-500 hover:text-primary-700 rounded-xl p-2 transition-colors hover:bg-[rgba(223,225,218,0.75)]"
+              aria-label="Zamknij formularz nowej wskazówki"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <ClueForm onSubmit={handleCreate} onCancel={() => setShowForm(false)} isSaving={saving} />
         </div>
       )}
 
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-400" />
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Szukaj wskazówek, hintów albo celów..."
-          className="w-full rounded-md border border-surface-300 py-2 pl-9 pr-8 text-sm focus:border-primary-500 focus:outline-none"
-        />
-        {query && (
-          <button
-            type="button"
-            onClick={() => setQuery('')}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2"
-            aria-label="Wyczyść wyszukiwanie wskazówek"
-          >
-            <X className="h-4 w-4 text-surface-400" />
-          </button>
-        )}
-      </div>
-
       {clues.length === 0 ? (
-        <EmptyState
-          icon={<Zap className="h-8 w-8" />}
-          title="Brak wskazówek"
-          description="Dodaj pierwszą wskazówkę dla tej kampanii."
-        />
+        <div className="app-panel rounded-[1.8rem] p-6">
+          <EmptyState
+            icon={<Zap className="text-primary-300 h-8 w-8" />}
+            title="Brak wskazówek"
+            description="Dodaj pierwszą wskazówkę dla tej kampanii."
+            action={
+              <button
+                type="button"
+                onClick={() => setShowForm(true)}
+                className="app-button-primary rounded-2xl px-4 py-3 text-sm font-semibold"
+              >
+                Nowa wskazówka
+              </button>
+            }
+          />
+        </div>
       ) : filtered?.length === 0 ? (
-        <EmptyState
-          icon={<Search className="h-8 w-8" />}
-          title="Brak wyników"
-          description="Zmień filtry albo wyszukiwaną frazę."
-        />
+        <div className="app-panel rounded-[1.8rem] p-6">
+          <EmptyState
+            icon={<Search className="text-primary-300 h-8 w-8" />}
+            title="Brak wyników"
+            description="Zmień filtry albo wyszukiwaną frazę."
+          />
+        </div>
       ) : viewMode === 'grouped' ? (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-5">
           {groupedSections.map((section) => {
             const detailPath = getEntityDetailPath(section.target.type, section.target.id);
 
             return (
-              <section
-                key={section.target.id}
-                className="rounded-2xl border border-surface-200 bg-white p-4 shadow-sm"
-              >
-                <div className="mb-4 flex items-start justify-between gap-3">
+              <section key={section.target.id} className="app-panel rounded-[1.85rem] p-4 lg:p-5">
+                <div className="mb-5 flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-surface-400">
+                    <p className="text-surface-500 text-[11px] font-semibold tracking-[0.18em] uppercase">
                       {getEntityTypeLabel(section.target.type)}
                     </p>
                     {detailPath ? (
                       <Link
                         to={detailPath}
-                        className="mt-1 inline-flex max-w-full truncate text-sm font-semibold text-primary-700 hover:underline"
+                        className="text-primary-900 mt-2 inline-flex max-w-full truncate text-lg font-semibold tracking-[-0.03em] hover:underline"
                       >
                         {section.target.name}
                       </Link>
                     ) : (
-                      <h2 className="mt-1 text-sm font-semibold text-surface-900">{section.target.name}</h2>
+                      <h2 className="text-primary-900 mt-2 text-lg font-semibold tracking-[-0.03em]">
+                        {section.target.name}
+                      </h2>
                     )}
                   </div>
-                  <span className="shrink-0 rounded-full bg-surface-100 px-2.5 py-1 text-xs text-surface-500">
+                  <span className="app-pill-muted shrink-0 rounded-full px-3 py-1 text-xs">
                     {section.clues.length} wsk.
                   </span>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {section.clues.map((clue) => (
                     <ClueCard
                       key={`${section.target.id}:${clue.id}`}
@@ -298,22 +331,22 @@ export function ClueList() {
           })}
 
           {freeClues.length > 0 && (
-            <section className="rounded-2xl border border-cyan-200 bg-cyan-50/40 p-4 shadow-sm">
-              <div className="mb-4 flex items-start justify-between gap-3">
+            <section className="app-panel rounded-[1.85rem] p-4 lg:p-5">
+              <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-cyan-700">
+                  <p className="text-[11px] font-semibold tracking-[0.18em] text-[#8c6416] uppercase">
                     Wolne wskazówki
                   </p>
-                  <p className="mt-1 text-sm text-surface-600">
+                  <p className="text-surface-700 mt-2 max-w-[58ch] text-sm leading-7">
                     Sekrety i tropy, które nie mają jeszcze przypiętego celu fabularnego.
                   </p>
                 </div>
-                <span className="shrink-0 rounded-full bg-white/80 px-2.5 py-1 text-xs text-cyan-700 ring-1 ring-inset ring-cyan-200">
+                <span className="app-danger-pill shrink-0 rounded-full px-3 py-1 text-xs">
                   {freeClues.length} szt.
                 </span>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {freeClues.map((clue) => (
                   <ClueCard
                     key={clue.id}
@@ -327,15 +360,17 @@ export function ClueList() {
           )}
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {(filtered ?? []).map((clue) => (
-            <ClueCard
-              key={clue.id}
-              clue={clue}
-              onClick={() => navigate(`/clues/${clue.id}`)}
-              onToggleDiscovered={handleToggleDiscovered}
-            />
-          ))}
+        <div className="app-panel rounded-[1.85rem] p-4 lg:p-5">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {(filtered ?? []).map((clue) => (
+              <ClueCard
+                key={clue.id}
+                clue={clue}
+                onClick={() => navigate(`/clues/${clue.id}`)}
+                onToggleDiscovered={handleToggleDiscovered}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>

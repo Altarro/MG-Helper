@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Zap } from 'lucide-react';
 import { useClues } from '../hooks/useClues';
 import { ClueCard } from './ClueCard';
 import { ClueForm } from './ClueForm';
@@ -9,7 +9,6 @@ import { EmptyState } from '@shared/components/EmptyState';
 import { addEntity, updateEntity } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
-import { Zap } from 'lucide-react';
 import type { Clue } from '../types';
 import type { ClueFormValues } from './ClueForm';
 
@@ -34,7 +33,6 @@ export function ClueList() {
   const [saving, setSaving] = useState(false);
 
   const lowerQuery = query.trim().toLowerCase();
-
   const filtered = clues?.filter((clue) => {
     const matchesQuery =
       !lowerQuery ||
@@ -65,7 +63,7 @@ export function ClueList() {
           discovered: values.discovered,
         },
       });
-      toast.success(`Wskazówka „${values.name}" utworzona`);
+      toast.success(`Wskazówka "${values.name}" utworzona`);
       setShowForm(false);
       navigate(`/clues/${entity.id}`);
     } catch {
@@ -89,77 +87,78 @@ export function ClueList() {
   if (clues === undefined) return <LoadingSpinner />;
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-surface-900">Wskazówki</h1>
-        <button
-          type="button"
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-        >
-          <Plus className="h-4 w-4" />
-          Nowa wskazówka
-        </button>
-      </div>
+    <div className="flex flex-col gap-6">
+      <section className="app-panel-strong rounded-[2rem] px-6 py-7 lg:px-8 lg:py-8">
+        <div className="flex flex-wrap items-start justify-between gap-5">
+          <div className="max-w-3xl">
+            <div className="mb-3 inline-flex items-center rounded-full border border-[rgba(33,71,102,0.16)] bg-[rgba(111,146,164,0.12)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-700">
+              Tropy kampanii
+            </div>
+            <h1 className="text-3xl font-semibold tracking-[-0.04em] text-primary-900 lg:text-[2.2rem]">
+              Wskazówki
+            </h1>
+            <p className="mt-2 max-w-[62ch] text-sm leading-7 text-surface-700 lg:text-[0.98rem]">
+              Ślady, tropy i informacje, które napędzają odkrywanie świata i zagrożeń.
+            </p>
+          </div>
 
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-1 rounded-lg border border-surface-200 bg-surface-50 p-1 w-fit">
-        {(Object.entries(TAB_LABELS) as [FilterTab, string][]).map(([t, label]) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTab(t)}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-              tab === t
-                ? 'bg-white text-surface-900 shadow-sm'
-                : 'text-surface-500 hover:text-surface-800'
-            }`}
-          >
-            {label}
+          <button type="button" onClick={() => setShowForm(true)} className="app-button-primary flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-transform hover:-translate-y-0.5">
+            <Plus className="h-4 w-4" />
+            Nowa wskazówka
           </button>
-        ))}
-      </div>
+        </div>
 
-      {/* Create form */}
-      {showForm && (
-        <div className="rounded-xl border border-surface-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-base font-semibold text-surface-900">Nowa wskazówka</h2>
-          <ClueForm
-            onSubmit={handleCreate}
-            onCancel={() => setShowForm(false)}
-            isSaving={saving}
+        <div className="mt-6 flex flex-wrap gap-2.5">
+          {(Object.entries(TAB_LABELS) as [FilterTab, string][]).map(([t, label]) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
+              className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${tab === t ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="relative mt-6">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-500" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Szukaj wskazówek..."
+            className="app-input w-full rounded-2xl py-3 pl-11 pr-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           />
+        </div>
+      </section>
+
+      {showForm && (
+        <div className="app-panel rounded-[1.8rem] p-5 lg:p-6">
+          <h2 className="mb-4 text-base font-semibold tracking-[-0.02em] text-primary-900">Nowa wskazówka</h2>
+          <ClueForm onSubmit={handleCreate} onCancel={() => setShowForm(false)} isSaving={saving} />
         </div>
       )}
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-400" />
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Szukaj wskazówek…"
-          className="w-full rounded-md border border-surface-300 py-2 pl-9 pr-3 text-sm focus:border-primary-500 focus:outline-none"
-        />
-      </div>
-
-      {/* List */}
-      {filtered === undefined || clues.length === 0 ? (
-        <EmptyState
-          icon={<Zap className="h-8 w-8" />}
-          title="Brak wskazówek"
-          description="Dodaj pierwszą wskazówkę dla tej kampanii."
-        />
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={<Search className="h-8 w-8" />}
-          title="Brak wyników"
-          description="Zmień filtry lub wyszukiwaną frazę."
-        />
+      {clues.length === 0 ? (
+        <div className="app-panel rounded-[1.8rem] p-6">
+          <EmptyState
+            icon={<Zap className="h-8 w-8 text-primary-300" />}
+            title="Brak wskazówek"
+            description="Dodaj pierwszą wskazówkę dla tej kampanii."
+          />
+        </div>
+      ) : filtered && filtered.length === 0 ? (
+        <div className="app-panel rounded-[1.8rem] p-6">
+          <EmptyState
+            icon={<Search className="h-8 w-8 text-primary-300" />}
+            title="Brak wyników"
+            description="Zmień filtry lub wyszukiwaną frazę."
+          />
+        </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((clue) => (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered?.map((clue) => (
             <ClueCard
               key={clue.id}
               clue={clue}

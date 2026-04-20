@@ -55,7 +55,7 @@ export function SearchBar({ compact = true, className = '' }: SearchBarProps) {
       className={`relative flex items-center ${compact ? 'max-w-64' : 'max-w-full'} ${className}`}
       role="search"
     >
-      <Search className="absolute left-2.5 h-4 w-4 text-surface-400 pointer-events-none" />
+      <Search className="pointer-events-none absolute left-3 h-4 w-4 text-surface-500" />
       <input
         ref={inputRef}
         type="search"
@@ -65,14 +65,14 @@ export function SearchBar({ compact = true, className = '' }: SearchBarProps) {
         placeholder="Szukaj…"
         aria-label="Globalne wyszukiwanie"
         title="Globalne wyszukiwanie (Ctrl+K)"
-        className="w-full rounded-full border border-surface-300 bg-surface-50 py-1.5 pl-8 pr-8 text-sm text-surface-900 placeholder:text-surface-400 focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-primary-500"
+        className="app-input w-full rounded-full py-2 pl-9 pr-8 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
       />
       {draftQuery && (
         <button
           type="button"
           onClick={clear}
           aria-label="Wyczyść wyszukiwanie"
-          className="absolute right-2 rounded-full text-surface-400 transition-colors hover:text-surface-700 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+          className="absolute right-2 rounded-full p-0.5 text-surface-500 transition-colors hover:text-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
         >
           <X className="h-4 w-4" />
         </button>

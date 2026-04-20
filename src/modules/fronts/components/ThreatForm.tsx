@@ -138,14 +138,14 @@ export function ThreatForm({
 
   return (
     <form onSubmit={handleSubmit(handleValidSubmit)} className="flex flex-col gap-4" noValidate>
-      <div className="flex flex-col gap-1">
-        <label htmlFor="threat-name" className="text-sm font-medium text-surface-700">
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="threat-name" className="text-sm font-medium text-surface-800">
           Nazwa <span className="text-red-500" aria-hidden="true">*</span>
         </label>
         <input
           id="threat-name"
           {...register('name')}
-          className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="app-input rounded-2xl px-3.5 py-3 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           placeholder="Nazwa zagrożenia..."
           aria-invalid={errors.name ? 'true' : 'false'}
         />
@@ -155,41 +155,41 @@ export function ThreatForm({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="threat-type" className="text-sm font-medium text-surface-700">
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="threat-type" className="text-sm font-medium text-surface-800">
             Rodzaj zagrożenia
           </label>
           <select
             id="threat-type"
             {...register('threatType')}
-            className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="app-input rounded-2xl px-3.5 py-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           >
             {THREAT_TYPES.map((t) => (
               <option key={t} value={t}>{THREAT_TYPE_LABELS[t]}</option>
             ))}
           </select>
           <div className="mt-1 flex items-center justify-between gap-2">
-            <p className="text-xs text-surface-500">
+            <p className="text-xs leading-6 text-surface-600">
               Szybki start: uzupełnij puste pola propozycją dla wybranego rodzaju.
             </p>
             <button
               type="button"
               onClick={applyThreatTypePreset}
               disabled={!selectedPreset}
-              className="shrink-0 rounded-full border border-surface-300 px-2.5 py-1 text-xs text-surface-600 hover:bg-surface-50 disabled:opacity-50"
+              className="app-pill-muted shrink-0 rounded-full px-3 py-1.5 text-xs transition-colors disabled:opacity-50"
             >
               Wstaw szablon
             </button>
           </div>
         </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="threat-status" className="text-sm font-medium text-surface-700">
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="threat-status" className="text-sm font-medium text-surface-800">
             Status
           </label>
           <select
             id="threat-status"
             {...register('status')}
-            className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="app-input rounded-2xl px-3.5 py-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           >
             {THREAT_STATUSES.map((status) => (
               <option key={status} value={status}>{THREAT_STATUS_LABELS[status]}</option>
@@ -198,60 +198,60 @@ export function ThreatForm({
         </div>
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="threat-impulse" className="text-sm font-medium text-surface-700">
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="threat-impulse" className="text-sm font-medium text-surface-800">
           Impuls
         </label>
         <input
           id="threat-impulse"
           {...register('impulse')}
-          className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="app-input rounded-2xl px-3.5 py-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           placeholder="Czego to zagrożenie desperacko pragnie..."
         />
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="threat-trigger" className="text-sm font-medium text-surface-700">
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="threat-trigger" className="text-sm font-medium text-surface-800">
           Trigger tykania
         </label>
         <textarea
           id="threat-trigger"
           {...register('trigger')}
           rows={3}
-          className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="app-input rounded-2xl px-3.5 py-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           placeholder="Kiedy to zagrożenie tyka albo eskaluje?"
         />
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="threat-fork-source" className="text-sm font-medium text-surface-700">
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="threat-fork-source" className="text-sm font-medium text-surface-800">
           Powstało z innego zagrożenia
         </label>
         <select
           id="threat-fork-source"
           {...register('forkThreatId')}
-          className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="app-input rounded-2xl px-3.5 py-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
         >
           <option value="">Brak</option>
           {forkThreatCandidates.map((threat) => (
             <option key={threat.id} value={threat.id}>{threat.name}</option>
           ))}
         </select>
-        <p className="text-xs text-surface-500">
+        <p className="text-xs leading-6 text-surface-600">
           Przydatne, gdy nowe zagrożenie wyrasta z poprzedniego albo jest jego odgałęzieniem.
         </p>
       </div>
 
       <div className="flex flex-col gap-2">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="threat-reason-of-dead" className="text-sm font-medium text-surface-700">
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="threat-reason-of-dead" className="text-sm font-medium text-surface-800">
             Powód wygaszenia / śmierci
           </label>
           <textarea
             id="threat-reason-of-dead"
             {...register('reasonOfDead')}
             rows={3}
-            className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="app-input rounded-2xl px-3.5 py-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
             placeholder="Opcjonalnie: co sprawiło, że to zagrożenie zniknęło albo utraciło znaczenie?"
           />
         </div>
@@ -261,7 +261,7 @@ export function ThreatForm({
               key={preset}
               type="button"
               onClick={() => setValue('reasonOfDead', preset, { shouldDirty: true, shouldValidate: true })}
-              className="rounded-full border border-surface-300 px-3 py-1 text-xs text-surface-600 hover:bg-surface-50"
+              className="app-pill-muted rounded-full px-3 py-1.5 text-xs transition-colors"
             >
               {preset}
             </button>
@@ -269,48 +269,48 @@ export function ThreatForm({
         </div>
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="threat-inheritance-notes" className="text-sm font-medium text-surface-700">
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="threat-inheritance-notes" className="text-sm font-medium text-surface-800">
           Dziedzictwo zagrożenia
         </label>
         <textarea
           id="threat-inheritance-notes"
           {...register('inheritanceNotes')}
           rows={4}
-          className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          className="app-input rounded-2xl px-3.5 py-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           placeholder="Co to zagrożenie odziedziczyło po wcześniejszym? Jakie skutki, etapy lub konsekwencje przeszły dalej?"
         />
-        <p className="text-xs text-surface-500">
+        <p className="text-xs leading-6 text-surface-600">
           To osobne pole na konsekwencje i ciąg dalszy po poprzednim zagrożeniu, niezależnie od zwykłego opisu.
         </p>
       </div>
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-surface-700">Ruchy zagrożenia</label>
+          <label className="text-sm font-medium text-surface-800">Ruchy zagrożenia</label>
           <button
             type="button"
             onClick={() => append({ value: '' })}
-            className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700"
+            className="flex items-center gap-1 text-xs font-medium text-primary-700 transition-colors hover:text-primary-800"
           >
             <Plus className="h-3.5 w-3.5" /> Dodaj ruch
           </button>
         </div>
         {fields.length === 0 && (
-          <p className="text-xs text-surface-400">Brak ruchów - dodaj, co zagrożenie może zrobić.</p>
+          <p className="text-xs text-surface-500">Brak ruchów - dodaj, co zagrożenie może zrobić.</p>
         )}
         {fields.map((field, i) => (
           <div key={field.id} className="flex gap-2">
             <input
               {...register(`moves.${i}.value`)}
-              className="flex-1 rounded-md border border-surface-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="app-input flex-1 rounded-2xl px-3.5 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
               placeholder={`Ruch ${i + 1}...`}
             />
             <button
               type="button"
               onClick={() => remove(i)}
               aria-label="Usuń ruch"
-              className="rounded-md border border-surface-200 p-1.5 text-surface-400 hover:bg-red-50 hover:text-red-600"
+              className="app-button-secondary rounded-2xl p-2.5 text-surface-600 transition-colors hover:text-red-700"
             >
               <X className="h-4 w-4" />
             </button>
@@ -318,37 +318,37 @@ export function ThreatForm({
         ))}
       </div>
 
-      <div className="rounded-lg border border-surface-200 p-3">
+      <div className="app-panel rounded-[1.45rem] p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-surface-400" />
-            <span className="text-sm font-medium text-surface-700">Powiązany zegar</span>
+            <Clock className="h-4 w-4 text-surface-500" />
+            <span className="text-sm font-medium text-surface-800">Powiązany zegar</span>
           </div>
           <button
             type="button"
             onClick={() => setShowClock((v) => !v)}
-            className="text-xs text-primary-600 hover:text-primary-700"
+            className="text-xs font-medium text-primary-700 transition-colors hover:text-primary-800"
           >
             {showClock ? 'Usuń zegar' : '+ Dodaj zegar'}
           </button>
         </div>
         {showClock && (
           <div className="mt-3 flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1.5">
               <label htmlFor="threat-clock-name" className="text-xs font-medium text-surface-600">Nazwa zegara</label>
               <input
                 id="threat-clock-name"
                 {...register('clockName')}
-                className="rounded-md border border-surface-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="app-input rounded-2xl px-3.5 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                 placeholder="Np. Odliczanie do ataku..."
               />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1.5">
               <label htmlFor="threat-clock-segments" className="text-xs font-medium text-surface-600">Segmenty</label>
               <select
                 id="threat-clock-segments"
                 {...register('clockSegments')}
-                className="rounded-md border border-surface-300 px-3 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="app-input rounded-2xl px-3.5 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
               >
                 {CLOCK_SEGMENTS.map((s) => (
                   <option key={s} value={s}>{s}</option>
@@ -359,8 +359,8 @@ export function ThreatForm({
         )}
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-surface-700">Opis / Notatki</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-surface-800">Opis / Notatki</label>
         <Controller
           name="description"
           control={control}
@@ -370,8 +370,8 @@ export function ThreatForm({
         />
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-surface-700">Tagi</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-surface-800">Tagi</label>
         <Controller
           name="tags"
           control={control}
@@ -379,12 +379,12 @@ export function ThreatForm({
         />
       </div>
 
-      <div className="flex justify-end gap-2 pt-2">
+      <div className="flex justify-end gap-3 pt-2">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md border border-surface-300 px-4 py-2 text-sm font-medium text-surface-700 hover:bg-surface-50"
+            className="app-button-secondary rounded-2xl px-4 py-3 text-sm font-medium transition-colors"
           >
             Anuluj
           </button>
@@ -392,7 +392,7 @@ export function ThreatForm({
         <button
           type="submit"
           disabled={isSaving}
-          className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+          className="app-button-primary rounded-2xl px-4 py-3 text-sm font-medium transition-colors disabled:opacity-50"
         >
           {isSaving ? 'Zapisywanie...' : submitLabel}
         </button>

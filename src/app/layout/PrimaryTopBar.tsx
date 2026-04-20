@@ -45,15 +45,15 @@ export function PrimaryTopBar({ children }: { children?: ReactNode }) {
   }, [db, location.pathname]);
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-surface-200 bg-white px-6">
-      <div className="flex items-center gap-3">
+    <header className="app-panel flex h-16 items-center justify-between rounded-[1.75rem] px-5 lg:px-6">
+      <div className="flex min-w-0 items-center gap-3">
         {children}
         <CampaignSwitcher />
-        <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-sm">
+        <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1 text-sm">
           <button
             type="button"
             onClick={() => navigate('/')}
-            className="rounded-md p-1 text-surface-400 transition-colors hover:bg-surface-100 hover:text-surface-700 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+            className="rounded-xl p-2 text-surface-500 transition-colors hover:bg-[rgba(223,225,218,0.75)] hover:text-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
             aria-label="Dashboard"
             title="Dashboard"
           >
@@ -61,7 +61,7 @@ export function PrimaryTopBar({ children }: { children?: ReactNode }) {
           </button>
           {segments.length === 0 && (
             <span className="flex items-center gap-1">
-              <ChevronRight className="h-3.5 w-3.5 text-surface-300" aria-hidden="true" />
+              <ChevronRight className="h-3.5 w-3.5 text-surface-400" aria-hidden="true" />
               <span aria-current="page" className="font-medium text-surface-800">Dashboard</span>
             </span>
           )}
@@ -72,12 +72,12 @@ export function PrimaryTopBar({ children }: { children?: ReactNode }) {
 
             return (
               <span key={seg} className="flex items-center gap-1">
-                <ChevronRight className="h-3.5 w-3.5 text-surface-300" aria-hidden="true" />
+                <ChevronRight className="h-3.5 w-3.5 text-surface-400" aria-hidden="true" />
                 {isLast ? (
                   <span
                     aria-current="page"
                     title={label}
-                    className="max-w-56 truncate font-medium text-surface-800"
+                    className="max-w-56 truncate font-medium text-primary-800"
                   >
                     {label}
                   </span>
@@ -85,7 +85,7 @@ export function PrimaryTopBar({ children }: { children?: ReactNode }) {
                   <button
                     type="button"
                     title={label}
-                    className="max-w-48 truncate rounded-md px-1 py-0.5 text-surface-500 transition-colors hover:bg-surface-100 hover:text-surface-800 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
+                    className="max-w-48 truncate rounded-lg px-2 py-1 text-surface-600 transition-colors hover:bg-[rgba(223,225,218,0.75)] hover:text-primary-800 focus:outline-none focus:ring-2 focus:ring-primary-500/30"
                     onClick={() => navigate('/' + segments.slice(0, i + 1).join('/'))}
                   >
                     {label}

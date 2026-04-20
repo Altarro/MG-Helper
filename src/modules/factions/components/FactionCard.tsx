@@ -11,21 +11,23 @@ export const FactionCard = memo(function FactionCard({ faction }: FactionCardPro
   return (
     <Link
       to={`/factions/${faction.id}`}
-      className="flex flex-col gap-2 rounded-lg border border-surface-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+      className="app-card flex flex-col gap-3 rounded-[1.35rem] p-5 transition-all hover:-translate-y-0.5"
     >
-      <div className="flex items-center gap-2 min-w-0">
-        <Flag className="h-4 w-4 shrink-0 text-primary-500" />
-        <h3 className="truncate font-semibold text-surface-900">{faction.name}</h3>
+      <div className="flex items-center gap-2.5 min-w-0">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[rgba(33,71,102,0.09)]">
+          <Flag className="h-4 w-4 text-primary-700" />
+        </div>
+        <h3 className="truncate text-[1.02rem] font-semibold tracking-[-0.02em] text-surface-900">{faction.name}</h3>
       </div>
       {faction.data.goals.length > 0 && (
-        <p className="text-xs text-surface-500 line-clamp-2">
+        <p className="line-clamp-2 text-sm leading-6 text-surface-700">
           {faction.data.goals.slice(0, 2).join(' • ')}
         </p>
       )}
       {faction.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1">
+        <div className="mt-auto flex flex-wrap gap-2">
           {faction.tags.slice(0, 3).map((tag) => (
-            <span key={tag} className="rounded-full bg-primary-50 px-2 py-0.5 text-xs text-primary-700">
+            <span key={tag} className="app-pill rounded-full px-2.5 py-1 text-xs">
               {tag}
             </span>
           ))}

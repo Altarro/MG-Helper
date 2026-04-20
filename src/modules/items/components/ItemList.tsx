@@ -42,7 +42,7 @@ export function ItemList() {
         tags: values.tags,
         data: { itemType: values.itemType, properties: values.properties },
       });
-      toast.success(`Przedmiot „${values.name}" utworzony`);
+      toast.success(`Przedmiot "${values.name}" utworzony`);
       setShowForm(false);
       navigate(`/items/${entity.id}`);
     } catch {
@@ -53,57 +53,72 @@ export function ItemList() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-surface-900">Przedmioty</h1>
-        <button
-          type="button"
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-        >
-          <Plus className="h-4 w-4" /> Nowy przedmiot
-        </button>
-      </div>
+    <div className="flex flex-col gap-6">
+      <section className="app-panel-strong rounded-[2rem] px-6 py-7 lg:px-8 lg:py-8">
+        <div className="flex flex-wrap items-start justify-between gap-5">
+          <div className="max-w-3xl">
+            <div className="mb-3 inline-flex items-center rounded-full border border-[rgba(210,166,67,0.42)] bg-[rgba(242,196,88,0.12)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c6416]">
+              Ekwipunek
+            </div>
+            <h1 className="text-3xl font-semibold tracking-[-0.04em] text-primary-900 lg:text-[2.2rem]">
+              Przedmioty
+            </h1>
+            <p className="mt-2 max-w-[62ch] text-sm leading-7 text-surface-700 lg:text-[0.98rem]">
+              Przedmioty, artefakty i zasoby używane podczas kampanii.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            className="app-button-primary flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-transform hover:-translate-y-0.5"
+          >
+            <Plus className="h-4 w-4" /> Nowy przedmiot
+          </button>
+        </div>
+
+        <div className="relative mt-6">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-500" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Szukaj przedmiotów..."
+            className="app-input w-full rounded-2xl py-3 pl-11 pr-10 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+          />
+          {query && (
+            <button type="button" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-surface-500 transition-colors hover:text-primary-700">
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        <div className="mt-6 flex flex-wrap gap-2.5">
+          <button
+            type="button"
+            onClick={() => setTypeFilter('all')}
+            className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${typeFilter === 'all' ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'}`}
+          >
+            Wszystkie
+          </button>
+          {ITEM_TYPES.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTypeFilter(t)}
+              className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${typeFilter === t ? 'app-danger-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'}`}
+            >
+              {ITEM_TYPE_LABELS[t]}
+            </button>
+          ))}
+        </div>
+      </section>
 
       {showForm && (
-        <div className="rounded-xl border border-surface-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-base font-semibold">Nowy przedmiot</h2>
+        <div className="app-panel rounded-[1.8rem] p-5 lg:p-6">
+          <h2 className="mb-4 text-base font-semibold tracking-[-0.02em] text-primary-900">Nowy przedmiot</h2>
           <ItemForm onSubmit={handleCreate} isSaving={saving} onCancel={() => setShowForm(false)} submitLabel="Utwórz" />
         </div>
       )}
-
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-400" />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Szukaj przedmiotów…"
-          className="w-full rounded-md border border-surface-300 bg-white py-2 pl-9 pr-8 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-        />
-        {query && (
-          <button onClick={() => setQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2">
-            <X className="h-4 w-4 text-surface-400" />
-          </button>
-        )}
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <button
-          onClick={() => setTypeFilter('all')}
-          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${typeFilter === 'all' ? 'bg-primary-600 text-white' : 'bg-surface-100 text-surface-600 hover:bg-surface-200'}`}
-        >
-          Wszystkie
-        </button>
-        {ITEM_TYPES.map((t) => (
-          <button
-            key={t}
-            onClick={() => setTypeFilter(t)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${typeFilter === t ? 'bg-amber-600 text-white' : 'bg-surface-100 text-surface-600 hover:bg-surface-200'}`}
-          >
-            {ITEM_TYPE_LABELS[t]}
-          </button>
-        ))}
-      </div>
 
       {items === undefined ? (
         <LoadingSpinner />
@@ -111,19 +126,15 @@ export function ItemList() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((item) => <ItemCard key={item.id} item={item} />)}
         </div>
-      ) : items.length === 0 ? (
-        <EmptyState
-          icon={<Package className="h-10 w-10 text-surface-300" />}
-          title="Brak przedmiotów"
-          description="Utwórz pierwszy przedmiot."
-          action={<button onClick={() => setShowForm(true)} className="flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"><Plus className="h-4 w-4" /> Nowy przedmiot</button>}
-        />
       ) : (
-        <EmptyState
-          icon={<Package className="h-8 w-8" />}
-          title="Brak wyników"
-          description="Żaden przedmiot nie pasuje do podanych filtrów."
-        />
+        <div className="app-panel rounded-[1.8rem] p-6">
+          <EmptyState
+            icon={<Package className="h-10 w-10 text-primary-300" />}
+            title={items.length === 0 ? 'Brak przedmiotów' : 'Brak wyników'}
+            description={items.length === 0 ? 'Utwórz pierwszy przedmiot.' : 'Żaden przedmiot nie pasuje do podanych filtrów.'}
+            action={items.length === 0 ? <button onClick={() => setShowForm(true)} className="app-button-primary rounded-2xl px-4 py-3 text-sm font-medium">Nowy przedmiot</button> : undefined}
+          />
+        </div>
       )}
     </div>
   );

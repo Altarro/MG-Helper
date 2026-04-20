@@ -46,9 +46,7 @@ export function QuickNotePanel({
       ];
 
       for (const npcId of contextNpcIds) {
-        relations.push(
-          addRelation(db, { type: 'related_to', sourceId: note.id, targetId: npcId }),
-        );
+        relations.push(addRelation(db, { type: 'related_to', sourceId: note.id, targetId: npcId }));
       }
       for (const threadId of contextThreadIds) {
         relations.push(
@@ -77,52 +75,48 @@ export function QuickNotePanel({
   if (contextThreadIds.length > 0) contextParts.push(`${contextThreadIds.length} wąt.`);
 
   return (
-    <div className="flex flex-col gap-2 rounded-xl border border-surface-200 bg-white p-3 shadow-sm">
-      {/* Context chips */}
+    <div className="flex flex-col gap-3 rounded-[1.45rem] bg-transparent">
       {contextParts.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          <span className="inline-flex items-center gap-1 rounded-full bg-surface-100 px-2.5 py-0.5 text-xs text-surface-600">
-            {contextLocationId && <MapPin className="h-3 w-3 text-green-600 shrink-0" />}
+        <div className="flex flex-wrap gap-2">
+          <span className="app-pill inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs">
+            {contextLocationId && <MapPin className="text-success-600 h-3 w-3 shrink-0" />}
             {contextParts.join(' / ')}
           </span>
         </div>
       )}
 
-      {/* Textarea + add button */}
-      <div className="flex gap-1.5">
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void handleAdd();
-          }}
-          placeholder="Szybka notatka… (Ctrl+Enter)"
-          maxLength={500}
-          rows={3}
-          className="flex-1 resize-none rounded-lg border border-surface-300 px-2 py-1.5 text-xs focus:border-primary-500 focus:outline-none"
-        />
-      </div>
+      <textarea
+        value={content}
+        onChange={(event) => setContent(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) void handleAdd();
+        }}
+        placeholder="Szybka notatka... (Ctrl+Enter)"
+        maxLength={500}
+        rows={4}
+        className="app-input text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:ring-primary-500/20 w-full resize-none rounded-2xl px-3 py-3 text-sm leading-6 focus:ring-2 focus:outline-none"
+      />
+
       <button
         onClick={handleAdd}
         disabled={saving || !content.trim()}
-        className="flex items-center gap-1 rounded-lg bg-primary-600 px-2 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+        className="app-button-primary inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold disabled:opacity-50"
       >
-        <Plus className="h-3.5 w-3.5" />
-        {saving ? '…' : 'Dodaj notatkę'}
+        <Plus className="h-4 w-4" />
+        {saving ? 'Zapisywanie...' : 'Dodaj notatkę'}
       </button>
 
-      {/* Last 5 notes preview */}
       {recentNotes && recentNotes.length > 0 && (
-        <div className="mt-1 flex flex-col gap-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-surface-400">
+        <div className="mt-1 flex flex-col gap-2">
+          <p className="text-surface-500 text-[11px] font-semibold tracking-[0.18em] uppercase">
             Ostatnie notatki
           </p>
           {recentNotes.slice(0, 5).map((note) => (
             <div
               key={note.id}
-              className="rounded-lg border border-amber-200/70 bg-amber-50 px-2 py-1 text-xs text-surface-700"
+              className="text-surface-800 rounded-2xl border border-[rgba(210,166,67,0.18)] bg-[rgba(242,196,88,0.08)] px-3 py-2 text-xs leading-6"
             >
-              <StickyNote className="mb-0.5 inline h-3 w-3 text-amber-500" />{' '}
+              <StickyNote className="mr-1 mb-0.5 inline h-3 w-3 text-[#c28b1a]" />
               {note.data.content}
             </div>
           ))}

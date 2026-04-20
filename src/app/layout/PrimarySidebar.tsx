@@ -72,10 +72,10 @@ const navGroups = [
 ] as const satisfies readonly NavGroup[];
 
 function navLinkClassName(isActive: boolean) {
-  return `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+  return `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
     isActive
-      ? 'bg-primary-50 text-primary-700'
-      : 'text-surface-600 hover:bg-surface-100 hover:text-surface-900'
+      ? 'app-pill text-primary-800 shadow-sm'
+      : 'text-surface-700 hover:bg-[rgba(223,225,218,0.72)] hover:text-primary-800'
   }`;
 }
 
@@ -105,16 +105,18 @@ export function PrimarySidebar({ onClose }: { onClose?: () => void }) {
   const [dark, toggleDark] = useDarkMode();
 
   return (
-    <aside className="flex w-sidebar flex-col border-r border-surface-200 bg-white">
-      <div className="flex h-14 items-center gap-2 border-b border-surface-200 px-4">
-        <Flame className="h-6 w-6 text-primary-600" />
-        <span className="text-lg font-bold text-surface-900">MG Helper</span>
+    <aside className="flex w-sidebar flex-col border-r border-[rgba(18,45,66,0.12)] bg-[linear-gradient(180deg,rgba(223,225,218,0.95)_0%,rgba(210,212,203,0.98)_100%)] shadow-[inset_-1px_0_0_rgba(255,244,220,0.15)]">
+      <div className="flex h-16 items-center gap-3 border-b border-[rgba(18,45,66,0.1)] px-5">
+        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[linear-gradient(180deg,rgba(33,71,102,0.14)_0%,rgba(18,45,66,0.2)_100%)] shadow-[inset_0_1px_0_rgba(255,244,220,0.24)]">
+          <Flame className="h-5 w-5 text-primary-700" />
+        </div>
+        <span className="text-[1.7rem] font-semibold tracking-[-0.03em] text-surface-900">MG Helper</span>
       </div>
 
-      <nav className="flex-1 overflow-y-auto p-2">
+      <nav className="flex-1 overflow-y-auto px-2 py-3">
         <div className="space-y-4">
           <div className="space-y-1">
-            <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-surface-400">
+            <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-surface-500">
               Start
             </div>
             <SidebarLink item={dashboardItem} onClose={onClose} />
@@ -122,7 +124,7 @@ export function PrimarySidebar({ onClose }: { onClose?: () => void }) {
 
           {navGroups.map((group) => (
             <div key={group.label} className="space-y-1">
-              <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-surface-400">
+              <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-surface-500">
                 {group.label}
               </div>
               {group.items.map((item) => (
@@ -133,7 +135,7 @@ export function PrimarySidebar({ onClose }: { onClose?: () => void }) {
         </div>
       </nav>
 
-      <div className="space-y-1 border-t border-surface-200 p-2">
+      <div className="space-y-1 border-t border-[rgba(18,45,66,0.1)] p-2">
         <NavLink
           to="/settings"
           className={({ isActive }) => navLinkClassName(isActive)}
@@ -143,7 +145,7 @@ export function PrimarySidebar({ onClose }: { onClose?: () => void }) {
         <button
           onClick={toggleDark}
           aria-label={dark ? 'W??cz tryb jasny' : 'W??cz tryb ciemny'}
-          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-surface-600 transition-colors hover:bg-surface-100 hover:text-surface-900"
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-surface-700 transition-all hover:bg-[rgba(223,225,218,0.72)] hover:text-primary-800"
         >
           {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           {dark ? 'Tryb jasny' : 'Tryb ciemny'}

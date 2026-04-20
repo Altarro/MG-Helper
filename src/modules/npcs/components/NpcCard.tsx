@@ -13,50 +13,43 @@ export const NpcCard = React.memo(function NpcCard({ npc, onClick }: NpcCardProp
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full flex-col gap-2 rounded-xl border border-surface-200 bg-white p-4 text-left shadow-sm transition-shadow hover:shadow-md"
+      className="app-card flex w-full flex-col gap-3 rounded-[1.35rem] p-5 text-left transition-all hover:-translate-y-0.5"
     >
       <div className="flex items-start gap-3">
-        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${isPC ? 'bg-amber-50' : 'bg-primary-50'}`}>
-          {isPC ? <Crown className="h-4 w-4 text-amber-600" /> : <User className="h-4 w-4 text-primary-600" />}
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${isPC ? 'bg-[rgba(242,196,88,0.16)]' : 'bg-[rgba(33,71,102,0.09)]'}`}>
+          {isPC ? <Crown className="h-4 w-4 text-warning-600" /> : <User className="h-4 w-4 text-primary-700" />}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <p className="truncate font-semibold text-surface-900">{npc.name}</p>
+            <p className="truncate text-[1.02rem] font-semibold tracking-[-0.02em] text-surface-900">{npc.name}</p>
             {isPC && (
-              <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+              <span className="app-danger-pill shrink-0 rounded-full px-2.5 py-1 text-xs font-medium">
                 Gracz
               </span>
             )}
           </div>
           {isPC && npc.data?.playerName && (
-            <p className="mt-0.5 truncate text-xs text-amber-600">{npc.data.playerName}</p>
+            <p className="mt-1 truncate text-xs font-medium uppercase tracking-[0.12em] text-warning-600">{npc.data.playerName}</p>
           )}
           {!isPC && npc.data?.instinct && (
-            <p className="mt-0.5 truncate text-xs italic text-surface-500">
-              {npc.data.instinct}
-            </p>
+            <p className="mt-1 truncate text-sm italic text-surface-600">{npc.data.instinct}</p>
           )}
         </div>
       </div>
 
       {!isPC && npc.data?.motivation && (
-        <p className="truncate text-sm text-surface-600">{npc.data.motivation}</p>
+        <p className="text-sm leading-6 text-surface-700">{npc.data.motivation}</p>
       )}
 
       {npc.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1">
+        <div className="mt-auto flex flex-wrap gap-2">
           {npc.tags.slice(0, 4).map((tag) => (
-            <span
-              key={tag}
-              className="rounded-full bg-surface-100 px-2 py-0.5 text-xs text-surface-600"
-            >
+            <span key={tag} className="app-pill-muted rounded-full px-2.5 py-1 text-xs">
               {tag}
             </span>
           ))}
           {npc.tags.length > 4 && (
-            <span className="rounded-full bg-surface-100 px-2 py-0.5 text-xs text-surface-400">
-              +{npc.tags.length - 4}
-            </span>
+            <span className="app-pill-muted rounded-full px-2.5 py-1 text-xs">+{npc.tags.length - 4}</span>
           )}
         </div>
       )}

@@ -10,7 +10,6 @@ export type EntityFormValues = z.infer<typeof baseEntitySchema>;
 interface EntityFormProps {
   defaultValues?: Partial<EntityFormValues>;
   onSubmit: (values: EntityFormValues) => void | Promise<void>;
-  /** Render additional module-specific fields below the base fields */
   additionalFields?: (
     control: ReturnType<typeof useForm<EntityFormValues>>['control'],
     register: ReturnType<typeof useForm<EntityFormValues>>['register'],
@@ -44,21 +43,16 @@ export function EntityForm({
   });
 
   return (
-    <form
-      onSubmit={handleSubmit(onSubmit)}
-      className="flex flex-col gap-4"
-      noValidate
-    >
-      {/* Name */}
-      <div className="flex flex-col gap-1">
-        <label htmlFor="entity-name" className="text-sm font-medium text-surface-700">
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="entity-name" className="text-sm font-medium text-surface-800">
           Nazwa <span className="text-red-500" aria-hidden="true">*</span>
         </label>
         <input
           id="entity-name"
           {...register('name')}
-          className="rounded-md border border-surface-300 px-3 py-2 text-sm text-surface-900 placeholder:text-surface-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-          placeholder="Nazwa…"
+          className="app-input rounded-2xl px-3.5 py-3 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+          placeholder="Nazwa..."
           aria-invalid={errors.name ? 'true' : 'false'}
           aria-describedby={errors.name ? 'name-error' : undefined}
         />
@@ -69,9 +63,8 @@ export function EntityForm({
         )}
       </div>
 
-      {/* Description */}
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-surface-700">Opis</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-surface-800">Opis</label>
         <Controller
           name="description"
           control={control}
@@ -90,9 +83,8 @@ export function EntityForm({
         )}
       </div>
 
-      {/* Tags */}
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-surface-700">Tagi</label>
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-surface-800">Tagi</label>
         <Controller
           name="tags"
           control={control}
@@ -102,16 +94,14 @@ export function EntityForm({
         />
       </div>
 
-      {/* Module-specific extensions */}
       {additionalFields?.(control, register)}
 
-      {/* Actions */}
-      <div className="flex justify-end gap-2 pt-2">
+      <div className="flex justify-end gap-3 pt-2">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md border border-surface-300 px-4 py-2 text-sm font-medium text-surface-700 hover:bg-surface-50"
+            className="app-button-secondary rounded-2xl px-4 py-3 text-sm font-medium transition-colors"
           >
             Anuluj
           </button>
@@ -119,9 +109,9 @@ export function EntityForm({
         <button
           type="submit"
           disabled={isSaving}
-          className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+          className="app-button-primary rounded-2xl px-4 py-3 text-sm font-medium transition-colors disabled:opacity-50"
         >
-          {isSaving ? 'Zapisuję…' : submitLabel}
+          {isSaving ? 'Zapisuję...' : submitLabel}
         </button>
       </div>
     </form>

@@ -29,24 +29,24 @@ export function ConfirmDialog({
   return (
     <Modal title={title} size="sm" onClose={onCancel} initialFocusRef={cancelRef}>
       {description && (
-        <p className="mt-1 text-sm text-surface-500">{description}</p>
+        <p className="mt-1 text-sm leading-7 text-surface-700">{description}</p>
       )}
       <div className="mt-6 flex justify-end gap-3">
         <button
           ref={cancelRef}
           type="button"
           onClick={onCancel}
-          className="rounded-md border border-surface-300 px-4 py-2 text-sm font-medium text-surface-700 hover:bg-surface-50"
+          className="app-button-secondary rounded-2xl px-4 py-3 text-sm font-medium transition-colors"
         >
           {cancelLabel}
         </button>
         <button
           type="button"
           onClick={onConfirm}
-          className={`rounded-md px-4 py-2 text-sm font-medium text-white ${
+          className={`rounded-2xl px-4 py-3 text-sm font-medium transition-colors ${
             destructive
-              ? 'bg-danger-600 hover:bg-danger-700'
-              : 'bg-primary-600 hover:bg-primary-700'
+              ? 'bg-danger-600 text-white hover:bg-danger-700'
+              : 'app-button-primary'
           }`}
         >
           {confirmLabel}
@@ -55,4 +55,3 @@ export function ConfirmDialog({
     </Modal>
   );
 }
-

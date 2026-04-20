@@ -21,7 +21,6 @@ export function SessionTimeline({ sessionId }: SessionTimelineProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-scroll to bottom when new events are added
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [events.length]);
@@ -38,46 +37,50 @@ export function SessionTimeline({ sessionId }: SessionTimelineProps) {
     }
   }
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
+  function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
       void handleAdd();
     }
   }
 
   return (
-    <div className="flex h-full flex-col bg-white text-surface-900">
-      {/* Header */}
-      <div className="flex items-center gap-2 border-b border-surface-200 bg-surface-50 px-3 py-2.5">
-        <Clock className="h-4 w-4 text-surface-500" />
-        <span className="text-sm font-semibold text-surface-800">Oś czasu</span>
-        <span className="ml-auto rounded-full bg-surface-100 px-2 py-0.5 text-xs text-surface-500">
+    <div className="text-surface-900 flex h-full flex-col">
+      <div className="flex items-center gap-2 border-b border-[rgba(86,93,94,0.1)] bg-[rgba(223,225,218,0.58)] px-4 py-3">
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[rgba(33,71,102,0.09)]">
+          <Clock className="text-primary-700 h-4 w-4" />
+        </div>
+        <span className="text-primary-900 text-sm font-semibold tracking-[-0.02em]">Oś czasu</span>
+        <span className="app-pill-muted ml-auto rounded-full px-2.5 py-1 text-xs">
           {events.length}
         </span>
       </div>
 
-      {/* Events list */}
-      <div className="flex flex-1 flex-col gap-1 overflow-y-auto px-2 py-2">
+      <div className="flex flex-1 flex-col gap-1.5 overflow-y-auto px-3 py-3">
         {events.length === 0 && (
-          <p className="mt-4 text-center text-xs text-surface-400">
+          <p className="text-surface-500 mt-4 text-center text-xs">
             Brak wpisów — dodaj pierwsze zdarzenie
           </p>
         )}
-        {events.map((event) => {
-          const data = event.data;
+
+        {events.map((eventItem) => {
+          const data = eventItem.data;
           return (
-            <div key={event.id} className="group relative flex gap-2 rounded-lg border border-transparent px-2 py-1.5 hover:border-surface-200 hover:bg-surface-50">
-              <span className="mt-0.5 shrink-0 font-mono text-xs text-surface-400">
+            <div
+              key={eventItem.id}
+              className="group relative flex gap-3 rounded-2xl border border-transparent bg-[rgba(223,225,218,0.4)] px-3 py-2.5 transition-colors hover:border-[rgba(86,93,94,0.12)] hover:bg-[rgba(223,225,218,0.74)]"
+            >
+              <span className="text-surface-500 mt-0.5 shrink-0 font-mono text-xs">
                 {formatEventTime(data.timestamp)}
               </span>
-              <span className="min-w-0 flex-1 break-words text-sm text-surface-800">
+              <span className="text-surface-800 min-w-0 flex-1 text-sm leading-6 break-words">
                 {data.text}
               </span>
               <button
                 type="button"
-                onClick={() => void removeEvent(event.id)}
+                onClick={() => void removeEvent(eventItem.id)}
                 aria-label="Usuń zdarzenie"
-                className="invisible ml-1 shrink-0 rounded p-0.5 text-surface-400 hover:text-red-500 group-hover:visible"
+                className="text-surface-500 hover:text-danger-700 invisible ml-1 shrink-0 rounded-xl p-1 transition-colors group-hover:visible hover:bg-[rgba(176,108,103,0.1)]"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -87,24 +90,23 @@ export function SessionTimeline({ sessionId }: SessionTimelineProps) {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
-      <div className="border-t border-surface-200 bg-surface-50/70 p-2">
+      <div className="border-t border-[rgba(86,93,94,0.1)] bg-[rgba(223,225,218,0.58)] p-3">
         <div className="flex gap-2">
           <textarea
             ref={textareaRef}
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(event) => setDraft(event.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Wpisz zdarzenie… (Enter = dodaj)"
+            placeholder="Wpisz zdarzenie... (Enter = dodaj)"
             rows={2}
-            className="flex-1 resize-none rounded-lg border border-surface-300 bg-white px-2 py-1.5 text-xs text-surface-900 placeholder:text-surface-400 focus:border-primary-500 focus:outline-none"
+            className="app-input text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:ring-primary-500/20 flex-1 resize-none rounded-2xl px-3 py-2 text-xs focus:ring-2 focus:outline-none"
           />
           <button
             type="button"
             onClick={() => void handleAdd()}
             disabled={!draft.trim() || saving}
             aria-label="Dodaj zdarzenie"
-            className="flex items-center justify-center rounded-lg bg-primary-500 p-2 text-white hover:bg-primary-600 disabled:opacity-40"
+            className="app-button-primary flex items-center justify-center rounded-2xl px-3 text-white disabled:opacity-40"
           >
             <Plus className="h-4 w-4" />
           </button>

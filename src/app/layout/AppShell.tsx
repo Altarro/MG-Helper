@@ -40,7 +40,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </button>
           </PrimaryTopBar>
         </div>
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 px-5 py-5 lg:px-7 lg:py-6">{children}</main>
       </div>
     </div>
   );

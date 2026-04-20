@@ -68,27 +68,94 @@ export function FrontList() {
   if (fronts === undefined) return <LoadingSpinner />;
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold text-surface-900">Fronty</h1>
-          <p className="mt-1 text-sm text-surface-500">
-            Glowne kontenery kampanii, porzadkujace wieksze osie konfliktu i presji.
-          </p>
+    <div className="flex flex-col gap-6">
+      <section className="app-panel-strong rounded-[2rem] px-6 py-7 lg:px-8 lg:py-8">
+        <div className="flex flex-wrap items-start justify-between gap-5">
+          <div className="max-w-3xl">
+            <div className="text-primary-700 mb-3 inline-flex items-center rounded-full border border-[rgba(33,71,102,0.16)] bg-[rgba(111,146,164,0.12)] px-3 py-1 text-[11px] font-semibold tracking-[0.18em] uppercase">
+              Fronty
+            </div>
+            <h1 className="text-primary-900 text-3xl font-semibold tracking-[-0.04em] lg:text-[2.2rem]">
+              Fronty
+            </h1>
+            <p className="text-surface-700 mt-2 max-w-[62ch] text-sm leading-7 lg:text-[0.98rem]">
+              Główne kontenery kampanii, porządkujące większe osie konfliktu i presji.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            className="app-button-primary flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-transform hover:-translate-y-0.5"
+          >
+            <Plus className="h-4 w-4" />
+            Nowy front
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-        >
-          <Plus className="h-4 w-4" />
-          Nowy front
-        </button>
-      </div>
+
+        <div className="relative mt-6">
+          <Search className="text-surface-500 pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2" />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Szukaj frontów, stawek albo tagów..."
+            className="app-input text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:ring-primary-500/20 w-full rounded-2xl py-3 pr-10 pl-11 text-sm focus:ring-2 focus:outline-none"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              className="text-surface-500 hover:text-primary-700 absolute top-1/2 right-3 -translate-y-1/2 rounded-full p-1 transition-colors"
+              aria-label="Wyczyść wyszukiwanie frontów"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        <div className="mt-6 flex flex-wrap gap-2.5">
+          <button
+            type="button"
+            onClick={() => setCategoryFilter(null)}
+            className={`rounded-full px-4 py-2 text-xs font-semibold tracking-[0.01em] transition-all ${
+              !categoryFilter ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+            }`}
+          >
+            Wszystkie
+          </button>
+          {FRONT_CATEGORIES.map((category) => (
+            <button
+              key={category}
+              type="button"
+              onClick={() => setCategoryFilter(category === categoryFilter ? null : category)}
+              className={`rounded-full px-4 py-2 text-xs font-semibold tracking-[0.01em] transition-all ${
+                categoryFilter === category
+                  ? 'app-pill'
+                  : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+              }`}
+            >
+              {FRONT_CATEGORY_LABELS[category]}
+            </button>
+          ))}
+        </div>
+      </section>
 
       {showForm && (
-        <div className="rounded-xl border border-surface-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-base font-semibold text-surface-900">Nowy front</h2>
+        <div className="app-panel rounded-[1.8rem] p-5 lg:p-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-primary-900 text-base font-semibold tracking-[-0.02em]">
+              Nowy front
+            </h2>
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="text-surface-500 hover:text-primary-700 rounded-xl p-2 transition-colors hover:bg-[rgba(223,225,218,0.75)]"
+              aria-label="Zamknij formularz nowego frontu"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
           <FrontForm
             onSubmit={handleCreate}
             isSaving={saving}
@@ -98,98 +165,51 @@ export function FrontList() {
         </div>
       )}
 
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-400" />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Szukaj frontów, stawek albo tagów..."
-          className="w-full rounded-md border border-surface-300 bg-white py-2 pl-9 pr-8 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-        />
-        {query && (
-          <button
-            type="button"
-            onClick={() => setQuery('')}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2"
-            aria-label="Wyczyść wyszukiwanie frontów"
-          >
-            <X className="h-4 w-4 text-surface-400" />
-          </button>
-        )}
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => setCategoryFilter(null)}
-          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-            !categoryFilter
-              ? 'bg-primary-100 text-primary-700'
-              : 'bg-surface-100 text-surface-600 hover:bg-surface-200'
-          }`}
-        >
-          Wszystkie
-        </button>
-        {FRONT_CATEGORIES.map((category) => (
-          <button
-            key={category}
-            type="button"
-            onClick={() => setCategoryFilter(category === categoryFilter ? null : category)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-              categoryFilter === category
-                ? 'bg-primary-100 text-primary-700'
-                : 'bg-surface-100 text-surface-600 hover:bg-surface-200'
-            }`}
-          >
-            {FRONT_CATEGORY_LABELS[category]}
-          </button>
-        ))}
-      </div>
-
       {fronts.length === 0 ? (
-        <EmptyState
-          icon={<Shield className="h-10 w-10 text-surface-300" />}
-          title="Brak frontów"
-          description="Utwórz pierwszy front, by uporządkować główne osie kampanii."
-          action={
-            <button
-              type="button"
-              onClick={() => setShowForm(true)}
-              className="flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-            >
-              <Plus className="h-4 w-4" />
-              Nowy front
-            </button>
-          }
-        />
+        <div className="app-panel rounded-[1.8rem] p-6">
+          <EmptyState
+            icon={<Shield className="text-primary-300 h-10 w-10" />}
+            title="Brak frontów"
+            description="Utwórz pierwszy front, by uporządkować główne osie kampanii."
+            action={
+              <button
+                type="button"
+                onClick={() => setShowForm(true)}
+                className="app-button-primary flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold"
+              >
+                <Plus className="h-4 w-4" />
+                Nowy front
+              </button>
+            }
+          />
+        </div>
       ) : sections.length === 0 ? (
-        <EmptyState
-          icon={<Search className="h-8 w-8" />}
-          title="Brak wyników"
-          description="Spróbuj zmienić filtr albo wyszukiwaną frazę."
-        />
+        <div className="app-panel rounded-[1.8rem] p-6">
+          <EmptyState
+            icon={<Search className="text-primary-300 h-8 w-8" />}
+            title="Brak wyników"
+            description="Spróbuj zmienić filtr albo wyszukiwaną frazę."
+          />
+        </div>
       ) : (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-5">
           {sections.map((section) => (
-            <section
-              key={section.category}
-              className="rounded-2xl border border-surface-200 bg-white p-4 shadow-sm"
-            >
-              <div className="mb-4 flex items-start justify-between gap-3">
+            <section key={section.category} className="app-panel rounded-[1.85rem] p-4 lg:p-5">
+              <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-surface-400">
+                  <p className="text-surface-500 text-[11px] font-semibold tracking-[0.18em] uppercase">
                     Kategoria frontu
                   </p>
-                  <h2 className="mt-1 text-sm font-semibold text-surface-900">
+                  <h2 className="text-primary-900 mt-2 text-lg font-semibold tracking-[-0.03em]">
                     {FRONT_CATEGORY_LABELS[section.category]}
                   </h2>
                 </div>
-                <span className="shrink-0 rounded-full bg-surface-100 px-2.5 py-1 text-xs text-surface-500">
+                <span className="app-pill-muted shrink-0 rounded-full px-3 py-1 text-xs">
                   {section.fronts.length} front.
                 </span>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {section.fronts.map((front) => (
                   <FrontCard key={front.id} front={front} />
                 ))}

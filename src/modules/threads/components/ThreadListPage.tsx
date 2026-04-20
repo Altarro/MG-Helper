@@ -106,7 +106,10 @@ export function ThreadList() {
   });
 
   const groupedSections = useMemo(() => {
-    const sections = new Map<string, { threat: NonNullable<(typeof threats)>[number]; threads: NonNullable<typeof threads> }>();
+    const sections = new Map<
+      string,
+      { threat: NonNullable<typeof threats>[number]; threads: NonNullable<typeof threads> }
+    >();
 
     for (const thread of filtered ?? []) {
       const threatIds = threadThreatMap.get(thread.id) ?? [];
@@ -169,7 +172,10 @@ export function ThreadList() {
 
     const reordered = reorderEntities(threads, String(active.id), String(over.id));
     try {
-      await updateSortOrders(db, reordered.map((thread) => thread.id));
+      await updateSortOrders(
+        db,
+        reordered.map((thread) => thread.id),
+      );
       toast.success('Kolejność zaktualizowana');
     } catch {
       toast.error('Nie udało się zapisać kolejności');
@@ -179,51 +185,109 @@ export function ThreadList() {
   if (threads === undefined) return <LoadingSpinner />;
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold text-surface-900">Wątki fabularne</h1>
-          <p className="mt-1 text-sm text-surface-500">
-            Questy i sprawy dla stołu, grupowane względem zagrożeń albo pokazywane jako wolne wątki.
-          </p>
+    <div className="flex flex-col gap-6">
+      <section className="app-panel-strong rounded-[2rem] px-6 py-7 lg:px-8 lg:py-8">
+        <div className="flex flex-wrap items-start justify-between gap-5">
+          <div className="max-w-3xl">
+            <div className="text-primary-700 mb-3 inline-flex items-center rounded-full border border-[rgba(33,71,102,0.16)] bg-[rgba(111,146,164,0.12)] px-3 py-1 text-[11px] font-semibold tracking-[0.18em] uppercase">
+              Wątki fabularne
+            </div>
+            <h1 className="text-primary-900 text-3xl font-semibold tracking-[-0.04em] lg:text-[2.2rem]">
+              Wątki fabularne
+            </h1>
+            <p className="text-surface-700 mt-2 max-w-[64ch] text-sm leading-7 lg:text-[0.98rem]">
+              Questy i sprawy dla stołu, grupowane względem zagrożeń albo pokazywane jako wolne
+              wątki.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setViewMode('grouped')}
+              className={`rounded-full px-4 py-2 text-xs font-semibold tracking-[0.01em] transition-all ${
+                viewMode === 'grouped'
+                  ? 'app-pill'
+                  : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+              }`}
+            >
+              Grupowanie
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('flat')}
+              className={`rounded-full px-4 py-2 text-xs font-semibold tracking-[0.01em] transition-all ${
+                viewMode === 'flat'
+                  ? 'app-pill'
+                  : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+              }`}
+            >
+              Siatka
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowForm(true)}
+              className="app-button-primary flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-transform hover:-translate-y-0.5"
+            >
+              <Plus className="h-4 w-4" />
+              Nowy wątek
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setViewMode('grouped')}
-            className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              viewMode === 'grouped'
-                ? 'bg-primary-100 text-primary-700'
-                : 'bg-surface-100 text-surface-600 hover:bg-surface-200'
-            }`}
-          >
-            Grupowanie
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('flat')}
-            className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              viewMode === 'flat'
-                ? 'bg-primary-100 text-primary-700'
-                : 'bg-surface-100 text-surface-600 hover:bg-surface-200'
-            }`}
-          >
-            Siatka
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-          >
-            <Plus className="h-4 w-4" />
-            Nowy wątek
-          </button>
+
+        <div className="relative mt-6">
+          <Search className="text-surface-500 pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2" />
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Szukaj wątków, tagów albo zagrożeń..."
+            className="app-input text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:ring-primary-500/20 w-full rounded-2xl py-3 pr-10 pl-11 text-sm focus:ring-2 focus:outline-none"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              className="text-surface-500 hover:text-primary-700 absolute top-1/2 right-3 -translate-y-1/2 rounded-full p-1 transition-colors"
+              aria-label="Wyczyść wyszukiwanie wątków"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
-      </div>
+
+        <div className="mt-6 flex flex-wrap gap-2.5">
+          {(Object.entries(TAB_LABELS) as [FilterTab, string][]).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setTab(value)}
+              className={`rounded-full px-4 py-2 text-xs font-semibold tracking-[0.01em] transition-all ${
+                tab === value ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </section>
 
       {showForm && (
-        <div className="rounded-xl border border-surface-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold text-surface-700">Nowy wątek</h2>
+        <div className="app-panel rounded-[1.8rem] p-5 lg:p-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-primary-900 text-base font-semibold tracking-[-0.02em]">
+              Nowy wątek
+            </h2>
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="text-surface-500 hover:text-primary-700 rounded-xl p-2 transition-colors hover:bg-[rgba(223,225,218,0.75)]"
+              aria-label="Zamknij formularz nowego wątku"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
           <ThreadForm
             onSubmit={handleCreate}
             onCancel={() => setShowForm(false)}
@@ -232,86 +296,49 @@ export function ThreadList() {
         </div>
       )}
 
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-400" />
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Szukaj wątków, tagów albo zagrożeń..."
-          className="w-full rounded-md border border-surface-300 py-2 pl-9 pr-8 text-sm focus:border-primary-500 focus:outline-none"
-        />
-        {query && (
-          <button
-            type="button"
-            onClick={() => setQuery('')}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2"
-            aria-label="Wyczyść wyszukiwanie wątków"
-          >
-            <X className="h-4 w-4 text-surface-400" />
-          </button>
-        )}
-      </div>
-
-      <div className="flex gap-1 border-b border-surface-200">
-        {(Object.entries(TAB_LABELS) as [FilterTab, string][]).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setTab(value)}
-            className={`px-3 pb-2 text-sm font-medium transition-colors ${
-              tab === value
-                ? 'border-b-2 border-primary-600 text-primary-700'
-                : 'text-surface-500 hover:text-surface-800'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
       {filtered && filtered.length === 0 ? (
-        <EmptyState
-          icon={<Milestone className="h-8 w-8" />}
-          title="Brak wątków"
-          description={query ? 'Żaden wątek nie pasuje do wyszukiwania.' : 'Utwórz pierwszy wątek fabularny.'}
-          action={
-            !query ? (
-              <button
-                type="button"
-                onClick={() => setShowForm(true)}
-                className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-              >
-                Nowy wątek
-              </button>
-            ) : undefined
-          }
-        />
+        <div className="app-panel rounded-[1.8rem] p-6">
+          <EmptyState
+            icon={<Milestone className="text-primary-300 h-8 w-8" />}
+            title="Brak wątków"
+            description={
+              query ? 'Żaden wątek nie pasuje do wyszukiwania.' : 'Utwórz pierwszy wątek fabularny.'
+            }
+            action={
+              !query ? (
+                <button
+                  type="button"
+                  onClick={() => setShowForm(true)}
+                  className="app-button-primary rounded-2xl px-4 py-3 text-sm font-semibold"
+                >
+                  Nowy wątek
+                </button>
+              ) : undefined
+            }
+          />
+        </div>
       ) : viewMode === 'grouped' ? (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-5">
           {groupedSections.map((section) => (
-            <section
-              key={section.threat.id}
-              className="rounded-2xl border border-surface-200 bg-white p-4 shadow-sm"
-            >
-              <div className="mb-4 flex items-start justify-between gap-3">
+            <section key={section.threat.id} className="app-panel rounded-[1.85rem] p-4 lg:p-5">
+              <div className="mb-5 flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-surface-400">
+                  <p className="text-surface-500 text-[11px] font-semibold tracking-[0.18em] uppercase">
                     Zagrożenie
                   </p>
                   <Link
                     to={`/threats/${section.threat.id}`}
-                    className="mt-1 inline-flex max-w-full truncate text-sm font-semibold text-primary-700 hover:underline"
+                    className="text-primary-900 mt-2 inline-flex max-w-full truncate text-lg font-semibold tracking-[-0.03em] hover:underline"
                   >
                     {section.threat.name}
                   </Link>
                 </div>
-                <span className="shrink-0 rounded-full bg-surface-100 px-2.5 py-1 text-xs text-surface-500">
-                  {section.threads.length} wat.
+                <span className="app-pill-muted shrink-0 rounded-full px-3 py-1 text-xs">
+                  {section.threads.length} wąt.
                 </span>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {section.threads.map((thread) => (
                   <ThreadCard
                     key={`${section.threat.id}:${thread.id}`}
@@ -324,22 +351,22 @@ export function ThreadList() {
           ))}
 
           {freeThreads.length > 0 && (
-            <section className="rounded-2xl border border-violet-200 bg-violet-50/40 p-4 shadow-sm">
-              <div className="mb-4 flex items-start justify-between gap-3">
+            <section className="app-panel rounded-[1.85rem] p-4 lg:p-5">
+              <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">
+                  <p className="text-[11px] font-semibold tracking-[0.18em] text-[#8c6416] uppercase">
                     Wolne wątki
                   </p>
-                  <p className="mt-1 text-sm text-surface-600">
+                  <p className="text-surface-700 mt-2 max-w-[58ch] text-sm leading-7">
                     Wątki poboczne albo jeszcze nieprzypięte do żadnego zagrożenia.
                   </p>
                 </div>
-                <span className="shrink-0 rounded-full bg-white/80 px-2.5 py-1 text-xs text-violet-700 ring-1 ring-inset ring-violet-200">
+                <span className="app-danger-pill shrink-0 rounded-full px-3 py-1 text-xs">
                   {freeThreads.length} szt.
                 </span>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {freeThreads.map((thread) => (
                   <ThreadCard
                     key={thread.id}
@@ -352,34 +379,39 @@ export function ThreadList() {
           )}
         </div>
       ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext items={(filtered ?? []).map((thread) => thread.id)} strategy={rectSortingStrategy}>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {(filtered ?? []).map((thread) => (
-                <SortableThreadCard
-                  key={thread.id}
-                  thread={thread}
-                  onClick={() => navigate(`/threads/${thread.id}`)}
-                />
-              ))}
-            </div>
-          </SortableContext>
-          <DragOverlay>
-            {activeDragThread && (
-              <div className="rounded-lg opacity-80 shadow-xl">
-                <ThreadCard
-                  thread={activeDragThread}
-                  onClick={() => navigate(`/threads/${activeDragThread.id}`)}
-                />
+        <div className="app-panel rounded-[1.85rem] p-4 lg:p-5">
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={(filtered ?? []).map((thread) => thread.id)}
+              strategy={rectSortingStrategy}
+            >
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {(filtered ?? []).map((thread) => (
+                  <SortableThreadCard
+                    key={thread.id}
+                    thread={thread}
+                    onClick={() => navigate(`/threads/${thread.id}`)}
+                  />
+                ))}
               </div>
-            )}
-          </DragOverlay>
-        </DndContext>
+            </SortableContext>
+            <DragOverlay>
+              {activeDragThread && (
+                <div className="rounded-[1.35rem] opacity-[0.85] shadow-2xl">
+                  <ThreadCard
+                    thread={activeDragThread}
+                    onClick={() => navigate(`/threads/${activeDragThread.id}`)}
+                  />
+                </div>
+              )}
+            </DragOverlay>
+          </DndContext>
+        </div>
       )}
     </div>
   );

@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   Plus,
   Search,
+  type LucideIcon,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { pl } from 'date-fns/locale';
@@ -36,27 +37,37 @@ import { LocationPickerModal } from './LocationPickerModal';
 import type { SessionFormValues } from './SessionForm';
 import type { Entity } from '@shared/types/entity';
 
-// ── Related entities aggregated from appears_in relations ─────────────────────
-
 function useSessionAppearances(db: MgHelperDb, sessionId: string | undefined) {
-  return useLiveQuery(async () => {
-    if (!sessionId) return { npcs: [], locations: [], items: [], threads: [], clues: [], threats: [] };
-    const rels = await db.relations
-      .where('targetId')
-      .equals(sessionId)
-      .filter((r) => r.type === 'appears_in')
-      .toArray();
-    const entities = await Promise.all(rels.map((r) => getEntityById(db, r.sourceId)));
-    const valid = entities.filter((e): e is Entity => e !== undefined);
-    return {
-      npcs: valid.filter((e) => e.type === 'npc'),
-      locations: valid.filter(isNamedLocation),
-      items: valid.filter((e) => e.type === 'item'),
-      threads: valid.filter((e) => e.type === 'thread'),
-      clues: valid.filter((e) => e.type === 'clue'),
-      threats: valid.filter((e) => e.type === 'threat'),
-    };
-  }, [db, sessionId]) ?? { npcs: [], locations: [], items: [], threads: [], clues: [], threats: [] };
+  return (
+    useLiveQuery(async () => {
+      if (!sessionId)
+        return { npcs: [], locations: [], items: [], threads: [], clues: [], threats: [] };
+      const rels = await db.relations
+        .where('targetId')
+        .equals(sessionId)
+        .filter((relation) => relation.type === 'appears_in')
+        .toArray();
+      const entities = await Promise.all(
+        rels.map((relation) => getEntityById(db, relation.sourceId)),
+      );
+      const valid = entities.filter((entity): entity is Entity => entity !== undefined);
+      return {
+        npcs: valid.filter((entity) => entity.type === 'npc'),
+        locations: valid.filter(isNamedLocation),
+        items: valid.filter((entity) => entity.type === 'item'),
+        threads: valid.filter((entity) => entity.type === 'thread'),
+        clues: valid.filter((entity) => entity.type === 'clue'),
+        threats: valid.filter((entity) => entity.type === 'threat'),
+      };
+    }, [db, sessionId]) ?? {
+      npcs: [],
+      locations: [],
+      items: [],
+      threads: [],
+      clues: [],
+      threats: [],
+    }
+  );
 }
 
 type PickableEntityType = 'item' | 'thread' | 'clue' | 'threat';
@@ -81,10 +92,9 @@ function CampaignEntityPickerModal({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
 
-  const entities = useLiveQuery(
-    () => db.entities.where('type').equals(entityType).toArray(),
-    [db, entityType],
-  ) ?? [];
+  const entities =
+    useLiveQuery(() => db.entities.where('type').equals(entityType).toArray(), [db, entityType]) ??
+    [];
 
   const available = entities.filter((entity) => !excludedIds.has(entity.id));
   const normalizedQuery = query.trim().toLowerCase();
@@ -114,49 +124,51 @@ function CampaignEntityPickerModal({
 
   return (
     <Modal title={title} size="md" onClose={onClose}>
-      <div className="mb-3 flex items-center gap-2 rounded-md border border-surface-200 px-2.5 py-2">
-        <Search className="h-3.5 w-3.5 text-surface-400" />
+      <div className="mb-3 flex items-center gap-2 rounded-2xl border border-[rgba(86,93,94,0.14)] bg-[rgba(223,225,218,0.72)] px-3 py-2.5">
+        <Search className="text-surface-500 h-3.5 w-3.5" />
         <input
           type="text"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Szukaj..."
-          className="w-full text-sm outline-none placeholder:text-surface-400"
+          className="text-surface-800 placeholder:text-surface-500 w-full bg-transparent text-sm outline-none"
           autoFocus
         />
       </div>
-      <div className="max-h-72 overflow-y-auto rounded-md border border-surface-200">
+
+      <div className="max-h-72 overflow-y-auto rounded-2xl border border-[rgba(86,93,94,0.14)] bg-[rgba(223,225,218,0.55)]">
         {filtered.length === 0 ? (
-          <p className="p-3 text-sm text-surface-400">
+          <p className="text-surface-500 p-4 text-sm">
             {available.length === 0 ? 'Wszystkie encje tego typu są już w sesji.' : 'Brak wyników.'}
           </p>
         ) : (
-          <ul className="divide-y divide-surface-100">
+          <ul className="divide-y divide-[rgba(86,93,94,0.08)]">
             {filtered.map((entity) => (
               <li key={entity.id}>
-                <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-surface-50">
+                <label className="text-surface-800 flex cursor-pointer items-center gap-2 px-4 py-3 text-sm transition-colors hover:bg-[rgba(223,225,218,0.72)]">
                   <input
                     type="checkbox"
                     checked={selected.has(entity.id)}
                     onChange={() => toggle(entity.id)}
-                    className="h-4 w-4 rounded border-surface-300 accent-primary-600"
+                    className="border-surface-300 accent-primary-600 h-4 w-4 rounded"
                   />
-                  <span className="truncate text-surface-800">{entity.name}</span>
+                  <span className="truncate">{entity.name}</span>
                 </label>
               </li>
             ))}
           </ul>
         )}
       </div>
-      <div className="mt-4 flex items-center justify-between border-t border-surface-100 pt-3">
-        <span className="text-xs text-surface-500">
+
+      <div className="mt-4 flex items-center justify-between border-t border-[rgba(86,93,94,0.1)] pt-3">
+        <span className="text-surface-600 text-xs">
           {selected.size > 0 ? `Wybrano: ${selected.size}` : 'Wybierz encje do dodania'}
         </span>
         <div className="flex gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-surface-300 px-3 py-1.5 text-sm text-surface-700 hover:bg-surface-50"
+            className="app-button-secondary rounded-xl px-3 py-2 text-sm"
           >
             Anuluj
           </button>
@@ -164,7 +176,7 @@ function CampaignEntityPickerModal({
             type="button"
             onClick={() => void handleAdd()}
             disabled={selected.size === 0 || saving}
-            className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+            className="app-button-primary rounded-xl px-3 py-2 text-sm font-semibold disabled:opacity-50"
           >
             Dodaj
           </button>
@@ -174,31 +186,92 @@ function CampaignEntityPickerModal({
   );
 }
 
-// ── NotesSection ──────────────────────────────────────────────────────────────
-
 function NotesSection({ sessionId }: { sessionId: string }) {
   const notes = useNotesBySession(sessionId);
   if (!notes || notes.length === 0) return null;
+
   return (
-    <div className="rounded-xl border border-surface-200 bg-white p-4">
-      <h3 className="mb-2 text-sm font-semibold text-surface-700">Notatki z sesji</h3>
-      <ul className="flex flex-col gap-1.5">
+    <section className="app-panel rounded-[1.8rem] p-5 lg:p-6">
+      <h3 className="text-surface-500 mb-4 text-sm font-semibold tracking-[0.18em] uppercase">
+        Notatki z sesji
+      </h3>
+      <ul className="flex flex-col gap-2.5">
         {notes.map((note) => (
           <li key={note.id}>
             <Link
               to={`/notes/${note.id}`}
-              className="flex items-start gap-1.5 rounded-md bg-amber-50 px-2 py-1.5 text-xs text-surface-700 hover:bg-amber-100"
+              className="text-surface-800 block rounded-2xl border border-[rgba(210,166,67,0.18)] bg-[rgba(242,196,88,0.08)] px-4 py-3 text-sm leading-6 transition-colors hover:bg-[rgba(242,196,88,0.14)]"
             >
               <span className="line-clamp-3">{note.data.content}</span>
             </Link>
           </li>
         ))}
       </ul>
-    </div>
+    </section>
   );
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+interface SessionEntityColumnProps {
+  title: string;
+  count: number;
+  icon: LucideIcon;
+  items: Entity[];
+  hrefBase: string;
+  onAdd: () => void;
+  accent?: 'default' | 'gold';
+}
+
+function SessionEntityColumn({
+  title,
+  count,
+  icon: Icon,
+  items,
+  hrefBase,
+  onAdd,
+  accent = 'default',
+}: SessionEntityColumnProps) {
+  const iconShellClass =
+    accent === 'gold'
+      ? 'bg-[rgba(242,196,88,0.16)] text-[#9a6710]'
+      : 'bg-[rgba(33,71,102,0.09)] text-primary-700';
+
+  return (
+    <div className="app-card rounded-[1.5rem] p-4">
+      <div className="mb-4 flex items-center gap-2">
+        <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${iconShellClass}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <h3 className="text-primary-900 text-sm font-semibold tracking-[-0.02em]">{title}</h3>
+        <button
+          type="button"
+          onClick={onAdd}
+          className="text-surface-600 hover:text-primary-700 rounded-xl border border-[rgba(86,93,94,0.12)] p-1.5 transition-colors hover:bg-[rgba(223,225,218,0.75)]"
+          title={`Dodaj: ${title}`}
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+        <span className="app-pill-muted ml-auto rounded-full px-2.5 py-1 text-xs">{count}</span>
+      </div>
+
+      {items.length === 0 ? (
+        <p className="text-surface-500 text-xs">Brak</p>
+      ) : (
+        <ul className="space-y-2">
+          {items.map((item) => (
+            <li key={item.id}>
+              <Link
+                to={`${hrefBase}/${item.id}`}
+                className="text-primary-800 hover:text-primary-900 text-sm leading-6 transition-colors hover:underline"
+              >
+                {item.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 export function SessionDetail() {
   const { id } = useParams<{ id: string }>();
@@ -238,7 +311,7 @@ export function SessionDetail() {
   async function handleUpdate(values: SessionFormValues) {
     setSaving(true);
     try {
-      await updateEntity(db, session!.id, {
+      await updateEntity(db, session.id, {
         name: values.name || `Sesja ${values.number}`,
         description: values.description,
         tags: values.tags,
@@ -259,7 +332,7 @@ export function SessionDetail() {
 
   async function handleDelete() {
     try {
-      await deleteEntity(db, session!.id);
+      await deleteEntity(db, session.id);
       toast.success(`${title} usunięta`);
       navigate('/sessions');
     } catch {
@@ -309,65 +382,103 @@ export function SessionDetail() {
   };
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      {/* Back */}
+    <div className="flex flex-col gap-6">
       <Link
         to="/sessions"
-        className="flex w-fit items-center gap-1.5 text-sm text-surface-500 hover:text-surface-800"
+        className="text-surface-600 hover:text-primary-800 flex w-fit items-center gap-2 rounded-full px-2 py-1 text-sm transition-colors hover:bg-[rgba(223,225,218,0.72)]"
       >
-        <ArrowLeft className="h-4 w-4" /> Sesje
+        <ArrowLeft className="h-4 w-4" />
+        Sesje
       </Link>
 
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <BookOpen className="h-6 w-6 shrink-0 text-primary-500" />
-          <div>
-            <h1 className="text-xl font-semibold text-surface-900">{title}</h1>
-            <span className="text-sm text-surface-400">{formattedDate}</span>
+      <section className="app-panel-strong rounded-[2rem] px-6 py-7 lg:px-8 lg:py-8">
+        <div className="flex flex-wrap items-start justify-between gap-5">
+          <div className="max-w-3xl">
+            <div className="text-primary-700 mb-3 inline-flex items-center rounded-full border border-[rgba(33,71,102,0.16)] bg-[rgba(111,146,164,0.12)] px-3 py-1 text-[11px] font-semibold tracking-[0.18em] uppercase">
+              Sesja
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[rgba(33,71,102,0.09)]">
+                <BookOpen className="text-primary-700 h-5 w-5" />
+              </div>
+              <div>
+                <h1 className="text-primary-900 text-3xl font-semibold tracking-[-0.04em] lg:text-[2.1rem]">
+                  {title}
+                </h1>
+                {formattedDate && (
+                  <p className="text-surface-600 mt-2 text-sm leading-7">{formattedDate}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Link
+              to={`/sessions/${session.id}/report`}
+              className="app-button-secondary inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium"
+            >
+              <FileText className="h-4 w-4" />
+              Raport
+            </Link>
+            <Link
+              to={`/sessions/${session.id}/live`}
+              className="app-accent inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-transform hover:-translate-y-0.5"
+            >
+              <Zap className="h-4 w-4" />
+              Na żywo
+            </Link>
+            <Link
+              to={`/sessions/${session.id}/cleanup`}
+              className="app-button-secondary inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium"
+            >
+              <MapPin className="h-4 w-4" />
+              Sprzątaj sesję
+            </Link>
+            <button
+              type="button"
+              onClick={() => setIsEditing(!isEditing)}
+              className="app-button-secondary inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium"
+            >
+              {isEditing ? (
+                <>
+                  <X className="h-4 w-4" />
+                  Anuluj
+                </>
+              ) : (
+                <>
+                  <Edit2 className="h-4 w-4" />
+                  Edytuj
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              className="text-danger-700 inline-flex items-center gap-2 rounded-2xl border border-[rgba(176,108,103,0.32)] bg-[rgba(176,108,103,0.08)] px-4 py-3 text-sm font-medium transition-colors hover:bg-[rgba(176,108,103,0.14)]"
+            >
+              <Trash2 className="h-4 w-4" />
+              Usuń
+            </button>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Link
-            to={`/sessions/${session.id}/report`}
-            className="flex items-center gap-1.5 rounded-md border border-surface-300 px-3 py-1.5 text-sm hover:bg-surface-50"
-          >
-            <FileText className="h-3.5 w-3.5" /> Raport
-          </Link>
-          <Link
-            to={`/sessions/${session.id}/live`}
-            className="flex items-center gap-1.5 rounded-md bg-amber-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-600"
-          >
-            <Zap className="h-3.5 w-3.5" /> Na żywo
-          </Link>
-          <Link
-            to={`/sessions/${session.id}/cleanup`}
-            className="flex items-center gap-1.5 rounded-md border border-surface-300 px-3 py-1.5 text-sm hover:bg-surface-50"
-          >
-            <MapPin className="h-3.5 w-3.5" /> Sprzątaj sesję
-          </Link>
-          <button
-            onClick={() => setIsEditing(!isEditing)}
-            className="flex items-center gap-1.5 rounded-md border border-surface-300 px-3 py-1.5 text-sm hover:bg-surface-50"
-          >
-            {isEditing ? (
-              <><X className="h-3.5 w-3.5" /> Anuluj</>
-            ) : (
-              <><Edit2 className="h-3.5 w-3.5" /> Edytuj</>
-            )}
-          </button>
-          <button
-            onClick={() => setConfirmDelete(true)}
-            className="flex items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
-          >
-            <Trash2 className="h-3.5 w-3.5" /> Usuń
-          </button>
-        </div>
-      </div>
+      </section>
 
-      {/* Edit form */}
       {isEditing && (
-        <div className="rounded-xl border border-surface-200 bg-white p-5 shadow-sm">
+        <div className="app-panel rounded-[1.8rem] p-5 lg:p-6">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-primary-900 text-base font-semibold tracking-[-0.02em]">
+              Edytuj sesję
+            </h2>
+            <button
+              type="button"
+              onClick={() => setIsEditing(false)}
+              className="text-surface-500 hover:text-primary-700 rounded-xl p-2 transition-colors hover:bg-[rgba(223,225,218,0.75)]"
+              aria-label="Zamknij formularz edycji sesji"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
           <SessionForm
             defaultValues={{
               number: session.data.number,
@@ -384,248 +495,89 @@ export function SessionDetail() {
         </div>
       )}
 
-      {/* Summary */}
       {!isEditing && session.data.summary && (
-        <div className="rounded-xl border border-surface-200 bg-white p-5">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-surface-500">
+        <section className="app-panel rounded-[1.8rem] p-5 lg:p-6">
+          <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-[0.18em] uppercase">
             Streszczenie
           </h2>
-          <p className="text-sm text-surface-700">{session.data.summary}</p>
-        </div>
+          <p className="text-surface-800 max-w-[90ch] text-sm leading-7">{session.data.summary}</p>
+        </section>
       )}
 
-      {/* Notes */}
       {!isEditing && session.description && (
-        <div className="rounded-xl border border-surface-200 bg-white p-5">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-surface-500">
+        <section className="app-panel rounded-[1.8rem] p-5 lg:p-6">
+          <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-[0.18em] uppercase">
             Notatki
           </h2>
           <div
-            className="prose prose-sm max-w-none text-surface-700"
+            className="prose prose-sm text-surface-800 max-w-none"
             dangerouslySetInnerHTML={{ __html: session.description }}
           />
-        </div>
+        </section>
       )}
 
-      {/* Tags */}
       {!isEditing && session.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-2.5">
           {session.tags.map((tag) => (
-            <span
-              key={tag}
-              className="rounded-full bg-primary-50 px-2.5 py-0.5 text-xs text-primary-700"
-            >
+            <span key={tag} className="app-pill rounded-full px-3 py-1.5 text-xs font-medium">
               {tag}
             </span>
           ))}
         </div>
       )}
 
-      {/* Appearances */}
       {!isEditing && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          {/* Postacie */}
-          <div className="rounded-xl border border-surface-200 bg-white p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Users className="h-4 w-4 text-surface-400" />
-              <h3 className="text-sm font-semibold text-surface-700">Postacie</h3>
-              <button
-                type="button"
-                onClick={() => setNpcPickerOpen(true)}
-                className="rounded-md border border-surface-200 p-1 text-surface-500 hover:bg-surface-50 hover:text-surface-700"
-                title="Dodaj postać z kampanii"
-              >
-                <Plus className="h-3.5 w-3.5" />
-              </button>
-              <span className="ml-auto rounded-full bg-surface-100 px-2 py-0.5 text-xs text-surface-500">
-                {appearances.npcs.length}
-              </span>
-            </div>
-            {appearances.npcs.length === 0 ? (
-              <p className="text-xs text-surface-400">Brak</p>
-            ) : (
-              <ul className="space-y-1">
-                {appearances.npcs.map((e) => (
-                  <li key={e.id}>
-                    <Link
-                      to={`/npcs/${e.id}`}
-                      className="text-sm text-primary-600 hover:underline"
-                    >
-                      {e.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* Locations */}
-          <div className="rounded-xl border border-surface-200 bg-white p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-surface-400" />
-              <h3 className="text-sm font-semibold text-surface-700">Lokacje</h3>
-              <button
-                type="button"
-                onClick={() => setLocationPickerOpen(true)}
-                className="rounded-md border border-surface-200 p-1 text-surface-500 hover:bg-surface-50 hover:text-surface-700"
-                title="Dodaj lokację z kampanii"
-              >
-                <Plus className="h-3.5 w-3.5" />
-              </button>
-              <span className="ml-auto rounded-full bg-surface-100 px-2 py-0.5 text-xs text-surface-500">
-                {appearances.locations.length}
-              </span>
-            </div>
-            {appearances.locations.length === 0 ? (
-              <p className="text-xs text-surface-400">Brak</p>
-            ) : (
-              <ul className="space-y-1">
-                {appearances.locations.map((e) => (
-                  <li key={e.id}>
-                    <Link
-                      to={`/locations/${e.id}`}
-                      className="text-sm text-primary-600 hover:underline"
-                    >
-                      {e.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* Items */}
-          <div className="rounded-xl border border-surface-200 bg-white p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Package className="h-4 w-4 text-surface-400" />
-              <h3 className="text-sm font-semibold text-surface-700">Przedmioty</h3>
-              <button
-                type="button"
-                onClick={() => setItemPickerOpen(true)}
-                className="rounded-md border border-surface-200 p-1 text-surface-500 hover:bg-surface-50 hover:text-surface-700"
-                title="Dodaj przedmiot z kampanii"
-              >
-                <Plus className="h-3.5 w-3.5" />
-              </button>
-              <span className="ml-auto rounded-full bg-surface-100 px-2 py-0.5 text-xs text-surface-500">
-                {appearances.items.length}
-              </span>
-            </div>
-            {appearances.items.length === 0 ? (
-              <p className="text-xs text-surface-400">Brak</p>
-            ) : (
-              <ul className="space-y-1">
-                {appearances.items.map((e) => (
-                  <li key={e.id}>
-                    <Link to={`/items/${e.id}`} className="text-sm text-primary-600 hover:underline">
-                      {e.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* Threads */}
-          <div className="rounded-xl border border-surface-200 bg-white p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <GitBranch className="h-4 w-4 text-surface-400" />
-              <h3 className="text-sm font-semibold text-surface-700">Wątki</h3>
-              <button
-                type="button"
-                onClick={() => setThreadPickerOpen(true)}
-                className="rounded-md border border-surface-200 p-1 text-surface-500 hover:bg-surface-50 hover:text-surface-700"
-                title="Dodaj wątek z kampanii"
-              >
-                <Plus className="h-3.5 w-3.5" />
-              </button>
-              <span className="ml-auto rounded-full bg-surface-100 px-2 py-0.5 text-xs text-surface-500">
-                {appearances.threads.length}
-              </span>
-            </div>
-            {appearances.threads.length === 0 ? (
-              <p className="text-xs text-surface-400">Brak</p>
-            ) : (
-              <ul className="space-y-1">
-                {appearances.threads.map((e) => (
-                  <li key={e.id} className="flex items-center gap-1.5">
-                    <span
-                      className="inline-block h-2 w-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: (e.data.color as string | undefined) ?? '#6366f1' }}
-                    />
-                    <Link to={`/threads/${e.id}`} className="text-sm text-primary-600 hover:underline">
-                      {e.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* Clues */}
-          <div className="rounded-xl border border-surface-200 bg-white p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Lightbulb className="h-4 w-4 text-surface-400" />
-              <h3 className="text-sm font-semibold text-surface-700">Wskazówki</h3>
-              <button
-                type="button"
-                onClick={() => setCluePickerOpen(true)}
-                className="rounded-md border border-surface-200 p-1 text-surface-500 hover:bg-surface-50 hover:text-surface-700"
-                title="Dodaj wskazówkę z kampanii"
-              >
-                <Plus className="h-3.5 w-3.5" />
-              </button>
-              <span className="ml-auto rounded-full bg-surface-100 px-2 py-0.5 text-xs text-surface-500">
-                {appearances.clues.length}
-              </span>
-            </div>
-            {appearances.clues.length === 0 ? (
-              <p className="text-xs text-surface-400">Brak</p>
-            ) : (
-              <ul className="space-y-1">
-                {appearances.clues.map((e) => (
-                  <li key={e.id}>
-                    <Link to={`/clues/${e.id}`} className="text-sm text-primary-600 hover:underline">
-                      {e.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* Threats */}
-          <div className="rounded-xl border border-surface-200 bg-white p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-surface-400" />
-              <h3 className="text-sm font-semibold text-surface-700">Zagrożenia</h3>
-              <button
-                type="button"
-                onClick={() => setThreatPickerOpen(true)}
-                className="rounded-md border border-surface-200 p-1 text-surface-500 hover:bg-surface-50 hover:text-surface-700"
-                title="Dodaj zagrożenie z kampanii"
-              >
-                <Plus className="h-3.5 w-3.5" />
-              </button>
-              <span className="ml-auto rounded-full bg-surface-100 px-2 py-0.5 text-xs text-surface-500">
-                {appearances.threats.length}
-              </span>
-            </div>
-            {appearances.threats.length === 0 ? (
-              <p className="text-xs text-surface-400">Brak</p>
-            ) : (
-              <ul className="space-y-1">
-                {appearances.threats.map((entity) => (
-                  <li key={entity.id}>
-                    <Link to={`/threats/${entity.id}`} className="text-sm text-primary-600 hover:underline">
-                      {entity.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+          <SessionEntityColumn
+            title="Postacie"
+            count={appearances.npcs.length}
+            icon={Users}
+            items={appearances.npcs}
+            hrefBase="/npcs"
+            onAdd={() => setNpcPickerOpen(true)}
+          />
+          <SessionEntityColumn
+            title="Lokacje"
+            count={appearances.locations.length}
+            icon={MapPin}
+            items={appearances.locations}
+            hrefBase="/locations"
+            onAdd={() => setLocationPickerOpen(true)}
+          />
+          <SessionEntityColumn
+            title="Przedmioty"
+            count={appearances.items.length}
+            icon={Package}
+            items={appearances.items}
+            hrefBase="/items"
+            onAdd={() => setItemPickerOpen(true)}
+          />
+          <SessionEntityColumn
+            title="Wątki"
+            count={appearances.threads.length}
+            icon={GitBranch}
+            items={appearances.threads}
+            hrefBase="/threads"
+            onAdd={() => setThreadPickerOpen(true)}
+          />
+          <SessionEntityColumn
+            title="Wskazówki"
+            count={appearances.clues.length}
+            icon={Lightbulb}
+            items={appearances.clues}
+            hrefBase="/clues"
+            onAdd={() => setCluePickerOpen(true)}
+          />
+          <SessionEntityColumn
+            title="Zagrożenia"
+            count={appearances.threats.length}
+            icon={AlertTriangle}
+            items={appearances.threats}
+            hrefBase="/threats"
+            onAdd={() => setThreatPickerOpen(true)}
+            accent="gold"
+          />
+        </section>
       )}
 
       <NotesSection sessionId={id!} />

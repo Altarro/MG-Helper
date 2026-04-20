@@ -20,63 +20,53 @@ export const ThreadCard = memo(function ThreadCard({ thread, onClick, className 
   const plainDescription = stripHtml(thread.description ?? '');
   const preview =
     plainDescription.length > DESCRIPTION_MAX_CHARS
-      ? plainDescription.slice(0, DESCRIPTION_MAX_CHARS).trimEnd() + '…'
+      ? `${plainDescription.slice(0, DESCRIPTION_MAX_CHARS).trimEnd()}...`
       : plainDescription;
 
   const isCompleted = thread.data.status === 'completed';
 
   return (
     <article
-      className={`group flex cursor-pointer rounded-lg border border-surface-200 bg-white shadow-sm transition-shadow hover:shadow-md overflow-hidden ${className}`}
+      className={`app-card group flex cursor-pointer overflow-hidden rounded-[1.35rem] transition-all hover:-translate-y-0.5 ${className}`}
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? (e) => (e.key === 'Enter' || e.key === ' ') && onClick() : undefined}
     >
-      {/* Color bar */}
-      <div
-        className="w-1.5 shrink-0"
-        style={{ backgroundColor: thread.data.color }}
-        aria-hidden="true"
-      />
+      <div className="w-2 shrink-0" style={{ backgroundColor: thread.data.color }} aria-hidden="true" />
 
-      <div className="flex flex-1 flex-col gap-2 p-4">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className={`text-sm font-semibold leading-tight group-hover:text-primary-700 ${isCompleted ? 'text-surface-400' : 'text-surface-900'}`}>
+      <div className="flex flex-1 flex-col gap-3 p-5">
+        <div className="flex items-start justify-between gap-3">
+          <h3 className={`text-[1.02rem] font-semibold leading-tight tracking-[-0.02em] ${isCompleted ? 'text-surface-500' : 'text-surface-900 group-hover:text-primary-800'}`}>
             {thread.name}
           </h3>
           <span
-            className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-              isCompleted
-                ? 'bg-surface-100 text-surface-500'
-                : 'bg-green-100 text-green-700'
+            className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${
+              isCompleted ? 'app-pill-muted' : 'app-pill'
             }`}
           >
             {THREAD_STATUS_LABELS[thread.data.status]}
           </span>
         </div>
 
-        <div className="flex flex-wrap gap-1">
-          <span className="rounded-full bg-primary-50 px-2 py-0.5 text-[10px] font-medium text-primary-700">
+        <div className="flex flex-wrap gap-2">
+          <span className="app-pill rounded-full px-2.5 py-1 text-[11px] font-medium">
             {THREAD_KIND_LABELS[thread.data.kind ?? 'side']}
           </span>
-          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+          <span className="app-danger-pill rounded-full px-2.5 py-1 text-[11px] font-medium">
             {THREAD_PRIORITY_LABELS[thread.data.priority ?? 'normal']}
           </span>
         </div>
 
         {preview && (
-          <p className="text-xs text-surface-500 leading-relaxed line-clamp-2">{preview}</p>
+          <p className="line-clamp-3 text-sm leading-6 text-surface-700">{preview}</p>
         )}
 
         {thread.tags.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1 mt-auto pt-1">
-            <Tag className="h-3 w-3 text-surface-400 shrink-0" />
+          <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
+            <Tag className="h-3.5 w-3.5 shrink-0 text-surface-500" />
             {thread.tags.map((tag) => (
-              <span
-                key={tag}
-                className="rounded bg-surface-100 px-1.5 py-0.5 text-xs text-surface-600"
-              >
+              <span key={tag} className="app-pill-muted rounded-full px-2.5 py-1 text-xs">
                 {tag}
               </span>
             ))}

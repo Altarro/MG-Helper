@@ -36,7 +36,7 @@ export function FactionList() {
         tags: values.tags,
         data: { goals: values.goals, resources: values.resources },
       });
-      toast.success(`Frakcja „${values.name}" utworzona`);
+      toast.success(`Frakcja "${values.name}" utworzona`);
       setShowForm(false);
       navigate(`/factions/${entity.id}`);
     } catch {
@@ -47,35 +47,44 @@ export function FactionList() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-surface-900">Frakcje</h1>
-        <button
-          type="button"
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-        >
-          <Plus className="h-4 w-4" /> Nowa frakcja
-        </button>
-      </div>
+    <div className="flex flex-col gap-6">
+      <section className="app-panel-strong rounded-[2rem] px-6 py-7 lg:px-8 lg:py-8">
+        <div className="flex flex-wrap items-start justify-between gap-5">
+          <div className="max-w-3xl">
+            <div className="mb-3 inline-flex items-center rounded-full border border-[rgba(33,71,102,0.16)] bg-[rgba(111,146,164,0.12)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-700">
+              Siły świata
+            </div>
+            <h1 className="text-3xl font-semibold tracking-[-0.04em] text-primary-900 lg:text-[2.2rem]">
+              Frakcje
+            </h1>
+            <p className="mt-2 max-w-[62ch] text-sm leading-7 text-surface-700 lg:text-[0.98rem]">
+              Organizacje, stronnictwa i ośrodki wpływu obecne w kampanii.
+            </p>
+          </div>
+
+          <button type="button" onClick={() => setShowForm(true)} className="app-button-primary flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-transform hover:-translate-y-0.5">
+            <Plus className="h-4 w-4" /> Nowa frakcja
+          </button>
+        </div>
+
+        <div className="relative mt-6">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-500" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Szukaj frakcji..."
+            className="app-input w-full rounded-2xl py-3 pl-11 pr-10 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+          />
+          {query && <button type="button" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-surface-500 transition-colors hover:text-primary-700"><X className="h-4 w-4" /></button>}
+        </div>
+      </section>
 
       {showForm && (
-        <div className="rounded-xl border border-surface-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-base font-semibold">Nowa frakcja</h2>
+        <div className="app-panel rounded-[1.8rem] p-5 lg:p-6">
+          <h2 className="mb-4 text-base font-semibold tracking-[-0.02em] text-primary-900">Nowa frakcja</h2>
           <FactionForm onSubmit={handleCreate} isSaving={saving} onCancel={() => setShowForm(false)} submitLabel="Utwórz" />
         </div>
       )}
-
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-400" />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Szukaj frakcji…"
-          className="w-full rounded-md border border-surface-300 bg-white py-2 pl-9 pr-8 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-        />
-        {query && <button onClick={() => setQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2"><X className="h-4 w-4 text-surface-400" /></button>}
-      </div>
 
       {factions === undefined ? (
         <LoadingSpinner />
@@ -83,15 +92,15 @@ export function FactionList() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((f) => <FactionCard key={f.id} faction={f} />)}
         </div>
-      ) : factions.length === 0 ? (
-        <EmptyState
-          icon={<Flag className="h-10 w-10 text-surface-300" />}
-          title="Brak frakcji"
-          description="Utwórz pierwszą frakcję."
-          action={<button onClick={() => setShowForm(true)} className="flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"><Plus className="h-4 w-4" /> Nowa frakcja</button>}
-        />
       ) : (
-        <p className="text-sm text-surface-500">Brak wyników.</p>
+        <div className="app-panel rounded-[1.8rem] p-6">
+          <EmptyState
+            icon={<Flag className="h-10 w-10 text-primary-300" />}
+            title={factions.length === 0 ? 'Brak frakcji' : 'Brak wyników'}
+            description={factions.length === 0 ? 'Utwórz pierwszą frakcję.' : 'Żadna frakcja nie pasuje do wyszukiwania.'}
+            action={factions.length === 0 ? <button onClick={() => setShowForm(true)} className="app-button-primary rounded-2xl px-4 py-3 text-sm font-medium">Nowa frakcja</button> : undefined}
+          />
+        </div>
       )}
     </div>
   );

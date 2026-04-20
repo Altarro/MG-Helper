@@ -22,19 +22,19 @@ export const EntityCard = memo(function EntityCard({
   const plainDescription = stripHtml(entity.description ?? '');
   const preview =
     plainDescription.length > DESCRIPTION_MAX_CHARS
-      ? plainDescription.slice(0, DESCRIPTION_MAX_CHARS).trimEnd() + '…'
+      ? `${plainDescription.slice(0, DESCRIPTION_MAX_CHARS).trimEnd()}...`
       : plainDescription;
 
   return (
     <article
-      className={`group flex cursor-pointer flex-col gap-2 rounded-lg border border-surface-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md ${className}`}
+      className={`app-card group flex cursor-pointer flex-col gap-3 rounded-[1.35rem] p-5 transition-all hover:-translate-y-0.5 ${className}`}
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? (e) => (e.key === 'Enter' || e.key === ' ') && onClick() : undefined}
     >
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="text-sm font-semibold text-surface-900 leading-tight group-hover:text-primary-700">
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="text-[1.02rem] font-semibold leading-tight tracking-[-0.02em] text-surface-900 group-hover:text-primary-800">
           {entity.name}
         </h3>
         <EntityTypeBadge
@@ -45,19 +45,16 @@ export const EntityCard = memo(function EntityCard({
       </div>
 
       {preview && (
-        <p className="text-xs text-surface-500 leading-relaxed line-clamp-3">{preview}</p>
+        <p className="line-clamp-3 text-sm leading-6 text-surface-700">{preview}</p>
       )}
 
       {renderExtra && <div className="mt-1">{renderExtra(entity)}</div>}
 
       {entity.tags.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1 mt-auto pt-1">
-          <Tag className="h-3 w-3 text-surface-400 shrink-0" />
+        <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
+          <Tag className="h-3.5 w-3.5 shrink-0 text-surface-500" />
           {entity.tags.map((tag) => (
-            <span
-              key={tag}
-              className="rounded bg-surface-100 px-1.5 py-0.5 text-xs text-surface-600"
-            >
+            <span key={tag} className="app-pill-muted rounded-full px-2.5 py-1 text-xs">
               {tag}
             </span>
           ))}

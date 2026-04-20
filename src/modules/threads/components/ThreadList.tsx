@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate, Link } from 'react-router';
+import { useNavigate } from 'react-router';
 import { Plus, Milestone, Search, X } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
@@ -46,14 +46,9 @@ export function ThreadList() {
   const { db } = useCampaign();
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<FilterTab>('all');
-  const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped');
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [activeDragThread, setActiveDragThread] = useState<Thread | null>(null);
-
-  void Link;
-  void Search;
-  void X;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -79,9 +74,7 @@ export function ThreadList() {
       const targetThreat = threatMap.has(relation.targetId) ? relation.targetId : null;
       const threadId = sourceThreat ? relation.targetId : targetThreat ? relation.sourceId : null;
       const threatId = sourceThreat ?? targetThreat;
-
       if (!threadId || !threatId) continue;
-
       const existing = map.get(threadId) ?? [];
       if (!existing.includes(threatId)) {
         existing.push(threatId);
@@ -102,42 +95,9 @@ export function ThreadList() {
       thread.tags.some((t) => t.toLowerCase().includes(lowerQuery)) ||
       relatedThreats.some((threat) => threat.name.toLowerCase().includes(lowerQuery));
 
-    const matchesTab =
-      tab === 'all' || thread.data.status === tab;
-
+    const matchesTab = tab === 'all' || thread.data.status === tab;
     return matchesQuery && matchesTab;
   });
-
-  const groupedSections = useMemo(() => {
-    const sections = new Map<string, { threat: NonNullable<(typeof threats)>[number]; threads: NonNullable<typeof threads> }>();
-
-    for (const thread of filtered ?? []) {
-      const threatIds = threadThreatMap.get(thread.id) ?? [];
-      for (const threatId of threatIds) {
-        const threat = threatMap.get(threatId);
-        if (!threat) continue;
-
-        const existing = sections.get(threat.id);
-        if (existing) {
-          existing.threads.push(thread);
-        } else {
-          sections.set(threat.id, { threat, threads: [thread] });
-        }
-      }
-    }
-
-    return [...sections.values()].sort((a, b) => a.threat.name.localeCompare(b.threat.name));
-  }, [filtered, threadThreatMap, threatMap]);
-
-  const freeThreads = useMemo(
-    () => (filtered ?? []).filter((thread) => (threadThreatMap.get(thread.id) ?? []).length === 0),
-    [filtered, threadThreatMap],
-  );
-
-  void viewMode;
-  void setViewMode;
-  void groupedSections;
-  void freeThreads;
 
   async function handleCreate(values: ThreadFormValues) {
     setSaving(true);
@@ -155,7 +115,7 @@ export function ThreadList() {
           resolution: values.resolution,
         },
       });
-      toast.success(`Wątek „${values.name}" utworzony`);
+      toast.success(`Wątek "${values.name}" utworzony`);
       setShowForm(false);
       navigate(`/threads/${entity.id}`);
     } catch {
@@ -186,113 +146,95 @@ export function ThreadList() {
   if (threads === undefined) return <LoadingSpinner />;
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-surface-900">Wątki fabularne</h1>
-        <button
-          type="button"
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-        >
-          <Plus className="h-4 w-4" />
-          Nowy wątek
-        </button>
-      </div>
+    <div className="flex flex-col gap-6">
+      <section className="app-panel-strong rounded-[2rem] px-6 py-7 lg:px-8 lg:py-8">
+        <div className="flex flex-wrap items-start justify-between gap-5">
+          <div className="max-w-3xl">
+            <div className="mb-3 inline-flex items-center rounded-full border border-[rgba(33,71,102,0.16)] bg-[rgba(111,146,164,0.12)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-700">
+              Sprawy przy stole
+            </div>
+            <h1 className="text-3xl font-semibold tracking-[-0.04em] text-primary-900 lg:text-[2.2rem]">
+              Wątki fabularne
+            </h1>
+            <p className="mt-2 max-w-[62ch] text-sm leading-7 text-surface-700 lg:text-[0.98rem]">
+              Questy i sprawy dla stołu, grupowane względem zagrożeń albo prowadzone samodzielnie.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            className="app-button-primary flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-transform hover:-translate-y-0.5"
+          >
+            <Plus className="h-4 w-4" />
+            Nowy wątek
+          </button>
+        </div>
+
+        <div className="relative mt-6">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-500" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Szukaj wątków, tagów albo zagrożeń..."
+            className="app-input w-full rounded-2xl py-3 pl-11 pr-10 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+          />
+          {query && (
+            <button type="button" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-surface-500 transition-colors hover:text-primary-700">
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        <div className="mt-6 flex flex-wrap gap-2.5">
+          {(Object.entries(TAB_LABELS) as [FilterTab, string][]).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setTab(value)}
+              className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${tab === value ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </section>
 
       {showForm && (
-        <div className="rounded-xl border border-surface-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-sm font-semibold text-surface-700">Nowy wątek</h2>
-          <ThreadForm
-            onSubmit={handleCreate}
-            onCancel={() => setShowForm(false)}
-            isSaving={saving}
-          />
+        <div className="app-panel rounded-[1.8rem] p-5 lg:p-6">
+          <h2 className="mb-4 text-base font-semibold tracking-[-0.02em] text-primary-900">Nowy wątek</h2>
+          <ThreadForm onSubmit={handleCreate} onCancel={() => setShowForm(false)} isSaving={saving} />
         </div>
       )}
 
-      {/* Search */}
-      <div className="relative">
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Szukaj wątków…"
-          className="w-full rounded-md border border-surface-300 py-2 pl-9 pr-3 text-sm focus:border-primary-500 focus:outline-none"
-        />
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-surface-400">
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-        </span>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-surface-200">
-        {(Object.entries(TAB_LABELS) as [FilterTab, string][]).map(([value, label]) => (
-          <button
-            key={value}
-            onClick={() => setTab(value)}
-            className={`px-3 pb-2 text-sm font-medium transition-colors ${
-              tab === value
-                ? 'border-b-2 border-primary-600 text-primary-700'
-                : 'text-surface-500 hover:text-surface-800'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {filtered && filtered.length === 0 && (
-        <EmptyState
-          icon={<Milestone className="h-8 w-8" />}
-          title="Brak wątków"
-          description={query ? 'Żaden wątek nie pasuje do wyszukiwania.' : 'Utwórz pierwszy wątek fabularny.'}
-          action={
-            !query ? (
-              <button
-                type="button"
-                onClick={() => setShowForm(true)}
-                className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-              >
-                Nowy wątek
-              </button>
-            ) : undefined
-          }
-        />
-      )}
-
-      {filtered && filtered.length > 0 && (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
+      {filtered && filtered.length === 0 ? (
+        <div className="app-panel rounded-[1.8rem] p-6">
+          <EmptyState
+            icon={<Milestone className="h-8 w-8 text-primary-300" />}
+            title="Brak wątków"
+            description={query ? 'Żaden wątek nie pasuje do wyszukiwania.' : 'Utwórz pierwszy wątek fabularny.'}
+            action={!query ? <button type="button" onClick={() => setShowForm(true)} className="app-button-primary rounded-2xl px-4 py-3 text-sm font-medium">Nowy wątek</button> : undefined}
+          />
+        </div>
+      ) : filtered && filtered.length > 0 ? (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <SortableContext items={filtered.map((t) => t.id)} strategy={rectSortingStrategy}>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((thread) => (
-                <SortableThreadCard
-                  key={thread.id}
-                  thread={thread}
-                  onClick={() => navigate(`/threads/${thread.id}`)}
-                />
+                <SortableThreadCard key={thread.id} thread={thread} onClick={() => navigate(`/threads/${thread.id}`)} />
               ))}
             </div>
           </SortableContext>
           <DragOverlay>
             {activeDragThread && (
-              <div className="opacity-80 shadow-xl rounded-lg">
-                <ThreadCard
-                  thread={activeDragThread}
-                  onClick={() => navigate(`/threads/${activeDragThread.id}`)}
-                />
+              <div className="rounded-[1.35rem] opacity-85">
+                <ThreadCard thread={activeDragThread} onClick={() => navigate(`/threads/${activeDragThread.id}`)} />
               </div>
             )}
           </DragOverlay>
         </DndContext>
-      )}
+      ) : null}
     </div>
   );
 }

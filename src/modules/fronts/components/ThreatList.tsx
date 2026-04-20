@@ -155,50 +155,124 @@ export function ThreatList() {
   const hasAnyResults = frontSections.length > 0 || freeThreats.length > 0;
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold text-surface-900">Zagrożenia</h1>
-          <p className="mt-1 text-sm text-surface-500">
-            Samodzielny widok presji fabularnych, niezależnie od frontów.
-          </p>
+    <div className="flex flex-col gap-6">
+      <section className="app-panel-strong rounded-[2rem] px-6 py-7 lg:px-8 lg:py-8">
+        <div className="flex flex-wrap items-start justify-between gap-5">
+          <div className="max-w-3xl">
+            <div className="mb-3 inline-flex items-center rounded-full border border-[rgba(210,166,67,0.42)] bg-[rgba(242,196,88,0.12)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c6416]">
+              Presja fabularna
+            </div>
+            <h1 className="text-3xl font-semibold tracking-[-0.04em] text-primary-900 lg:text-[2.2rem]">
+              Zagrożenia
+            </h1>
+            <p className="mt-2 max-w-[62ch] text-sm leading-7 text-surface-700 lg:text-[0.98rem]">
+              Samodzielny widok presji fabularnych, niezależnie od frontów.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            className="app-accent flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-transform hover:-translate-y-0.5"
+          >
+            <Plus className="h-4 w-4" />
+            Nowe zagrożenie
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600"
-        >
-          <Plus className="h-4 w-4" />
-          Nowe zagrożenie
-        </button>
-      </div>
+
+        <div className="relative mt-6">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-500" />
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Szukaj zagrożeń, impulsów albo frontów..."
+            className="app-input w-full rounded-2xl py-3 pl-11 pr-10 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-surface-500 transition-colors hover:text-primary-700"
+              aria-label="Wyczyść wyszukiwanie zagrożeń"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap gap-2.5">
+            {([
+              ['all', 'Wszystkie'],
+              ['fronted', 'Podpięte do frontu'],
+              ['free', 'Wolne'],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setOwnershipFilter(value)}
+                className={`rounded-full px-4 py-2 text-xs font-semibold tracking-[0.01em] transition-all ${
+                  ownershipFilter === value
+                    ? 'app-danger-pill'
+                    : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <span aria-hidden="true" className="h-7 w-px bg-[rgba(86,93,94,0.16)]" />
+
+          <div className="flex flex-wrap gap-2.5">
+            {([
+              ['all', 'Status: wszystkie'],
+              ['active', 'Status: aktywne'],
+              ['completed', 'Status: zakończone'],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setStatusFilter(value)}
+                className={`rounded-full px-4 py-2 text-xs font-semibold tracking-[0.01em] transition-all ${
+                  statusFilter === value
+                    ? 'app-pill'
+                    : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {showForm && (
-        <div className="rounded-xl border border-amber-200 bg-white p-5 shadow-sm">
+        <div className="app-panel rounded-[1.8rem] p-5 lg:p-6">
           <div className="mb-4 flex items-center justify-between gap-3">
-            <h2 className="text-base font-semibold text-surface-900">Nowe zagrożenie</h2>
+            <h2 className="text-base font-semibold tracking-[-0.02em] text-primary-900">Nowe zagrożenie</h2>
             <button
               type="button"
               onClick={() => {
                 setShowForm(false);
                 setSelectedFrontId('');
               }}
-              className="rounded-md p-1 text-surface-400 hover:bg-surface-100 hover:text-surface-700"
+              className="rounded-xl p-2 text-surface-500 transition-colors hover:bg-[rgba(223,225,218,0.75)] hover:text-primary-700"
               aria-label="Zamknij formularz nowego zagrożenia"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
 
-          <div className="mb-4 flex flex-col gap-1">
-            <label htmlFor="new-threat-front" className="text-sm font-medium text-surface-700">
+          <div className="mb-4 flex flex-col gap-1.5">
+            <label htmlFor="new-threat-front" className="text-sm font-medium text-surface-800">
               Front nadrzędny
             </label>
             <select
               id="new-threat-front"
               value={selectedFrontId}
               onChange={(event) => setSelectedFrontId(event.target.value)}
-              className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="app-input rounded-2xl px-3 py-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
             >
               <option value="">Brak frontu (wolne zagrożenie)</option>
               {(fronts ?? []).map((front) => (
@@ -207,7 +281,7 @@ export function ThreatList() {
                 </option>
               ))}
             </select>
-            <p className="text-xs text-surface-500">
+            <p className="text-xs leading-6 text-surface-600">
               Zagrożenie może pozostać wolne albo od razu wejść pod konkretny front.
             </p>
           </div>
@@ -224,114 +298,48 @@ export function ThreatList() {
         </div>
       )}
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-400" />
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Szukaj zagrożeń, impulsów albo frontów..."
-          className="w-full rounded-md border border-surface-300 bg-white py-2 pl-9 pr-8 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-        />
-        {query && (
-          <button
-            type="button"
-            onClick={() => setQuery('')}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2"
-            aria-label="Wyczyść wyszukiwanie zagrożeń"
-          >
-            <X className="h-4 w-4 text-surface-400" />
-          </button>
-        )}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex flex-wrap gap-2">
-          {([
-            ['all', 'Wszystkie'],
-            ['fronted', 'Podpięte do frontu'],
-            ['free', 'Wolne'],
-          ] as const).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setOwnershipFilter(value)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                ownershipFilter === value
-                  ? 'bg-amber-100 text-amber-700'
-                  : 'bg-surface-100 text-surface-600 hover:bg-surface-200'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        <span aria-hidden="true" className="h-6 w-px bg-surface-300" />
-
-        <div className="flex flex-wrap gap-2">
-          {([
-            ['all', 'Status: wszystkie'],
-            ['active', 'Status: aktywne'],
-            ['completed', 'Status: zakończone'],
-          ] as const).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setStatusFilter(value)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                statusFilter === value
-                  ? 'bg-primary-100 text-primary-700'
-                  : 'bg-surface-100 text-surface-600 hover:bg-surface-200'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {isLoading ? (
         <LoadingSpinner />
       ) : threats && threats.length === 0 ? (
-        <EmptyState
-          icon={<AlertTriangle className="h-10 w-10 text-surface-300" />}
-          title="Brak zagrożeń"
-          description="Utwórz pierwsze zagrożenie, aby rozpisać aktywną presję fabularną kampanii."
-          action={(
-            <button
-              type="button"
-              onClick={() => setShowForm(true)}
-              className="flex items-center gap-2 rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600"
-            >
-              <Plus className="h-4 w-4" /> Nowe zagrożenie
-            </button>
-          )}
-        />
+        <div className="app-panel rounded-[1.8rem] p-6">
+          <EmptyState
+            icon={<AlertTriangle className="h-10 w-10 text-primary-300" />}
+            title="Brak zagrożeń"
+            description="Utwórz pierwsze zagrożenie, aby rozpisać aktywną presję fabularną kampanii."
+            action={
+              <button
+                type="button"
+                onClick={() => setShowForm(true)}
+                className="app-accent flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold"
+              >
+                <Plus className="h-4 w-4" />
+                Nowe zagrożenie
+              </button>
+            }
+          />
+        </div>
       ) : hasAnyResults ? (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-5">
           {frontSections.map((section) => (
-            <section
-              key={section.front.id}
-              className="rounded-2xl border border-surface-200 bg-white p-4 shadow-sm"
-            >
-              <div className="mb-4 flex items-start justify-between gap-3">
+            <section key={section.front.id} className="app-panel rounded-[1.85rem] p-4 lg:p-5">
+              <div className="mb-5 flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-surface-400">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-surface-500">
                     Front
                   </p>
                   <Link
                     to={`/fronts/${section.front.id}`}
-                    className="mt-1 inline-flex max-w-full items-center gap-2 truncate text-sm font-semibold text-primary-700 hover:underline"
+                    className="mt-2 inline-flex max-w-full items-center gap-2 truncate text-lg font-semibold tracking-[-0.03em] text-primary-900 hover:underline"
                   >
                     {section.front.name}
                   </Link>
                 </div>
-                <span className="shrink-0 rounded-full bg-surface-100 px-2.5 py-1 text-xs text-surface-500">
+                <span className="app-pill-muted shrink-0 rounded-full px-3 py-1 text-xs">
                   {section.threats.length} zag.
                 </span>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {section.threats.map((threat) => (
                   <ThreatCard
                     key={threat.id}
@@ -344,22 +352,22 @@ export function ThreatList() {
           ))}
 
           {freeThreats.length > 0 && (
-            <section className="rounded-2xl border border-amber-200 bg-amber-50/40 p-4 shadow-sm">
-              <div className="mb-4 flex items-start justify-between gap-3">
+            <section className="app-panel rounded-[1.85rem] p-4 lg:p-5">
+              <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c6416]">
                     Wolne zagrożenia
                   </p>
-                  <p className="mt-1 text-sm text-surface-600">
+                  <p className="mt-2 max-w-[58ch] text-sm leading-7 text-surface-700">
                     Presje fabularne, które nie są jeszcze podpięte do żadnego frontu.
                   </p>
                 </div>
-                <span className="shrink-0 rounded-full bg-white/80 px-2.5 py-1 text-xs text-amber-700 ring-1 ring-inset ring-amber-200">
+                <span className="app-danger-pill shrink-0 rounded-full px-3 py-1 text-xs">
                   {freeThreats.length} szt.
                 </span>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {freeThreats.map((threat) => (
                   <ThreatCard
                     key={threat.id}
@@ -372,11 +380,13 @@ export function ThreatList() {
           )}
         </div>
       ) : (
-        <EmptyState
-          icon={<Shield className="h-10 w-10 text-surface-300" />}
-          title="Brak wyników"
-          description="Spróbuj zmienić filtr albo wyszukiwanie zagrożeń."
-        />
+        <div className="app-panel rounded-[1.8rem] p-6">
+          <EmptyState
+            icon={<Shield className="h-10 w-10 text-primary-300" />}
+            title="Brak wyników"
+            description="Spróbuj zmienić filtr albo wyszukiwanie zagrożeń."
+          />
+        </div>
       )}
     </div>
   );

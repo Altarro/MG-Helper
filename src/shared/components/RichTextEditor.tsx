@@ -36,8 +36,8 @@ function ToolbarButton({ onClick, active, label, children }: ToolbarButtonProps)
       onClick={onClick}
       aria-label={label}
       aria-pressed={active}
-      className={`rounded p-1.5 text-surface-600 transition-colors hover:bg-surface-100 ${
-        active ? 'bg-surface-100 text-surface-900' : ''
+      className={`rounded-xl p-2 text-surface-700 transition-colors hover:bg-[rgba(223,225,218,0.75)] ${
+        active ? 'app-pill text-primary-800' : ''
       }`}
     >
       {children}
@@ -49,7 +49,7 @@ export function RichTextEditor({
   value,
   onChange,
   onBlur,
-  placeholder = 'Wpisz opis…',
+  placeholder = 'Wpisz opis...',
   className = '',
 }: RichTextEditorProps) {
   const isInternalChange = useRef(false);
@@ -62,7 +62,7 @@ export function RichTextEditor({
     content: value,
     editorProps: {
       attributes: {
-        class: 'prose prose-sm max-w-none min-h-32 px-3 py-2 focus:outline-none',
+        class: 'prose prose-sm max-w-none min-h-36 px-4 py-3 focus:outline-none text-surface-900',
         'aria-label': 'Edytor tekstu',
         'data-placeholder': placeholder,
       },
@@ -76,7 +76,6 @@ export function RichTextEditor({
     },
   });
 
-  // Sync external value changes (e.g. form reset)
   useEffect(() => {
     if (!editor) return;
     if (isInternalChange.current) {
@@ -97,9 +96,8 @@ export function RichTextEditor({
   }
 
   return (
-    <div className={`overflow-hidden rounded-md border border-surface-300 focus-within:border-primary-500 focus-within:ring-1 focus-within:ring-primary-500 ${className}`}>
-      {/* Toolbar */}
-      <div className="flex flex-wrap gap-0.5 border-b border-surface-200 bg-surface-50 px-2 py-1">
+    <div className={`app-input-shell overflow-hidden rounded-[1.25rem] focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/20 ${className}`}>
+      <div className="flex flex-wrap gap-1 border-b border-[rgba(86,93,94,0.14)] bg-[rgba(223,225,218,0.72)] px-2.5 py-2">
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBold().run()}
           active={editor.isActive('bold')}
@@ -114,7 +112,7 @@ export function RichTextEditor({
         >
           <Italic className="h-4 w-4" />
         </ToolbarButton>
-        <div className="mx-1 w-px bg-surface-200" aria-hidden="true" />
+        <div className="mx-1 w-px bg-[rgba(86,93,94,0.14)]" aria-hidden="true" />
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
           active={editor.isActive('heading', { level: 2 })}
@@ -129,7 +127,7 @@ export function RichTextEditor({
         >
           <Heading3 className="h-4 w-4" />
         </ToolbarButton>
-        <div className="mx-1 w-px bg-surface-200" aria-hidden="true" />
+        <div className="mx-1 w-px bg-[rgba(86,93,94,0.14)]" aria-hidden="true" />
         <ToolbarButton
           onClick={() => editor.chain().focus().toggleBulletList().run()}
           active={editor.isActive('bulletList')}
@@ -144,7 +142,7 @@ export function RichTextEditor({
         >
           <ListOrdered className="h-4 w-4" />
         </ToolbarButton>
-        <div className="mx-1 w-px bg-surface-200" aria-hidden="true" />
+        <div className="mx-1 w-px bg-[rgba(86,93,94,0.14)]" aria-hidden="true" />
         <ToolbarButton
           onClick={setLink}
           active={editor.isActive('link')}
@@ -152,7 +150,7 @@ export function RichTextEditor({
         >
           <LinkIcon className="h-4 w-4" />
         </ToolbarButton>
-        <div className="ml-auto flex gap-0.5">
+        <div className="ml-auto flex gap-1">
           <ToolbarButton
             onClick={() => editor.chain().focus().undo().run()}
             label="Cofnij"
