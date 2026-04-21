@@ -1,19 +1,20 @@
 import { useState } from 'react';
-import { useParams, useNavigate, Link, useLocation } from 'react-router';
-import { ArrowLeft, Edit2, Trash2, StickyNote, Calendar, Plus } from 'lucide-react';
-import { format, parseISO, isValid } from 'date-fns';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
+import { ArrowLeft, Calendar, Edit2, Plus, StickyNote, Trash2 } from 'lucide-react';
+import { format, isValid, parseISO } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import { toast } from 'sonner';
 import { useNoteById } from '../hooks/useNoteById';
-import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
+import { DetailSection } from '@shared/components/DetailSection';
+import { LoadingSpinner } from '@shared/components/LoadingSpinner';
+import { MarkdownExportButton } from '@shared/components/MarkdownExportButton';
 import { RelationList } from '@shared/components/RelationList';
 import { RelationPicker } from '@shared/components/RelationPicker';
-import { MarkdownExportButton } from '@shared/components/MarkdownExportButton';
 import { deleteEntity, updateEntity } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
-import { toast } from 'sonner';
-import type { Entity } from '@shared/types/entity';
 import { getEntityDetailPath } from '@shared/utils/entityTypeMeta';
+import type { Entity } from '@shared/types/entity';
 
 export function NoteDetail() {
   const { id } = useParams<{ id: string }>();
@@ -21,15 +22,18 @@ export function NoteDetail() {
   const location = useLocation();
   const { db } = useCampaign();
   const { note } = useNoteById(id);
+
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [showRelPicker, setShowRelPicker] = useState(false);
-  const returnToSessionLive = typeof location.state === 'object'
-    && location.state !== null
-    && 'returnToSessionLive' in location.state
-    && typeof (location.state as { returnToSessionLive?: unknown }).returnToSessionLive === 'string'
+  const [isSaving, setIsSaving] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showRelationPicker, setShowRelationPicker] = useState(false);
+
+  const returnToSessionLive =
+    typeof location.state === 'object' &&
+    location.state !== null &&
+    'returnToSessionLive' in location.state &&
+    typeof (location.state as { returnToSessionLive?: unknown }).returnToSessionLive === 'string'
       ? (location.state as { returnToSessionLive: string }).returnToSessionLive
       : null;
   const backPath = returnToSessionLive ? `/sessions/${returnToSessionLive}/live` : '/notes';
@@ -39,83 +43,98 @@ export function NoteDetail() {
 
   if (!note) {
     return (
-      <div className="p-6">
-        <p className="text-surface-500">Notatka nie znaleziona.</p>
-        <Link to="/notes" className="text-primary-600 hover:underline">
-          ← Powrót do notatek
+      <div className="flex flex-col gap-4 p-6">
+        <p className="text-surface-500">Nie znaleziono tej notatki.</p>
+        <Link to={backPath} className="text-primary-700 hover:underline">
+          Wróć do listy notatek
         </Link>
       </div>
     );
   }
 
-  const dateStr = note.data.createdAt;
-  let formatted = '';
-  try {
-    const d = parseISO(dateStr);
-    if (isValid(d)) formatted = format(d, 'd MMMM yyyy, HH:mm', { locale: pl });
-  } catch {
-    // ignore
-  }
+  const currentNote = note;
+  const parsedDate = parseISO(currentNote.data.createdAt);
+  const formattedDate = isValid(parsedDate)
+    ? format(parsedDate, 'd MMMM yyyy, HH:mm', { locale: pl })
+    : '';
 
   async function handleSave() {
     const trimmed = editContent.trim();
-    if (!trimmed || !note) return;
-    setSaving(true);
+    if (!trimmed) return;
+
+    setIsSaving(true);
     try {
-      await updateEntity(db, note.id, {
+      await updateEntity(db, currentNote.id, {
         name: trimmed.slice(0, 60),
-        data: { ...note.data, content: trimmed },
+        data: { ...currentNote.data, content: trimmed },
       });
       toast.success('Notatka zaktualizowana');
       setIsEditing(false);
     } catch {
-      toast.error('Nie udało się zapisać');
+      toast.error('Nie udało się zapisać notatki');
     } finally {
-      setSaving(false);
+      setIsSaving(false);
     }
   }
 
   async function handleDelete() {
-    if (!note) return;
     try {
-      await deleteEntity(db, note.id);
-      toast.success('Notatka usunięta');
+      await deleteEntity(db, currentNote.id);
+      toast.success('Notatka została usunięta');
       navigate(backPath);
     } catch {
-      toast.error('Nie udało się usunąć');
+      toast.error('Nie udało się usunąć notatki');
     }
   }
 
-  function startEdit() {
-    setEditContent(note!.data.content);
+  function startEditing() {
+    setEditContent(currentNote.data.content);
     setIsEditing(true);
   }
 
   function handleNavigate(entity: Entity) {
     const detailPath = getEntityDetailPath(entity.type, entity.id);
     if (!detailPath) return;
+
     navigate(detailPath, {
       state: returnToSessionLive ? { returnToSessionLive } : undefined,
     });
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <Link
-          to={backPath}
-          className="flex items-center gap-1.5 text-sm text-surface-500 hover:text-surface-800"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          {backLabel}
-        </Link>
-        <StickyNote className="h-5 w-5 text-amber-500" />
-        <span className="ml-auto flex items-center gap-1.5">
-          <MarkdownExportButton entity={note} />
+    <div className="mx-auto flex max-w-5xl flex-col gap-6">
+      <Link
+        to={backPath}
+        className="text-surface-500 hover:text-primary-700 flex w-fit items-center gap-2 text-sm transition-colors"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        {backLabel}
+      </Link>
+
+      <div className="app-panel-strong flex flex-col gap-5 rounded-[1.9rem] border border-white/40 px-6 py-6 shadow-[0_28px_60px_rgba(18,45,66,0.12)] lg:flex-row lg:items-start lg:justify-between lg:px-7">
+        <div className="flex items-center gap-4">
+          <div className="rounded-[1.25rem] border border-amber-200/70 bg-amber-100/70 p-3 text-amber-800 shadow-[0_14px_28px_rgba(210,166,67,0.14)]">
+            <StickyNote className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-surface-900 text-3xl font-semibold tracking-[-0.03em]">
+              {currentNote.name}
+            </h1>
+            {formattedDate && (
+              <div className="text-surface-600 mt-3 inline-flex items-center gap-2 rounded-full border border-[rgba(86,93,94,0.12)] bg-[rgba(223,225,218,0.72)] px-3 py-1 text-xs font-medium">
+                <Calendar className="h-3.5 w-3.5" />
+                {formattedDate}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
+          <MarkdownExportButton entity={currentNote} />
           {!isEditing && (
             <button
-              onClick={startEdit}
+              type="button"
+              onClick={startEditing}
               className="app-button-secondary inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
             >
               <Edit2 className="h-3.5 w-3.5" />
@@ -123,82 +142,90 @@ export function NoteDetail() {
             </button>
           )}
           <button
-            onClick={() => setConfirmDelete(true)}
+            type="button"
+            onClick={() => setShowDeleteConfirm(true)}
             className="app-button-danger inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
           >
             <Trash2 className="h-3.5 w-3.5" />
             Usuń
           </button>
-        </span>
+        </div>
       </div>
 
-      {/* Content */}
-      <div className="rounded-xl border border-surface-200 bg-white p-5">
+      <DetailSection
+        title="Treść notatki"
+        description="Szybka, robocza notatka MG z sesji albo przygotowań."
+        tone="accent"
+      >
         {isEditing ? (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-4">
             <textarea
               value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
+              onChange={(event) => setEditContent(event.target.value)}
               maxLength={500}
-              rows={6}
-              className="w-full resize-none rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+              rows={9}
+              className="app-input text-surface-800 focus:border-primary-500 min-h-[220px] w-full rounded-[1.25rem] px-4 py-4 text-sm leading-7 focus:outline-none"
             />
-            <div className="flex gap-2">
+
+            <div className="flex justify-end gap-3">
               <button
-                onClick={handleSave}
-                disabled={saving || !editContent.trim()}
-                className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-              >
-                {saving ? 'Zapisywanie…' : 'Zapisz'}
-              </button>
-              <button
+                type="button"
                 onClick={() => setIsEditing(false)}
-                className="rounded-md border border-surface-300 px-4 py-2 text-sm text-surface-600 hover:bg-surface-50"
+                className="app-button-secondary rounded-2xl px-4 py-3 text-sm font-medium"
               >
                 Anuluj
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSave()}
+                disabled={isSaving || !editContent.trim()}
+                className="app-button-primary rounded-2xl px-4 py-3 text-sm font-medium disabled:opacity-50"
+              >
+                {isSaving ? 'Zapisywanie...' : 'Zapisz'}
               </button>
             </div>
           </div>
         ) : (
-          <p className="whitespace-pre-wrap text-sm text-surface-800">{note.data.content}</p>
-        )}
-        {formatted && (
-          <div className="mt-3 flex items-center gap-1.5 text-xs text-surface-400">
-            <Calendar className="h-3.5 w-3.5" />
-            {formatted}
+          <div className="app-panel rounded-[1.45rem] px-5 py-5 shadow-[0_14px_28px_rgba(18,45,66,0.06)]">
+            <p className="text-surface-800 text-sm leading-7 whitespace-pre-wrap">
+              {currentNote.data.content}
+            </p>
           </div>
         )}
-      </div>
+      </DetailSection>
 
-      {/* Relations */}
-      <section>
-        <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-surface-700">Powiązania</h3>
+      <DetailSection
+        title="Relacje"
+        description="Powiązania notatki z innymi fragmentami kampanii."
+        action={
           <button
-            onClick={() => setShowRelPicker(true)}
-            className="flex items-center gap-1 rounded-md border border-surface-200 px-2 py-1 text-xs text-surface-600 hover:bg-surface-50"
+            type="button"
+            onClick={() => setShowRelationPicker(true)}
+            className="app-button-secondary inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium"
           >
-            <Plus className="h-3 w-3" /> Dodaj
+            <Plus className="h-3.5 w-3.5" />
+            Dodaj relację
           </button>
-        </div>
-        <RelationList entityId={note.id} onNavigate={handleNavigate} />
-      </section>
+        }
+      >
+        <RelationList entityId={currentNote.id} onNavigate={handleNavigate} />
+      </DetailSection>
 
       <ConfirmDialog
-        open={confirmDelete}
+        open={showDeleteConfirm}
         title="Usuń notatkę"
         description="Czy na pewno chcesz usunąć tę notatkę?"
         confirmLabel="Usuń"
         destructive
         onConfirm={handleDelete}
-        onCancel={() => setConfirmDelete(false)}
+        onCancel={() => setShowDeleteConfirm(false)}
       />
 
-      {showRelPicker && (
+      {showRelationPicker && (
         <RelationPicker
-          sourceId={note.id}
+          sourceId={currentNote.id}
           sourceType="note"
-          onClose={() => setShowRelPicker(false)}
+          onClose={() => setShowRelationPicker(false)}
         />
       )}
     </div>

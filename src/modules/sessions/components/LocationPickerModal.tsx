@@ -1,35 +1,34 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { MapPin, ArrowDown, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowDown, ChevronLeft, ChevronRight, MapPin, Plus } from 'lucide-react';
+import { createLocationData, isNamedLocation } from '@modules/locations/types';
+import { Modal } from '@shared/components/Modal';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { addEntity, addRelation, assignContainment } from '@shared/db/operations';
-import { Modal } from '@shared/components/Modal';
-import { createLocationData, isNamedLocation } from '@modules/locations/types';
 import { toast } from 'sonner';
+import type { ReactNode } from 'react';
 import type { Entity } from '@shared/types';
-
-// ── Data hook ─────────────────────────────────────────────────────────────────
 
 function useLocationContext(focusedId: string | null) {
   const { db } = useCampaign();
+
   return useLiveQuery(async () => {
-    const allLocations = await db.entities
-      .filter(isNamedLocation)
-      .toArray();
-    const locationSet = new Set(allLocations.map((l) => l.id));
+    const allLocations = await db.entities.filter(isNamedLocation).toArray();
+    const locationSet = new Set(allLocations.map((location) => location.id));
 
     async function isRoot(id: string): Promise<boolean> {
       const parentRel = await db.relations
-        .where('targetId').equals(id)
-        .filter((r) => r.type === 'contains')
+        .where('targetId')
+        .equals(id)
+        .filter((relation) => relation.type === 'contains')
         .first();
       return !parentRel || !locationSet.has(parentRel.sourceId);
     }
 
     if (!focusedId) {
       const roots: Entity[] = [];
-      for (const loc of allLocations) {
-        if (await isRoot(loc.id)) roots.push(loc);
+      for (const location of allLocations) {
+        if (await isRoot(location.id)) roots.push(location);
       }
       return { focused: null, parent: null, siblings: roots, children: [] };
     }
@@ -37,50 +36,55 @@ function useLocationContext(focusedId: string | null) {
     const focused = await db.entities.get(focusedId);
     if (!focused) return { focused: null, parent: null, siblings: [], children: [] };
 
-    // Parent
     const parentRel = await db.relations
-      .where('targetId').equals(focusedId)
-      .filter((r) => r.type === 'contains')
+      .where('targetId')
+      .equals(focusedId)
+      .filter((relation) => relation.type === 'contains')
       .first();
+
     let parent: Entity | null = null;
     if (parentRel && locationSet.has(parentRel.sourceId)) {
-      const pe = await db.entities.get(parentRel.sourceId);
-      if (pe?.type === 'location') parent = pe;
+      const parentEntity = await db.entities.get(parentRel.sourceId);
+      if (parentEntity?.type === 'location') parent = parentEntity;
     }
 
-    // Siblings (or roots if no parent)
     let siblings: Entity[];
     if (parent) {
-      const sibRels = await db.relations
-        .where('sourceId').equals(parent.id)
-        .filter((r) => r.type === 'contains')
+      const siblingRelations = await db.relations
+        .where('sourceId')
+        .equals(parent.id)
+        .filter((relation) => relation.type === 'contains')
         .toArray();
-      const sibRaw = await Promise.all(sibRels.map((r) => db.entities.get(r.targetId)));
-      siblings = sibRaw.filter(
-        (e): e is Entity => e !== undefined && isNamedLocation(e) && locationSet.has(e.id),
+      const siblingEntities = await Promise.all(
+        siblingRelations.map((relation) => db.entities.get(relation.targetId)),
+      );
+      siblings = siblingEntities.filter(
+        (entity): entity is Entity =>
+          entity !== undefined && isNamedLocation(entity) && locationSet.has(entity.id),
       );
     } else {
       siblings = [];
-      for (const loc of allLocations) {
-        if (await isRoot(loc.id)) siblings.push(loc);
+      for (const location of allLocations) {
+        if (await isRoot(location.id)) siblings.push(location);
       }
     }
 
-    // Children
-    const childRels = await db.relations
-      .where('sourceId').equals(focusedId)
-      .filter((r) => r.type === 'contains')
+    const childRelations = await db.relations
+      .where('sourceId')
+      .equals(focusedId)
+      .filter((relation) => relation.type === 'contains')
       .toArray();
-    const childRaw = await Promise.all(childRels.map((r) => db.entities.get(r.targetId)));
-    const children = childRaw.filter(
-      (e): e is Entity => e !== undefined && isNamedLocation(e) && locationSet.has(e.id),
+    const childEntities = await Promise.all(
+      childRelations.map((relation) => db.entities.get(relation.targetId)),
+    );
+    const children = childEntities.filter(
+      (entity): entity is Entity =>
+        entity !== undefined && isNamedLocation(entity) && locationSet.has(entity.id),
     );
 
     return { focused, parent, siblings, children };
   }, [db, focusedId]);
 }
-
-// ── Location tile ─────────────────────────────────────────────────────────────
 
 interface TileProps {
   entity: Entity;
@@ -95,20 +99,29 @@ function LocationTile({ entity, variant, isActive, onClick, onAddChild }: TilePr
   const [childName, setChildName] = useState('');
   const [savingChild, setSavingChild] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const base = 'flex flex-col items-center gap-2 rounded-xl border px-4 py-3 text-center transition-all cursor-pointer select-none';
+
+  const base =
+    'flex cursor-pointer select-none flex-col items-center gap-2 rounded-[1.35rem] border px-4 py-4 text-center transition-all shadow-[0_12px_24px_rgba(18,45,66,0.08)]';
   const styles: Record<TileProps['variant'], string> = {
-    parent:  'border-surface-200 bg-surface-50 text-surface-600 hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 w-40',
-    sibling: 'border-surface-200 bg-white text-surface-700 hover:border-primary-300 hover:bg-surface-50 hover:shadow-sm w-36',
-    focused: 'border-primary-400 bg-primary-50 text-primary-800 shadow ring-2 ring-primary-200 w-44',
-    child:   'border-surface-200 bg-white text-surface-700 hover:border-primary-300 hover:bg-surface-50 hover:shadow-sm w-36',
+    parent: 'app-panel w-40 text-surface-600 hover:border-primary-300 hover:text-primary-700',
+    sibling:
+      'app-card w-36 text-surface-700 hover:border-primary-300 hover:bg-[rgba(229,231,223,0.98)]',
+    focused:
+      'w-44 border-primary-300 bg-[linear-gradient(180deg,rgba(186,207,214,0.42)_0%,rgba(163,190,201,0.56)_100%)] text-primary-900 ring-2 ring-primary-200 shadow-[0_18px_36px_rgba(18,45,66,0.12)]',
+    child:
+      'app-card w-36 text-surface-700 hover:border-primary-300 hover:bg-[rgba(229,231,223,0.98)]',
   };
   const iconSize: Record<TileProps['variant'], string> = {
-    parent: 'h-4 w-4 text-surface-400', sibling: 'h-4 w-4 text-surface-400',
-    focused: 'h-6 w-6 text-primary-500', child: 'h-4 w-4 text-surface-400',
+    parent: 'h-4 w-4 text-surface-400',
+    sibling: 'h-4 w-4 text-surface-400',
+    focused: 'h-6 w-6 text-primary-500',
+    child: 'h-4 w-4 text-surface-400',
   };
   const textSize: Record<TileProps['variant'], string> = {
-    parent: 'text-xs font-medium', sibling: 'text-sm font-medium',
-    focused: 'text-base font-semibold', child: 'text-sm font-medium',
+    parent: 'text-xs font-medium',
+    sibling: 'text-sm font-medium',
+    focused: 'text-base font-semibold',
+    child: 'text-sm font-medium',
   };
 
   useEffect(() => {
@@ -167,11 +180,12 @@ function LocationTile({ entity, variant, isActive, onClick, onAddChild }: TilePr
         <MapPin className={`shrink-0 ${iconSize[variant]}`} />
         <span className={`leading-tight ${textSize[variant]}`}>{entity.name}</span>
         {isActive && (
-          <span className="rounded-full bg-green-100 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-green-700">
+          <span className="rounded-full border border-emerald-300/70 bg-emerald-100/80 px-2.5 py-0.5 text-[9px] font-semibold tracking-wide text-emerald-800 uppercase">
             aktywna
           </span>
         )}
       </button>
+
       {variant === 'focused' && onAddChild && (
         <>
           <button
@@ -182,19 +196,20 @@ function LocationTile({ entity, variant, isActive, onClick, onAddChild }: TilePr
             }}
             aria-label={`Dodaj podlokację w ${entity.name}`}
             title="Dodaj podlokację"
-            className="absolute bottom-2 right-2 z-10 inline-flex h-3 w-3 items-center justify-center rounded-full border border-surface-300 bg-white text-surface-400 shadow-sm transition-colors hover:border-primary-300 hover:text-primary-600"
+            className="app-button-secondary text-surface-600 absolute right-3 bottom-3 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full"
           >
-            <Plus className="h-2 w-2" />
+            <Plus className="h-3.5 w-3.5" />
           </button>
+
           {showAddChild && (
             <div
-              className="absolute left-1/2 top-full z-20 mt-2 w-56 -translate-x-1/2 rounded-lg border border-surface-200 bg-white p-3 text-left shadow-xl"
+              className="app-panel-strong absolute top-full left-1/2 z-20 mt-3 w-64 -translate-x-1/2 rounded-[1.35rem] p-4 text-left shadow-2xl"
               onClick={(event) => event.stopPropagation()}
             >
-              <p className="text-xs font-semibold text-surface-800">Nowa podlokacja</p>
-              <p className="mt-1 text-[11px] text-surface-500">
-                Jak nazwać miejsce w "{entity.name}"?
+              <p className="text-surface-500 text-xs font-semibold tracking-[0.16em] uppercase">
+                Nowa podlokacja
               </p>
+              <p className="text-surface-700 mt-2 text-sm">Jak nazwać miejsce w „{entity.name}”?</p>
               <input
                 autoFocus
                 value={childName}
@@ -211,16 +226,16 @@ function LocationTile({ entity, variant, isActive, onClick, onAddChild }: TilePr
                   }
                 }}
                 placeholder="Nazwa podlokacji..."
-                className="mt-2 w-full rounded-md border border-surface-300 px-2 py-1.5 text-xs focus:border-primary-500 focus:outline-none"
+                className="app-input focus:border-primary-500 mt-3 w-full rounded-[1rem] px-3 py-2 text-sm focus:outline-none"
               />
-              <div className="mt-2 flex justify-end gap-2">
+              <div className="mt-3 flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => {
                     setShowAddChild(false);
                     setChildName('');
                   }}
-                  className="rounded-md border border-surface-300 px-2.5 py-1 text-xs text-surface-600 hover:bg-surface-50"
+                  className="app-button-secondary rounded-xl px-3 py-2 text-xs font-medium"
                 >
                   Anuluj
                 </button>
@@ -228,9 +243,9 @@ function LocationTile({ entity, variant, isActive, onClick, onAddChild }: TilePr
                   type="button"
                   onClick={() => void handleSubmitChild()}
                   disabled={!childName.trim() || savingChild}
-                  className="rounded-md bg-primary-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+                  className="app-button-primary rounded-xl px-3 py-2 text-xs font-medium disabled:opacity-50"
                 >
-                  {savingChild ? 'Dodaje...' : 'Dodaj'}
+                  {savingChild ? 'Dodawanie...' : 'Dodaj'}
                 </button>
               </div>
             </div>
@@ -243,13 +258,13 @@ function LocationTile({ entity, variant, isActive, onClick, onAddChild }: TilePr
 
 function LevelArrow() {
   return (
-    <div className="flex justify-center py-1 text-surface-300">
+    <div className="text-surface-300 flex justify-center py-1">
       <ArrowDown className="h-5 w-5" />
     </div>
   );
 }
 
-function DragScrollRow({ children }: { children: React.ReactNode }) {
+function DragScrollRow({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
   const startX = useRef(0);
@@ -258,36 +273,39 @@ function DragScrollRow({ children }: { children: React.ReactNode }) {
   const [canScrollRight, setCanScrollRight] = useState(false);
 
   function updateArrows() {
-    const el = ref.current;
-    if (!el) return;
-    setCanScrollLeft(el.scrollLeft > 0);
-    setCanScrollRight(Math.ceil(el.scrollLeft) < el.scrollWidth - el.clientWidth);
+    const element = ref.current;
+    if (!element) return;
+    setCanScrollLeft(element.scrollLeft > 0);
+    setCanScrollRight(Math.ceil(element.scrollLeft) < element.scrollWidth - element.clientWidth);
   }
 
   useEffect(() => {
     updateArrows();
-    const el = ref.current;
-    if (!el) return;
-    const ro = new ResizeObserver(updateArrows);
-    const mo = new MutationObserver(updateArrows);
-    ro.observe(el);
-    mo.observe(el, { childList: true, subtree: true });
-    return () => { ro.disconnect(); mo.disconnect(); };
+    const element = ref.current;
+    if (!element) return;
+    const resizeObserver = new ResizeObserver(updateArrows);
+    const mutationObserver = new MutationObserver(updateArrows);
+    resizeObserver.observe(element);
+    mutationObserver.observe(element, { childList: true, subtree: true });
+    return () => {
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+    };
   }, []);
 
-  function onMouseDown(e: React.MouseEvent) {
+  function onMouseDown(event: React.MouseEvent) {
     if (!ref.current) return;
     dragging.current = true;
-    startX.current = e.pageX - ref.current.getBoundingClientRect().left;
+    startX.current = event.pageX - ref.current.getBoundingClientRect().left;
     scrollLeftRef.current = ref.current.scrollLeft;
     ref.current.style.cursor = 'grabbing';
-    e.preventDefault();
+    event.preventDefault();
   }
 
-  function onMouseMove(e: React.MouseEvent) {
+  function onMouseMove(event: React.MouseEvent) {
     if (!dragging.current || !ref.current) return;
-    const x = e.pageX - ref.current.getBoundingClientRect().left;
-    ref.current.scrollLeft = scrollLeftRef.current - (x - startX.current);
+    const positionX = event.pageX - ref.current.getBoundingClientRect().left;
+    ref.current.scrollLeft = scrollLeftRef.current - (positionX - startX.current);
   }
 
   function onMouseUp() {
@@ -295,23 +313,24 @@ function DragScrollRow({ children }: { children: React.ReactNode }) {
     if (ref.current) ref.current.style.cursor = 'grab';
   }
 
-  const TILE = 156; // w-36 (144px) + gap-3 (12px)
+  const tileWidth = 156;
 
   return (
     <div className="relative flex w-full items-center gap-1">
       <button
         type="button"
-        onClick={() => ref.current?.scrollBy({ left: -TILE, behavior: 'smooth' })}
+        onClick={() => ref.current?.scrollBy({ left: -tileWidth, behavior: 'smooth' })}
         aria-label="Przewiń w lewo"
-        className={`shrink-0 rounded-full p-1 text-surface-400 transition-opacity hover:bg-surface-100 hover:text-surface-700 ${
+        className={`text-surface-400 hover:bg-surface-100 hover:text-surface-700 shrink-0 rounded-full p-1 transition-opacity ${
           canScrollLeft ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
       >
         <ChevronLeft className="h-4 w-4" />
       </button>
+
       <div
         ref={ref}
-        className="flex-1 cursor-grab select-none overflow-x-auto text-center [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex-1 cursor-grab overflow-x-auto text-center select-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         style={{
           maskImage: `linear-gradient(to right, ${canScrollLeft ? 'transparent, black 48px' : 'black'}, ${canScrollRight ? 'black calc(100% - 48px), transparent' : 'black'})`,
           WebkitMaskImage: `linear-gradient(to right, ${canScrollLeft ? 'transparent, black 48px' : 'black'}, ${canScrollRight ? 'black calc(100% - 48px), transparent' : 'black'})`,
@@ -322,15 +341,14 @@ function DragScrollRow({ children }: { children: React.ReactNode }) {
         onMouseLeave={onMouseUp}
         onScroll={updateArrows}
       >
-        <div className="inline-flex gap-3 px-3 pb-1 text-left">
-          {children}
-        </div>
+        <div className="inline-flex gap-3 px-3 pb-1 text-left">{children}</div>
       </div>
+
       <button
         type="button"
-        onClick={() => ref.current?.scrollBy({ left: TILE, behavior: 'smooth' })}
+        onClick={() => ref.current?.scrollBy({ left: tileWidth, behavior: 'smooth' })}
         aria-label="Przewiń w prawo"
-        className={`shrink-0 rounded-full p-1 text-surface-400 transition-opacity hover:bg-surface-100 hover:text-surface-700 ${
+        className={`text-surface-400 hover:bg-surface-100 hover:text-surface-700 shrink-0 rounded-full p-1 transition-opacity ${
           canScrollRight ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
       >
@@ -339,8 +357,6 @@ function DragScrollRow({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-
-// ── Main component ────────────────────────────────────────────────────────────
 
 interface LocationPickerModalProps {
   title?: string;
@@ -361,8 +377,13 @@ export function LocationPickerModal({
 }: LocationPickerModalProps) {
   const { db } = useCampaign();
   const [focusedId, setFocusedId] = useState<string | null>(currentLocationId);
-  const ctx = useLocationContext(focusedId);
-  const { focused, parent, siblings, children } = ctx ?? { focused: null, parent: null, siblings: [], children: [] };
+  const context = useLocationContext(focusedId);
+  const { focused, parent, siblings, children } = context ?? {
+    focused: null,
+    parent: null,
+    siblings: [],
+    children: [],
+  };
   const focusedName = focused?.name ?? emptySelectionLabel;
 
   async function handleAddChild(parentId: string, name: string) {
@@ -383,12 +404,14 @@ export function LocationPickerModal({
       ];
 
       if (sessionId) {
-        relations.push(addRelation(db, { type: 'appears_in', sourceId: child.id, targetId: sessionId }));
+        relations.push(
+          addRelation(db, { type: 'appears_in', sourceId: child.id, targetId: sessionId }),
+        );
       }
 
       await Promise.all(relations);
       setFocusedId(child.id);
-      toast.success(`Lokacja "${trimmed}" dodana`);
+      toast.success(`Lokacja „${trimmed}” dodana`);
     } catch {
       toast.error('Nie udało się dodać podlokacji');
       throw new Error('Failed to create child location');
@@ -397,22 +420,31 @@ export function LocationPickerModal({
 
   return (
     <Modal title={title} size="xl" onClose={onClose}>
-      <div className="relative min-h-[360px] flex flex-col items-center gap-0 py-2 pt-14">
+      <div className="app-panel mb-4 rounded-[1.35rem] px-4 py-4">
+        <p className="text-surface-500 text-xs font-semibold tracking-[0.18em] uppercase">
+          Nawigacja po miejscach
+        </p>
+        <p className="text-surface-700 mt-2 text-sm leading-6">
+          Wybierz aktualną lokację sceny albo dodaj nową podlokację bez wychodzenia z sesji.
+        </p>
+      </div>
 
-        {/* Pusta scena — fixed in top-left corner */}
+      <div className="relative flex min-h-[380px] flex-col items-center gap-0 rounded-[1.6rem] border border-[rgba(86,93,94,0.12)] bg-[rgba(223,225,218,0.34)] px-2 py-4 pt-16">
         <button
           type="button"
           onClick={() => setFocusedId(null)}
-          className={`absolute top-[10px] left-[10px] flex flex-col items-center gap-1 rounded-xl border px-3 py-2 text-center transition-all w-32 ${
+          className={`absolute top-[10px] left-[10px] flex w-36 flex-col items-center gap-1 rounded-[1.2rem] border px-3 py-3 text-center transition-all ${
             focusedId === null
-              ? 'border-primary-400 bg-primary-50 text-primary-700 shadow ring-2 ring-primary-200'
-              : 'border-dashed border-surface-300 text-surface-400 hover:border-surface-400 hover:text-surface-600'
+              ? 'border-primary-300 text-primary-800 ring-primary-200 bg-[linear-gradient(180deg,rgba(186,207,214,0.42)_0%,rgba(163,190,201,0.56)_100%)] shadow-[0_18px_36px_rgba(18,45,66,0.12)] ring-2'
+              : 'app-card text-surface-500 hover:border-surface-400 hover:text-surface-700 border-dashed'
           }`}
         >
           <MapPin className="h-3.5 w-3.5" />
-          <span className="text-[11px] font-medium italic leading-tight">{emptySelectionLabel}</span>
+          <span className="text-[11px] leading-tight font-medium italic">
+            {emptySelectionLabel}
+          </span>
           {currentLocationId === null && (
-            <span className="rounded-full bg-green-100 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-green-700">
+            <span className="rounded-full border border-emerald-300/70 bg-emerald-100/80 px-2.5 py-0.5 text-[9px] font-semibold tracking-wide text-emerald-800 uppercase">
               aktywna
             </span>
           )}
@@ -432,44 +464,63 @@ export function LocationPickerModal({
             <LevelArrow />
           </>
         )}
+
         {siblings.length > 0 && (
           <DragScrollRow>
-            {siblings.map((loc) => (
+            {siblings.map((location) => (
               <LocationTile
-                key={loc.id}
-                entity={loc}
-                variant={loc.id === focusedId ? 'focused' : 'sibling'}
-                isActive={loc.id === currentLocationId}
-                onClick={() => setFocusedId(loc.id)}
+                key={location.id}
+                entity={location}
+                variant={location.id === focusedId ? 'focused' : 'sibling'}
+                isActive={location.id === currentLocationId}
+                onClick={() => setFocusedId(location.id)}
                 onAddChild={handleAddChild}
               />
             ))}
           </DragScrollRow>
         )}
+
         {children.length > 0 && (
           <>
             <LevelArrow />
             <DragScrollRow>
-              {children.map((loc) => (
+              {children.map((location) => (
                 <LocationTile
-                  key={loc.id}
-                  entity={loc}
+                  key={location.id}
+                  entity={location}
                   variant="child"
-                  isActive={loc.id === currentLocationId}
-                  onClick={() => setFocusedId(loc.id)}
+                  isActive={location.id === currentLocationId}
+                  onClick={() => setFocusedId(location.id)}
                   onAddChild={handleAddChild}
                 />
               ))}
             </DragScrollRow>
           </>
         )}
+
         {siblings.length === 0 && !parent && children.length === 0 && (
-          <p className="mt-8 text-sm text-surface-400">Brak lokacji w kampanii</p>
+          <p className="text-surface-500 mt-8 text-sm">Brak lokacji w kampanii.</p>
         )}
       </div>
-      <div className="mt-4 flex justify-end gap-3 border-t border-surface-200 pt-4">
-        <button type="button" onClick={onClose} className="rounded-md border border-surface-300 px-4 py-2 text-sm text-surface-700 hover:bg-surface-50">Anuluj</button>
-        <button type="button" onClick={() => { onSelect(focusedId); onClose(); }} className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700">Wybierz: „{focusedName}"</button>
+
+      <div className="mt-5 flex justify-end gap-3 border-t border-[rgba(86,93,94,0.12)] pt-4">
+        <button
+          type="button"
+          onClick={onClose}
+          className="app-button-secondary rounded-2xl px-4 py-3 text-sm font-medium"
+        >
+          Anuluj
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            onSelect(focusedId);
+            onClose();
+          }}
+          className="app-button-primary rounded-2xl px-4 py-3 text-sm font-medium"
+        >
+          Wybierz: „{focusedName}”
+        </button>
       </div>
     </Modal>
   );

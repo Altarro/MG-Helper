@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
-import { formatDate } from '@shared/utils/date';
+import { ArrowUpRight } from 'lucide-react';
 import type { Entity } from '@shared/types/entity';
+import { formatDate } from '@shared/utils/date';
 import { getEntityDetailPath } from '@shared/utils/entityTypeMeta';
 
 const ENTITY_TYPE_LABELS: Record<string, string> = {
@@ -24,10 +25,15 @@ interface RecentChangesProps {
 
 export function RecentChanges({ entities }: RecentChangesProps) {
   if (entities.length === 0) {
-    return <p className="text-sm text-surface-400">Brak danych.</p>;
+    return (
+      <div className="app-input-shell text-surface-500 rounded-[1.35rem] border-dashed px-4 py-5 text-sm">
+        Brak danych do pokazania.
+      </div>
+    );
   }
+
   return (
-    <ul className="divide-y divide-surface-100">
+    <ul className="flex flex-col gap-3">
       {entities.map((entity) => {
         const path = getEntityDetailPath(entity.type, entity.id);
         if (!path) return null;
@@ -36,13 +42,23 @@ export function RecentChanges({ entities }: RecentChangesProps) {
           <li key={entity.id}>
             <Link
               to={path}
-              className="flex items-center gap-3 py-2.5 hover:text-primary-600 transition-colors"
+              className="app-input-shell group flex items-center gap-4 rounded-[1.25rem] px-4 py-3 transition-colors hover:bg-[rgba(229,231,223,0.98)]"
             >
-              <span className="shrink-0 rounded-full bg-surface-100 px-2 py-0.5 text-xs text-surface-500 min-w-[80px] text-center">
+              <span className="app-pill-muted text-surface-600 min-w-[88px] rounded-full px-2.5 py-1 text-center text-[11px] font-semibold tracking-[0.12em] uppercase">
                 {ENTITY_TYPE_LABELS[entity.type] ?? entity.type}
               </span>
-              <span className="flex-1 truncate text-sm text-surface-800">{entity.name}</span>
-              <span className="shrink-0 text-xs text-surface-400">{formatDate(entity.updatedAt)}</span>
+
+              <div className="min-w-0 flex-1">
+                <p className="text-surface-900 group-hover:text-primary-800 truncate text-sm font-medium">
+                  {entity.name}
+                </p>
+              </div>
+
+              <span className="text-surface-500 hidden text-xs sm:block">
+                {formatDate(entity.updatedAt)}
+              </span>
+
+              <ArrowUpRight className="text-surface-400 group-hover:text-primary-700 h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </Link>
           </li>
         );

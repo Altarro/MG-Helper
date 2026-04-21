@@ -1,26 +1,27 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { AlertTriangle, Search, ChevronRight } from 'lucide-react';
+import { AlertTriangle, ChevronRight, Search } from 'lucide-react';
 import { Link } from 'react-router';
+import { Modal } from '@shared/components/Modal';
+import { ClueSection } from '@shared/components/ClueSection';
+import { TickProgress } from '@shared/components/TickProgress';
 import { useCampaign } from '@shared/db/CampaignContext';
 import type { MgHelperDb } from '@shared/db/database';
-import { isClock } from '@modules/clocks/types';
-import type { Clock } from '@modules/clocks/types';
-import type { Entity } from '@shared/types';
-import { getClockData, getThreatData, getThreatStatus } from '@shared/utils/entityData';
 import { addRelation, updateEntity } from '@shared/db/operations';
+import type { Clock } from '@modules/clocks/types';
+import { isClock } from '@modules/clocks/types';
+import { getClockData, getThreatData, getThreatStatus } from '@shared/utils/entityData';
 import { normalizeThreatLifecycle } from '@shared/utils/threatLifecycle';
-import { TickProgress } from '@shared/components/TickProgress';
-import { ClueSection } from '@shared/components/ClueSection';
 import { ThreatPreviewModal } from './ThreatPreviewModal';
 import { toast } from 'sonner';
-import { Modal } from '@shared/components/Modal';
+import type { Entity } from '@shared/types';
 
 interface ThreatRow {
   threat: Entity;
   clock: Clock | null;
   front: Entity | null;
 }
+
 type ThreatStatusFilter = 'all' | 'active' | 'completed';
 
 interface ThreatCampaignPickerModalProps {
@@ -29,16 +30,18 @@ interface ThreatCampaignPickerModalProps {
   onClose: () => void;
 }
 
-function ThreatCampaignPickerModal({ excludedIds, onAdd, onClose }: ThreatCampaignPickerModalProps) {
+function ThreatCampaignPickerModal({
+  excludedIds,
+  onAdd,
+  onClose,
+}: ThreatCampaignPickerModalProps) {
   const { db } = useCampaign();
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
 
-  const entities = useLiveQuery(
-    () => db.entities.where('type').equals('threat').toArray(),
-    [db],
-  ) ?? [];
+  const entities =
+    useLiveQuery(() => db.entities.where('type').equals('threat').toArray(), [db]) ?? [];
   const available = entities.filter((entity) => !excludedIds.has(entity.id));
   const normalizedQuery = query.trim().toLowerCase();
   const filtered = normalizedQuery
@@ -67,49 +70,53 @@ function ThreatCampaignPickerModal({ excludedIds, onAdd, onClose }: ThreatCampai
 
   return (
     <Modal title="Dodaj zagrożenia z kampanii" size="md" onClose={onClose}>
-      <div className="mb-3 flex items-center gap-2 rounded-md border border-surface-200 px-2.5 py-2">
-        <Search className="h-3.5 w-3.5 text-surface-400" />
+      <div className="app-input-shell mb-3 flex items-center gap-2 rounded-[1.15rem] px-3 py-2.5">
+        <Search className="text-surface-400 h-3.5 w-3.5" />
         <input
           type="text"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Szukaj zagrożeń..."
-          className="w-full text-sm outline-none placeholder:text-surface-400"
+          className="placeholder:text-surface-400 w-full text-sm outline-none"
           autoFocus
         />
       </div>
-      <div className="max-h-72 overflow-y-auto rounded-md border border-surface-200">
+
+      <div className="app-panel max-h-72 overflow-y-auto rounded-[1.25rem] p-1">
         {filtered.length === 0 ? (
-          <p className="p-3 text-sm text-surface-400">
-            {available.length === 0 ? 'Wszystkie zagrożenia kampanii są już w sesji.' : 'Brak wyników.'}
+          <p className="text-surface-400 p-3 text-sm">
+            {available.length === 0
+              ? 'Wszystkie zagrożenia kampanii są już w sesji.'
+              : 'Brak wyników.'}
           </p>
         ) : (
-          <ul className="divide-y divide-surface-100">
+          <ul className="divide-surface-100 divide-y">
             {filtered.map((entity) => (
               <li key={entity.id}>
-                <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-surface-50">
+                <label className="flex cursor-pointer items-center gap-2 rounded-[0.95rem] px-3 py-2.5 text-sm hover:bg-[rgba(229,231,223,0.98)]">
                   <input
                     type="checkbox"
                     checked={selected.has(entity.id)}
                     onChange={() => toggle(entity.id)}
-                    className="h-4 w-4 rounded border-surface-300 accent-primary-600"
+                    className="border-surface-300 accent-primary-600 h-4 w-4 rounded"
                   />
-                  <span className="truncate text-surface-800">{entity.name}</span>
+                  <span className="text-surface-800 truncate">{entity.name}</span>
                 </label>
               </li>
             ))}
           </ul>
         )}
       </div>
-      <div className="mt-4 flex items-center justify-between border-t border-surface-100 pt-3">
-        <span className="text-xs text-surface-500">
+
+      <div className="border-surface-100 mt-4 flex items-center justify-between border-t pt-3">
+        <span className="text-surface-500 text-xs">
           {selected.size > 0 ? `Wybrano: ${selected.size}` : 'Wybierz zagrożenia do dodania'}
         </span>
         <div className="flex gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-surface-300 px-3 py-1.5 text-sm text-surface-700 hover:bg-surface-50"
+            className="app-button-secondary rounded-xl px-3 py-2 text-sm font-medium"
           >
             Anuluj
           </button>
@@ -117,7 +124,7 @@ function ThreatCampaignPickerModal({ excludedIds, onAdd, onClose }: ThreatCampai
             type="button"
             onClick={() => void handleAdd()}
             disabled={selected.size === 0 || saving}
-            className="rounded-md bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+            className="app-button-primary rounded-xl px-3 py-2 text-sm font-medium disabled:opacity-50"
           >
             Dodaj
           </button>
@@ -127,17 +134,16 @@ function ThreatCampaignPickerModal({ excludedIds, onAdd, onClose }: ThreatCampai
   );
 }
 
-// Returns all session-scoped threats with optional tracked clock + parent front
 function useThreatRows(db: MgHelperDb, sessionId?: string) {
   return useLiveQuery(async () => {
     let sessionEntityIds: Set<string> | null = null;
     if (sessionId) {
-      const rels = await db.relations
+      const relations = await db.relations
         .where('targetId')
         .equals(sessionId)
-        .filter((r) => r.type === 'appears_in')
+        .filter((relation) => relation.type === 'appears_in')
         .toArray();
-      sessionEntityIds = new Set(rels.map((r) => r.sourceId));
+      sessionEntityIds = new Set(relations.map((relation) => relation.sourceId));
     }
 
     const threats = await db.entities.where('type').equals('threat').toArray();
@@ -146,23 +152,22 @@ function useThreatRows(db: MgHelperDb, sessionId?: string) {
       : threats;
 
     const scopedThreatIds = scopedThreats.map((threat) => threat.id);
-    const belongsToRelations = scopedThreatIds.length > 0
-      ? await db.relations
-        .where('sourceId')
-        .anyOf(scopedThreatIds)
-        .filter((relation) => relation.type === 'belongs_to')
-        .toArray()
-      : [];
+    const belongsToRelations =
+      scopedThreatIds.length > 0
+        ? await db.relations
+            .where('sourceId')
+            .anyOf(scopedThreatIds)
+            .filter((relation) => relation.type === 'belongs_to')
+            .toArray()
+        : [];
     const frontIds = [...new Set(belongsToRelations.map((relation) => relation.targetId))];
-    const fronts = frontIds.length > 0
-      ? await db.entities.where('id').anyOf(frontIds).toArray()
-      : [];
+    const fronts =
+      frontIds.length > 0 ? await db.entities.where('id').anyOf(frontIds).toArray() : [];
     const frontMap = new Map(
-      fronts
-        .filter((entity) => entity.type === 'front')
-        .map((front) => [front.id, front] as const),
+      fronts.filter((entity) => entity.type === 'front').map((front) => [front.id, front] as const),
     );
     const threatFrontMap = new Map<string, Entity>();
+
     for (const relation of belongsToRelations) {
       const front = frontMap.get(relation.targetId);
       if (front && !threatFrontMap.has(relation.sourceId)) {
@@ -175,14 +180,18 @@ function useThreatRows(db: MgHelperDb, sessionId?: string) {
         const trackRel = await db.relations
           .where('sourceId')
           .equals(threat.id)
-          .filter((r) => r.type === 'tracks')
+          .filter((relation) => relation.type === 'tracks')
           .first();
-        if (!trackRel) return { threat, clock: null, front: threatFrontMap.get(threat.id) ?? null };
+
+        if (!trackRel) {
+          return { threat, clock: null, front: threatFrontMap.get(threat.id) ?? null };
+        }
 
         const clockEntity = await db.entities.get(trackRel.targetId);
         if (!clockEntity || !isClock(clockEntity)) {
           return { threat, clock: null, front: threatFrontMap.get(threat.id) ?? null };
         }
+
         return { threat, clock: clockEntity, front: threatFrontMap.get(threat.id) ?? null };
       }),
     );
@@ -191,33 +200,38 @@ function useThreatRows(db: MgHelperDb, sessionId?: string) {
   }, [db, sessionId]);
 }
 
-// Returns active clocks NOT linked to any threat
 function useOrphanClocks(db: MgHelperDb, sessionId?: string) {
   return useLiveQuery(async () => {
     const clocks = await db.entities.where('type').equals('clock').toArray();
-    const active = clocks.filter(isClock).filter((c) => {
-      const d = getClockData(c);
-      return d.filled < d.segments && d.isActive !== false;
+    const active = clocks.filter(isClock).filter((clock) => {
+      const data = getClockData(clock);
+      return data.filled < data.segments && data.isActive !== false;
     });
+
     const results: (Clock | null)[] = await Promise.all(
       active.map(async (clock) => {
-        const rels = await db.relations
-          .where('targetId').equals(clock.id)
-          .filter((r) => r.type === 'tracks')
+        const relations = await db.relations
+          .where('targetId')
+          .equals(clock.id)
+          .filter((relation) => relation.type === 'tracks')
           .toArray();
-        return rels.length === 0 ? clock : null;
+        return relations.length === 0 ? clock : null;
       }),
     );
-    return results.filter((c): c is Clock => c !== null);
+
+    return results.filter((clock): clock is Clock => clock !== null);
   }, [db, sessionId]);
 }
 
 async function tick(db: MgHelperDb, clock: Clock) {
-  const d = getClockData(clock);
-  if (d.filled >= d.segments || d.isActive === false) return;
-  const newFilled = d.filled + 1;
-  await updateEntity(db, clock.id, { data: { ...d, filled: newFilled } });
-  if (newFilled >= d.segments) toast.success(`Zegar „${clock.name}” wypełniony!`);
+  const data = getClockData(clock);
+  if (data.filled >= data.segments || data.isActive === false) return;
+
+  const newFilled = data.filled + 1;
+  await updateEntity(db, clock.id, { data: { ...data, filled: newFilled } });
+  if (newFilled >= data.segments) {
+    toast.success(`Zegar „${clock.name}” został domknięty`);
+  }
 }
 
 export function ActiveThreatsPanel({ sessionId }: { sessionId?: string }) {
@@ -226,10 +240,12 @@ export function ActiveThreatsPanel({ sessionId }: { sessionId?: string }) {
   const [campaignPickerOpen, setCampaignPickerOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<ThreatStatusFilter>('all');
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
   const threatRows = useThreatRows(db, sessionId);
   const orphanClocks = useOrphanClocks(db, sessionId);
 
-  const hasOrphans = orphanClocks && orphanClocks.length > 0;
+  const hasOrphans = Boolean(orphanClocks && orphanClocks.length > 0);
+
   const groupedThreats = useMemo(() => {
     const frontGroups = new Map<string, { front: Entity; rows: ThreatRow[] }>();
     const freeRows: ThreatRow[] = [];
@@ -247,11 +263,13 @@ export function ActiveThreatsPanel({ sessionId }: { sessionId?: string }) {
         freeRows.push(row);
         return;
       }
+
       const existing = frontGroups.get(row.front.id);
       if (existing) {
         existing.rows.push(row);
         return;
       }
+
       frontGroups.set(row.front.id, { front: row.front, rows: [row] });
     });
 
@@ -266,16 +284,23 @@ export function ActiveThreatsPanel({ sessionId }: { sessionId?: string }) {
       frontSections,
       freeRows: freeRows.sort((a, b) => a.threat.name.localeCompare(b.threat.name, 'pl')),
     };
-  }, [threatRows, statusFilter]);
-  const hasVisibleThreats = groupedThreats.frontSections.length > 0 || groupedThreats.freeRows.length > 0;
+  }, [statusFilter, threatRows]);
+
+  const hasVisibleThreats =
+    groupedThreats.frontSections.length > 0 || groupedThreats.freeRows.length > 0;
 
   if (!hasVisibleThreats && !hasOrphans) {
-    return <p className="p-2 text-xs text-surface-400">Brak zagrożeń i zegarów w tej sesji.</p>;
+    return (
+      <div className="app-input-shell text-surface-500 rounded-[1.25rem] border-dashed px-4 py-4 text-sm">
+        Brak zagrożeń i zegarów w tej sesji.
+      </div>
+    );
   }
 
   async function toggleThreatStatus(row: ThreatRow) {
     const currentStatus = getThreatStatus(row.threat);
     const nextStatus = currentStatus === 'active' ? 'completed' : 'active';
+
     try {
       await updateEntity(db, row.threat.id, {
         data: {
@@ -283,6 +308,7 @@ export function ActiveThreatsPanel({ sessionId }: { sessionId?: string }) {
           ...normalizeThreatLifecycle(nextStatus, getThreatData(row.threat).reasonOfDead),
         },
       });
+
       if (row.clock) {
         const clockData = getClockData(row.clock);
         await updateEntity(db, row.clock.id, {
@@ -292,6 +318,7 @@ export function ActiveThreatsPanel({ sessionId }: { sessionId?: string }) {
           },
         });
       }
+
       toast.success(nextStatus === 'completed' ? 'Zagrożenie zakończone' : 'Zagrożenie aktywowane');
     } catch {
       toast.error('Nie udało się zmienić statusu zagrożenia');
@@ -300,27 +327,34 @@ export function ActiveThreatsPanel({ sessionId }: { sessionId?: string }) {
 
   function renderThreatCard(row: ThreatRow) {
     const { threat, clock } = row;
-    const d = clock ? getClockData(clock) : null;
-    const pct = d ? Math.round((d.filled / d.segments) * 100) : null;
-    const currentTickLabel = d
-      ? (d.tickLabels?.[Math.max(0, d.filled - 1)] ?? `${d.filled}/${d.segments}`)
+    const clockData = clock ? getClockData(clock) : null;
+    const percent = clockData ? Math.round((clockData.filled / clockData.segments) * 100) : null;
+    const currentTickLabel = clockData
+      ? (clockData.tickLabels?.[Math.max(0, clockData.filled - 1)] ??
+        `${clockData.filled}/${clockData.segments}`)
       : 'Brak zegara';
-    const nextTickLabel = d
-      ? (d.filled < d.segments
-        ? (d.tickLabels?.[d.filled] ?? `${d.filled + 1}/${d.segments}`)
-        : null)
+    const nextTickLabel = clockData
+      ? clockData.filled < clockData.segments
+        ? (clockData.tickLabels?.[clockData.filled] ??
+          `${clockData.filled + 1}/${clockData.segments}`)
+        : null
       : null;
 
     const isCompleted = getThreatStatus(threat) === 'completed';
 
     return (
-      <div key={threat.id} className={`flex flex-col gap-2 rounded-xl border border-amber-200 bg-white p-3 shadow-sm ${isCompleted ? 'opacity-70' : ''}`}>
-        <div className="flex w-full items-center gap-1.5 min-w-0">
+      <div
+        key={threat.id}
+        className={`app-danger-card flex flex-col gap-3 rounded-[1.35rem] p-4 ${
+          isCompleted ? 'opacity-70' : ''
+        }`}
+      >
+        <div className="flex min-w-0 items-center gap-2">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
           <Link
             to={`/threats/${threat.id}`}
             state={sessionId ? { returnToSessionLive: sessionId } : undefined}
-            className="min-w-0 flex-1 truncate text-left text-sm font-semibold text-primary-700 hover:underline"
+            className="text-primary-700 min-w-0 flex-1 truncate text-sm font-semibold hover:underline"
             title="Otwórz pełną kartę zagrożenia"
           >
             {threat.name}
@@ -328,62 +362,71 @@ export function ActiveThreatsPanel({ sessionId }: { sessionId?: string }) {
           <button
             type="button"
             onClick={() => setPreviewThreatId(threat.id)}
-            className="shrink-0 rounded-md border border-surface-200 bg-white px-1.5 py-0.5 text-[11px] text-surface-600 hover:border-primary-200 hover:text-primary-700"
+            className="app-button-secondary shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium"
           >
             Podgląd
           </button>
-          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-            isCompleted ? 'bg-surface-200 text-surface-600' : 'bg-green-100 text-green-700'
-          }`}>
+          <span
+            className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${
+              isCompleted
+                ? 'app-pill-muted'
+                : 'border border-emerald-300/70 bg-emerald-100/80 text-emerald-800'
+            }`}
+          >
             {isCompleted ? 'Zakończone' : 'Aktywne'}
           </span>
           <button
             type="button"
             onClick={() => void toggleThreatStatus(row)}
-            className={`shrink-0 rounded-md border px-1.5 py-0.5 text-[11px] ${
-              isCompleted
-                ? 'border-green-200 text-green-700 hover:bg-green-50'
-                : 'border-surface-200 text-surface-700 hover:bg-surface-50'
+            className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${
+              isCompleted ? 'app-button-primary' : 'app-button-secondary'
             }`}
           >
             {isCompleted ? 'Wznów' : 'Zakończ'}
           </button>
         </div>
-        {d && clock ? (
-          <div className="flex items-center gap-2 rounded-lg bg-amber-50/70 px-2 py-1.5">
-            <span className="min-w-0 flex-1 truncate text-xs font-medium text-surface-600">{clock.name}</span>
-            <div className="flex items-center gap-px">
-              {Array.from({ length: d.segments }).map((_, i) => (
-                <div
-                  key={i}
-                  className={`h-2.5 w-3 rounded-sm border ${
-                    i < d.filled
-                      ? 'border-amber-500 bg-amber-500'
-                      : 'border-surface-300 bg-surface-100'
-                  }`}
-                />
-              ))}
+
+        {clockData && clock ? (
+          <div className="app-panel rounded-[1.15rem] px-3 py-3">
+            <div className="flex items-center gap-2">
+              <span className="text-surface-700 min-w-0 flex-1 truncate text-xs font-medium">
+                {clock.name}
+              </span>
+              <div className="flex items-center gap-px">
+                {Array.from({ length: clockData.segments }).map((_, index) => (
+                  <div
+                    key={index}
+                    className={`h-2.5 w-3 rounded-sm border ${
+                      index < clockData.filled
+                        ? 'border-amber-500 bg-amber-500'
+                        : 'border-surface-300 bg-surface-100'
+                    }`}
+                  />
+                ))}
+              </div>
+              <span className="text-surface-500 w-7 shrink-0 text-right text-xs">{percent}%</span>
+              <button
+                type="button"
+                onClick={() => void tick(db, clock)}
+                disabled={clockData.filled >= clockData.segments || clockData.isActive === false}
+                className="app-button-primary rounded-full px-3 py-1 text-xs font-semibold disabled:opacity-40"
+                title="Zwiększ zegar o 1 segment"
+              >
+                Tick +1
+              </button>
             </div>
-            <span className="w-7 shrink-0 text-right text-xs text-surface-400">{pct}%</span>
-            <button
-              onClick={() => void tick(db, clock)}
-              disabled={d.filled >= d.segments || d.isActive === false}
-              className="rounded-md border border-primary-200 bg-white px-2 py-0.5 text-xs font-semibold text-primary-600 hover:bg-primary-50 disabled:opacity-40"
-              title="Zwiększ zegar o 1 segment"
-            >
-              Tick +1
-            </button>
           </div>
         ) : (
-          <div className="rounded-lg bg-surface-50 px-2 py-1.5 text-xs text-surface-500">
+          <div className="app-input-shell text-surface-500 rounded-[1.1rem] px-3 py-2 text-xs">
             Brak aktywnego zegara
           </div>
         )}
-        {d?.tickLabels && d.tickLabels.length > 0 ? (
+
+        {clockData?.tickLabels && clockData.tickLabels.length > 0 ? (
           <TickProgress
-            tickLabels={d.tickLabels}
-            filled={d.filled}
-            segments={d.segments}
+            tickLabels={clockData.tickLabels}
+            filled={clockData.filled}
+            segments={clockData.segments}
           />
         ) : (
           <div className="text-xs">
@@ -399,6 +442,7 @@ export function ActiveThreatsPanel({ sessionId }: { sessionId?: string }) {
             )}
           </div>
         )}
+
         <ClueSection parentId={threat.id} title="Wskazówki" />
       </div>
     );
@@ -406,42 +450,58 @@ export function ActiveThreatsPanel({ sessionId }: { sessionId?: string }) {
 
   async function handleAddFromCampaign(entityIds: string[]) {
     if (!sessionId) return;
+
     try {
       await Promise.all(
         entityIds.map((entityId) =>
-          addRelation(db, { type: 'appears_in', sourceId: entityId, targetId: sessionId })),
+          addRelation(db, { type: 'appears_in', sourceId: entityId, targetId: sessionId }),
+        ),
       );
-      toast.success(`Dodano ${entityIds.length} ${entityIds.length === 1 ? 'zagrożenie' : 'zagrożenia'} z kampanii`);
+      toast.success(
+        `Dodano ${entityIds.length} ${entityIds.length === 1 ? 'zagrożenie' : 'zagrożenia'} z kampanii`,
+      );
     } catch {
       toast.error('Nie udało się dodać zagrożeń z kampanii');
     }
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       {sessionId && (
-        <div className="rounded-xl border border-surface-200 bg-surface-50 p-2">
+        <div className="app-panel rounded-[1.45rem] p-4">
+          <div className="mb-3">
+            <p className="text-surface-500 text-xs font-semibold tracking-[0.18em] uppercase">
+              Zagrożenia w sesji
+            </p>
+            <p className="text-surface-700 mt-1 text-sm">
+              Presje aktywne przy stole, wraz z podpiętymi zegarami i wskazówkami.
+            </p>
+          </div>
+
           <button
             type="button"
             onClick={() => setCampaignPickerOpen(true)}
-            className="w-full rounded-md border border-surface-300 bg-white px-2 py-1 text-xs text-surface-700 transition-colors hover:bg-surface-50"
+            className="app-button-secondary w-full rounded-2xl px-3 py-3 text-sm font-medium"
           >
             Dodaj z kampanii
           </button>
-          <div className="mt-2 flex items-center gap-1">
-            {([
-              ['all', 'Wszystkie'],
-              ['active', 'Aktywne'],
-              ['completed', 'Zakończone'],
-            ] as const).map(([value, label]) => (
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {(
+              [
+                ['all', 'Wszystkie'],
+                ['active', 'Aktywne'],
+                ['completed', 'Zakończone'],
+              ] as const
+            ).map(([value, label]) => (
               <button
                 key={value}
                 type="button"
                 onClick={() => setStatusFilter(value)}
-                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors ${
+                className={`rounded-full px-3 py-1 text-[11px] font-semibold transition-colors ${
                   statusFilter === value
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-white text-surface-600 ring-1 ring-inset ring-surface-200 hover:bg-surface-50'
+                    ? 'app-pill'
+                    : 'app-pill-muted hover:bg-[rgba(229,231,223,0.98)]'
                 }`}
               >
                 {label}
@@ -451,12 +511,11 @@ export function ActiveThreatsPanel({ sessionId }: { sessionId?: string }) {
         </div>
       )}
 
-      {/* Threats grouped by fronts */}
       {hasVisibleThreats ? (
         <div className="flex flex-col gap-3">
           {groupedThreats.frontSections.map((section) => (
-            <section key={section.front.id} className="overflow-hidden rounded-xl border border-surface-200 bg-white shadow-sm">
-              <div className="flex items-center justify-between border-b border-surface-200 bg-orange-50/70 px-3 py-2">
+            <section key={section.front.id} className="app-panel overflow-hidden rounded-[1.45rem]">
+              <div className="flex items-center justify-between border-b border-[rgba(210,166,67,0.22)] bg-[rgba(242,196,88,0.12)] px-4 py-3">
                 <button
                   type="button"
                   onClick={() => {
@@ -470,32 +529,41 @@ export function ActiveThreatsPanel({ sessionId }: { sessionId?: string }) {
                   }}
                   className="flex items-center gap-1.5"
                 >
-                  <ChevronRight className={`h-3.5 w-3.5 text-surface-400 transition-transform ${collapsedGroups.has(`front:${section.front.id}`) ? '' : 'rotate-90'}`} />
-                  <span className="text-xs font-semibold uppercase tracking-wide text-surface-600">Front</span>
+                  <ChevronRight
+                    className={`text-surface-400 h-3.5 w-3.5 transition-transform ${
+                      collapsedGroups.has(`front:${section.front.id}`) ? '' : 'rotate-90'
+                    }`}
+                  />
+                  <span className="text-surface-600 text-xs font-semibold tracking-[0.16em] uppercase">
+                    Front
+                  </span>
                 </button>
+
                 <div className="ml-2 flex min-w-0 items-center gap-2">
                   <Link
                     to={`/fronts/${section.front.id}`}
                     state={sessionId ? { returnToSessionLive: sessionId } : undefined}
-                    className="truncate text-xs font-semibold uppercase tracking-wide text-orange-700 hover:underline"
+                    className="truncate text-xs font-semibold tracking-[0.16em] text-orange-700 uppercase hover:underline"
                   >
                     {section.front.name}
                   </Link>
-                  <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] font-semibold text-orange-700 ring-1 ring-inset ring-orange-200">
+                  <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] font-semibold text-orange-700 ring-1 ring-orange-200 ring-inset">
                     {section.rows.length}
                   </span>
                 </div>
               </div>
+
               {!collapsedGroups.has(`front:${section.front.id}`) && (
-                <div className="flex flex-col gap-2 p-2">
+                <div className="flex flex-col gap-3 p-3">
                   {section.rows.map((row) => renderThreatCard(row))}
                 </div>
               )}
             </section>
           ))}
+
           {groupedThreats.freeRows.length > 0 && (
-            <section className="overflow-hidden rounded-xl border border-surface-200 bg-white shadow-sm">
-              <div className="flex items-center justify-between border-b border-surface-200 bg-surface-50 px-3 py-2">
+            <section className="app-panel overflow-hidden rounded-[1.45rem]">
+              <div className="flex items-center justify-between border-b border-[rgba(86,93,94,0.12)] bg-[rgba(223,225,218,0.48)] px-4 py-3">
                 <button
                   type="button"
                   onClick={() => {
@@ -509,15 +577,22 @@ export function ActiveThreatsPanel({ sessionId }: { sessionId?: string }) {
                   }}
                   className="flex items-center gap-1.5"
                 >
-                  <ChevronRight className={`h-3.5 w-3.5 text-surface-400 transition-transform ${collapsedGroups.has('free') ? '' : 'rotate-90'}`} />
-                  <span className="text-xs font-semibold uppercase tracking-wide text-surface-600">Wolne zagrożenia</span>
+                  <ChevronRight
+                    className={`text-surface-400 h-3.5 w-3.5 transition-transform ${
+                      collapsedGroups.has('free') ? '' : 'rotate-90'
+                    }`}
+                  />
+                  <span className="text-surface-600 text-xs font-semibold tracking-[0.16em] uppercase">
+                    Wolne zagrożenia
+                  </span>
                 </button>
-                <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-semibold text-surface-600 ring-1 ring-inset ring-surface-200">
+                <span className="text-surface-600 ring-surface-200 rounded-full bg-white px-1.5 py-0.5 text-[10px] font-semibold ring-1 ring-inset">
                   {groupedThreats.freeRows.length}
                 </span>
               </div>
+
               {!collapsedGroups.has('free') && (
-                <div className="flex flex-col gap-2 p-2">
+                <div className="flex flex-col gap-3 p-3">
                   {groupedThreats.freeRows.map((row) => renderThreatCard(row))}
                 </div>
               )}
@@ -525,50 +600,64 @@ export function ActiveThreatsPanel({ sessionId }: { sessionId?: string }) {
           )}
         </div>
       ) : (
-        <div className="rounded-lg border border-dashed border-surface-200 bg-surface-50 p-3 text-xs text-surface-500">
+        <div className="app-input-shell text-surface-500 rounded-[1.25rem] border-dashed px-4 py-4 text-sm">
           Brak zagrożeń dla wybranego filtra.
         </div>
       )}
 
-      {/* Orphan clocks */}
       {hasOrphans && (
-        <div className="flex flex-col gap-2 rounded-xl border border-surface-200 bg-white p-3 shadow-sm">
+        <div className="app-panel flex flex-col gap-3 rounded-[1.45rem] p-4">
           {hasVisibleThreats && (
-            <p className="text-xs font-semibold uppercase tracking-wide text-surface-400">Pozostałe zegary</p>
+            <p className="text-surface-500 text-xs font-semibold tracking-[0.18em] uppercase">
+              Pozostałe zegary
+            </p>
           )}
-          {orphanClocks!.map((c) => {
-            const d = getClockData(c);
-            const pct = Math.round((d.filled / d.segments) * 100);
-            const currentTickLabel = d.tickLabels?.[Math.max(0, d.filled - 1)] ?? `${d.filled}/${d.segments}`;
-            const nextTickLabel = d.filled < d.segments
-              ? (d.tickLabels?.[d.filled] ?? `${d.filled + 1}/${d.segments}`)
-              : null;
+
+          {orphanClocks!.map((clock) => {
+            const clockData = getClockData(clock);
+            const percent = Math.round((clockData.filled / clockData.segments) * 100);
+            const currentTickLabel =
+              clockData.tickLabels?.[Math.max(0, clockData.filled - 1)] ??
+              `${clockData.filled}/${clockData.segments}`;
+            const nextTickLabel =
+              clockData.filled < clockData.segments
+                ? (clockData.tickLabels?.[clockData.filled] ??
+                  `${clockData.filled + 1}/${clockData.segments}`)
+                : null;
+
             return (
-              <div key={c.id} className="flex flex-col gap-2 rounded-lg bg-surface-50 px-2 py-1.5">
+              <div
+                key={clock.id}
+                className="app-input-shell flex flex-col gap-2 rounded-[1.2rem] px-3 py-3"
+              >
                 <div className="flex items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate text-xs font-medium text-surface-700">{c.name}</span>
+                  <span className="text-surface-700 min-w-0 flex-1 truncate text-xs font-medium">
+                    {clock.name}
+                  </span>
                   <div className="flex items-center gap-px">
-                    {Array.from({ length: d.segments }).map((_, i) => (
+                    {Array.from({ length: clockData.segments }).map((_, index) => (
                       <div
-                        key={i}
+                        key={index}
                         className={`h-2.5 w-3 rounded-sm border ${
-                          i < d.filled
+                          index < clockData.filled
                             ? 'border-primary-500 bg-primary-500'
                             : 'border-surface-300 bg-surface-100'
                         }`}
                       />
                     ))}
                   </div>
-                  <span className="w-7 text-right text-xs text-surface-400">{pct}%</span>
+                  <span className="text-surface-500 w-7 text-right text-xs">{percent}%</span>
                   <button
-                    onClick={() => tick(db, c)}
-                    disabled={d.filled >= d.segments}
-                  className="rounded-md border border-primary-200 bg-white px-2 py-0.5 text-xs font-semibold text-primary-600 hover:bg-primary-50 disabled:opacity-40"
-                  title="Zwiększ zegar o 1 segment"
+                    type="button"
+                    onClick={() => void tick(db, clock)}
+                    disabled={clockData.filled >= clockData.segments}
+                    className="app-button-primary rounded-full px-3 py-1 text-xs font-semibold disabled:opacity-40"
+                    title="Zwiększ zegar o 1 segment"
                   >
-                  Tick +1
+                    Tick +1
                   </button>
                 </div>
+
                 <div className="text-xs">
                   <p className="text-surface-700">
                     <span className="text-surface-400">Teraz: </span>
@@ -588,8 +677,13 @@ export function ActiveThreatsPanel({ sessionId }: { sessionId?: string }) {
       )}
 
       {previewThreatId && (
-        <ThreatPreviewModal threatId={previewThreatId} sessionId={sessionId} onClose={() => setPreviewThreatId(null)} />
+        <ThreatPreviewModal
+          threatId={previewThreatId}
+          sessionId={sessionId}
+          onClose={() => setPreviewThreatId(null)}
+        />
       )}
+
       {campaignPickerOpen && sessionId && (
         <ThreatCampaignPickerModal
           excludedIds={new Set((threatRows ?? []).map((row) => row.threat.id))}

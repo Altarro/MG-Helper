@@ -1,6 +1,6 @@
 import { Link } from 'react-router';
-import { StickyNote, Calendar } from 'lucide-react';
-import { format, parseISO, isValid } from 'date-fns';
+import { Calendar, StickyNote } from 'lucide-react';
+import { format, isValid, parseISO } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import type { Note } from '../types';
 
@@ -9,28 +9,35 @@ interface NoteCardProps {
 }
 
 export function NoteCard({ note }: NoteCardProps) {
-  const dateStr = note.data.createdAt;
-  let formatted = '';
-  try {
-    const d = parseISO(dateStr);
-    if (isValid(d)) formatted = format(d, 'd MMM yyyy, HH:mm', { locale: pl });
-  } catch {
-    // ignore
-  }
+  const parsedDate = parseISO(note.data.createdAt);
+  const formattedDate = isValid(parsedDate)
+    ? format(parsedDate, 'd MMM yyyy, HH:mm', { locale: pl })
+    : '';
 
   return (
     <Link
       to={`/notes/${note.id}`}
-      className="flex flex-col gap-1.5 rounded-xl border border-surface-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow"
+      className="app-card group flex min-h-[176px] flex-col gap-4 rounded-[1.35rem] p-5 transition-all hover:-translate-y-0.5"
     >
-      <div className="flex items-start gap-2">
-        <StickyNote className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-        <p className="flex-1 text-sm text-surface-800 line-clamp-3">{note.data.content}</p>
+      <div className="flex items-start gap-3">
+        <div className="rounded-[1rem] border border-amber-200/70 bg-amber-100/70 p-2.5 text-amber-800 shadow-[0_10px_22px_rgba(210,166,67,0.14)]">
+          <StickyNote className="h-4 w-4" />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <h3 className="text-surface-900 group-hover:text-primary-800 truncate text-base font-semibold tracking-[-0.02em]">
+            {note.name}
+          </h3>
+          <p className="text-surface-700 mt-2 line-clamp-4 text-sm leading-6">
+            {note.data.content}
+          </p>
+        </div>
       </div>
-      {formatted && (
-        <div className="flex items-center gap-1 text-xs text-surface-400">
-          <Calendar className="h-3 w-3" />
-          {formatted}
+
+      {formattedDate && (
+        <div className="text-surface-500 mt-auto inline-flex items-center gap-2 text-xs">
+          <Calendar className="h-3.5 w-3.5" />
+          {formattedDate}
         </div>
       )}
     </Link>

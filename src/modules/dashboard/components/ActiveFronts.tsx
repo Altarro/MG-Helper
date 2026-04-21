@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { Shield } from 'lucide-react';
+import { ArrowRight, Shield } from 'lucide-react';
 import type { Front } from '@modules/fronts/types';
 
 interface ActiveFrontsProps {
@@ -9,30 +9,64 @@ interface ActiveFrontsProps {
 export function ActiveFronts({ fronts }: ActiveFrontsProps) {
   if (fronts.length === 0) {
     return (
-      <p className="text-sm text-surface-400">Brak aktywnych frontów.</p>
+      <div className="app-input-shell text-surface-500 rounded-[1.35rem] border-dashed px-4 py-5 text-sm">
+        Brak aktywnych frontów.
+      </div>
     );
   }
+
   return (
-    <ul className="space-y-2">
-      {fronts.map((front) => (
-        <li key={front.id}>
-          <Link
-            to={`/fronts/${front.id}`}
-            className="flex items-center gap-3 rounded-lg border border-surface-200 bg-white px-4 py-3 hover:bg-surface-50 transition-colors"
-          >
-            <Shield className="h-4 w-4 shrink-0 text-primary-500" />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-surface-900">{front.name}</p>
-              {front.data.stakes.length > 0 && (
-                <p className="truncate text-xs text-surface-500">{front.data.stakes[0]}</p>
-              )}
-            </div>
-            <span className="ml-auto shrink-0 rounded-full bg-primary-50 px-2 py-0.5 text-xs text-primary-600">
-              {front.data.category === 'campaign' ? 'Kampania' : 'Przygoda'}
-            </span>
-          </Link>
-        </li>
-      ))}
+    <ul className="flex flex-col gap-3">
+      {fronts.map((front) => {
+        const stakesPreview = front.data.stakes.filter(Boolean).slice(0, 2);
+        return (
+          <li key={front.id}>
+            <Link
+              to={`/fronts/${front.id}`}
+              className="app-card group flex items-start gap-4 rounded-[1.4rem] p-4 transition-all hover:-translate-y-0.5"
+            >
+              <div className="text-primary-700 rounded-[1rem] border border-[rgba(33,71,102,0.12)] bg-[rgba(111,146,164,0.14)] p-2.5">
+                <Shield className="h-4 w-4" />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-surface-900 group-hover:text-primary-800 truncate text-base font-semibold tracking-[-0.02em]">
+                    {front.name}
+                  </h3>
+                  <span className="app-pill rounded-full px-2.5 py-1 text-[11px] font-semibold">
+                    {front.data.category === 'campaign' ? 'Kampania' : 'Przygoda'}
+                  </span>
+                </div>
+
+                {front.description && (
+                  <p className="text-surface-700 mt-2 line-clamp-2 text-sm leading-6">
+                    {front.description.replace(/<[^>]+>/g, ' ')}
+                  </p>
+                )}
+
+                {stakesPreview.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {stakesPreview.map((stake) => (
+                      <span
+                        key={stake}
+                        className="app-pill-muted rounded-full px-2.5 py-1 text-[11px] font-medium"
+                      >
+                        {stake}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="text-primary-700 hidden shrink-0 items-center gap-1 text-xs font-semibold sm:flex">
+                Otwórz
+                <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+              </div>
+            </Link>
+          </li>
+        );
+      })}
     </ul>
   );
 }
