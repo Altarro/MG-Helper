@@ -11,6 +11,7 @@ import {
   type ImportedDb,
 } from '@shared/utils/validation';
 import { BACKUP_FORMAT_VERSION, type BackupPayload } from './backupContract';
+import { extractImageId } from '@shared/db/assets';
 
 export interface ImportResult {
   ok: boolean;
@@ -38,7 +39,7 @@ function migrateLegacyBackup(legacy: ImportedDb): BackupPayload {
   };
 }
 
-function normalizeBackupPayload(raw: unknown):
+export function normalizeBackupPayload(raw: unknown):
   | { ok: true; payload: BackupPayload }
   | { ok: false; errors: string[] } {
   const formatVersion = typeof raw === 'object' && raw !== null && 'formatVersion' in raw
@@ -89,6 +90,27 @@ function normalizeBackupPayload(raw: unknown):
       return {
         ok: true,
         payload: migrateLegacyBackup(parsedLegacy.data),
+      };
+    }
+
+    if (formatVersion === 2) {
+      // v2 and v3 payloads share the same shape; the only difference is
+      // that v3 entities may carry `imageId`/`imageAlt` inside `data`. The
+      // v3 schema accepts both since those fields are optional/nullish.
+      const upgraded = {
+        ...(raw as Record<string, unknown>),
+        formatVersion: BACKUP_FORMAT_VERSION,
+      };
+      const parsedVersionedV2 = versionedBackupSchema.safeParse(upgraded);
+      if (!parsedVersionedV2.success) {
+        return {
+          ok: false,
+          errors: parseErrors(parsedVersionedV2.error.errors),
+        };
+      }
+      return {
+        ok: true,
+        payload: parsedVersionedV2.data,
       };
     }
 
@@ -229,10 +251,26 @@ export async function importJson(
     description: DOMPurify.sanitize(e.description ?? ''),
   }));
 
-  await db.transaction('rw', db.entities, db.relations, async () => {
+  // JSON backups never carry blobs — `imageId` would dangle after we clear `assets`.
+  const typesWithPortrait = new Set(['npc', 'location', 'item', 'faction']);
+  const sanitizedForStore = sanitized.map((e) => {
+    if (!typesWithPortrait.has(e.type)) return e;
+    if (!extractImageId(e)) return e;
+    return {
+      ...e,
+      data: {
+        ...(e.data as Record<string, unknown>),
+        imageId: null,
+        imageAlt: '',
+      },
+    };
+  });
+
+  await db.transaction('rw', db.entities, db.relations, db.assets, async () => {
     await db.entities.clear();
     await db.relations.clear();
-    await db.entities.bulkAdd(sanitized as Parameters<typeof db.entities.bulkAdd>[0]);
+    await db.assets.clear();
+    await db.entities.bulkAdd(sanitizedForStore as Parameters<typeof db.entities.bulkAdd>[0]);
     await db.relations.bulkAdd(relations as Parameters<typeof db.relations.bulkAdd>[0]);
   });
 

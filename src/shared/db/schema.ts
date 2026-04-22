@@ -14,12 +14,22 @@
  * Current indexed columns:
  *   entities: id (PK), type, name, tags (multi-entry), updatedAt
  *   relations: id (PK), sourceId, targetId, type
+ *   assets:    id (PK), createdAt
+ *
+ * Version history:
+ *   v1 — entities + relations
+ *   v2 — added `assets` table (image blobs referenced from entity.data.imageId)
  */
 export const DB_NAME = 'mg-helper';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
-export const SCHEMA = {
-  // &id — primary key; *tags — multi-entry index for tag-based queries
+export const SCHEMA_V1 = {
   entities: '&id, type, name, *tags, updatedAt',
   relations: '&id, sourceId, targetId, type',
+} as const;
+
+export const SCHEMA = {
+  ...SCHEMA_V1,
+  // &id — primary key; createdAt indexed for orphan cleanup heuristics
+  assets: '&id, createdAt',
 } as const;

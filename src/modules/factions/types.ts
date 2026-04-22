@@ -3,6 +3,8 @@ import type { Entity } from '@shared/types/entity';
 export interface FactionData {
   goals: string[];      // faction goals/objectives
   resources: string[]; // resources, assets
+  imageId?: string | null; // reference to Asset (cover blob)
+  imageAlt?: string;
 }
 
 export type Faction = Entity & { type: 'faction'; data: FactionData };

@@ -14,6 +14,7 @@ import { LoadingPage } from '@shared/components/LoadingSpinner';
 import { EmptyState } from '@shared/components/EmptyState';
 import { ClockWidget } from '@modules/clocks/components/ClockWidget';
 import { updateEntity, deleteEntity } from '@shared/db/operations';
+import { deleteAsset } from '@shared/db/assets';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { isClock } from '@modules/clocks/types';
 import { isDraftLocation, isLocation } from '@modules/locations/types';
@@ -21,6 +22,7 @@ import { LocationPickerModal } from '@modules/sessions/components/LocationPicker
 import { isSession } from '@modules/sessions/types';
 import { getNpcLocationHistory } from '../locationHistory';
 import { Modal } from '@shared/components/Modal';
+import { EntityDetailPortrait } from '@shared/components/EntityDetailPortrait';
 import { toast } from 'sonner';
 import { formatDate, formatDateTime } from '@shared/utils/date';
 import { getSessionData } from '@shared/utils/entityData';
@@ -200,6 +202,8 @@ export function NpcDetail() {
   async function handleEdit(values: NpcFormValues) {
     setSaving(true);
     try {
+      const previousImageId = npc!.data.imageId ?? null;
+      const nextImageId = values.imageId ?? null;
       await updateEntity(db, npc!.id, {
         name: values.name,
         description: values.description,
@@ -211,8 +215,13 @@ export function NpcDetail() {
           playStyle: values.playStyle,
           isPC: values.isPC ?? false,
           playerName: values.playerName ?? '',
+          imageId: nextImageId,
+          imageAlt: values.imageAlt ?? '',
         },
       });
+      if (previousImageId && previousImageId !== nextImageId) {
+        await deleteAsset(db, previousImageId).catch(() => undefined);
+      }
       toast.success('Postać zaktualizowana');
       setEditing(false);
     } catch {
@@ -282,6 +291,8 @@ export function NpcDetail() {
               playerName: npc.data.playerName ?? '',
               description: npc.description ?? '',
               tags: npc.tags,
+              imageId: npc.data.imageId ?? null,
+              imageAlt: npc.data.imageAlt ?? '',
             }}
             onSubmit={handleEdit}
             onCancel={() => setEditing(false)}
@@ -293,13 +304,22 @@ export function NpcDetail() {
         <>
           {/* Header */}
           <div className="app-panel-strong mb-6 flex flex-col gap-5 rounded-[1.9rem] border border-white/40 px-6 py-6 shadow-[0_28px_60px_rgba(18,45,66,0.12)] lg:flex-row lg:items-start lg:justify-between lg:px-7">
-            <div>
-              <h1 className="text-surface-900 text-3xl font-semibold tracking-[-0.03em]">
-                {npc.name}
-              </h1>
-              <p className="text-surface-400 mt-1 text-xs">
-                Utworzony {formatDate(npc.createdAt)} · Edytowany {formatDate(npc.updatedAt)}
-              </p>
+            <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start">
+              {npc.data.imageId && (
+                <EntityDetailPortrait
+                  imageId={npc.data.imageId}
+                  alt={npc.data.imageAlt ?? npc.name}
+                  size="lg"
+                />
+              )}
+              <div className="min-w-0">
+                <h1 className="text-surface-900 text-3xl font-semibold tracking-[-0.03em]">
+                  {npc.name}
+                </h1>
+                <p className="text-surface-400 mt-1 text-xs">
+                  Utworzony {formatDate(npc.createdAt)} · Edytowany {formatDate(npc.updatedAt)}
+                </p>
+              </div>
             </div>
             <div className="flex gap-2">
               <MarkdownExportButton entity={npc} />

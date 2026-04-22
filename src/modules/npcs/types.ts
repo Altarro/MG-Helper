@@ -8,6 +8,8 @@ export interface NpcData {
   playStyle: string; // how to portray/play this NPC at the table
   isPC?: boolean;
   playerName?: string;
+  imageId?: string | null; // reference to Asset (portrait blob)
+  imageAlt?: string;
 }
 
 export type Npc = Entity & { type: 'npc'; data: NpcData };

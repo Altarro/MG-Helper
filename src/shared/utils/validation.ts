@@ -32,6 +32,15 @@ export type BaseEntityFormValues = z.infer<typeof baseEntitySchema>;
 
 // ─── Module-specific extensions ──────────────────────────────────────────────
 
+// Shared fragment for entities that can carry a portrait/cover image.
+// `imageId` is a reference to the `assets` Dexie table; the actual blob lives
+// outside of entity rows to keep JSON backups lightweight. `imageAlt` is the
+// accessible description shown as the `<img alt>` attribute.
+const imageRefFields = {
+  imageId: z.string().min(1).nullish(),
+  imageAlt: z.string().max(200).optional(),
+};
+
 export const npcSchema = baseEntitySchema.extend({
   data: z.object({
     instinct: z.string().max(500).default(''),
@@ -40,6 +49,7 @@ export const npcSchema = baseEntitySchema.extend({
     playStyle: z.string().max(1000).default(''),
     isPC: z.boolean().default(false),
     playerName: z.string().max(200).default(''),
+    ...imageRefFields,
   }).default({}),
 });
 
@@ -54,6 +64,7 @@ export const locationSchema = baseEntitySchema.extend({
       feel: z.string().max(300).default(''),
     }).default({}),
     isDraft: z.boolean().optional(),
+    ...imageRefFields,
   }).default({}),
 });
 
@@ -102,6 +113,7 @@ export const factionSchema = baseEntitySchema.extend({
   data: z.object({
     goals: z.array(z.string().max(500)).max(10).default([]),
     resources: z.array(z.string().max(500)).max(20).default([]),
+    ...imageRefFields,
   }).default({}),
 });
 
@@ -109,6 +121,7 @@ export const itemSchema = baseEntitySchema.extend({
   data: z.object({
     itemType: z.enum(ITEM_TYPES).default('misc'),
     properties: z.array(z.string().max(300)).max(20).default([]),
+    ...imageRefFields,
   }).default({}),
 });
 

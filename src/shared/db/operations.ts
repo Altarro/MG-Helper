@@ -4,6 +4,7 @@ import {
   findDuplicateRelation,
   normalizeRelationLabel,
 } from './relationIntegrity';
+import { extractImageId } from './assets';
 import { generateId } from '@shared/utils/id';
 import { nowISO } from '@shared/utils/date';
 import { sanitizeHtml } from '@shared/utils/sanitize';
@@ -37,7 +38,9 @@ export async function updateEntity(db: MgHelperDb, id: string, changes: EntityUp
 }
 
 export async function deleteEntity(db: MgHelperDb, id: string): Promise<void> {
-  await db.transaction('rw', db.entities, db.relations, async () => {
+  await db.transaction('rw', db.entities, db.relations, db.assets, async () => {
+    const entity = await db.entities.get(id);
+    const imageId = entity ? extractImageId(entity) : null;
     await db.entities.delete(id);
     // Cascade: remove all relations that reference this entity
     await db.relations
@@ -48,6 +51,15 @@ export async function deleteEntity(db: MgHelperDb, id: string): Promise<void> {
       .where('targetId')
       .equals(id)
       .delete();
+    // Cascade: remove associated image asset, if any and not referenced elsewhere
+    if (imageId) {
+      const stillReferenced = await db.entities
+        .filter((other) => extractImageId(other) === imageId)
+        .first();
+      if (!stillReferenced) {
+        await db.assets.delete(imageId);
+      }
+    }
   });
 }
 

@@ -40,7 +40,12 @@ export function ItemList() {
         name: values.name,
         description: values.description,
         tags: values.tags,
-        data: { itemType: values.itemType, properties: values.properties },
+        data: {
+          itemType: values.itemType,
+          properties: values.properties,
+          imageId: values.imageId ?? null,
+          imageAlt: values.imageAlt ?? '',
+        },
       });
       toast.success(`Przedmiot "${values.name}" utworzony`);
       setShowForm(false);

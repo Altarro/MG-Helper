@@ -46,6 +46,8 @@ export function LocationList() {
           locationType: values.locationType,
           danger: values.danger,
           senses: { see: values.see, hear: values.hear, smell: values.smell, feel: values.feel },
+          imageId: values.imageId ?? null,
+          imageAlt: values.imageAlt ?? '',
         }),
       });
       if (values.parentLocationId) {

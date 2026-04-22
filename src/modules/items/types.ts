@@ -27,6 +27,8 @@ export const ITEM_TYPE_LABELS: Record<ItemType, string> = {
 export interface ItemData {
   itemType: ItemType;
   properties: string[]; // e.g. ["sharp", "magical", "heavy"]
+  imageId?: string | null; // reference to Asset (cover blob)
+  imageAlt?: string;
 }
 
 export type Item = Entity & { type: 'item'; data: ItemData };

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { Plus, X } from 'lucide-react';
 import { TagInput } from '@shared/components/TagInput';
 import { RichTextEditor } from '@shared/components/RichTextEditor';
+import { ImagePicker } from '@shared/components/ImagePicker';
 
 const factionFormSchema = z.object({
   name: z.string().min(1, 'Nazwa jest wymagana').max(200),
@@ -11,6 +12,8 @@ const factionFormSchema = z.object({
   resources: z.array(z.object({ value: z.string() })),
   description: z.string().max(100_000),
   tags: z.array(z.string()).max(50),
+  imageId: z.string().nullish(),
+  imageAlt: z.string().max(200).default(''),
 });
 
 type FactionFormRaw = z.infer<typeof factionFormSchema>;
@@ -21,6 +24,8 @@ export interface FactionFormValues {
   resources: string[];
   description: string;
   tags: string[];
+  imageId?: string | null;
+  imageAlt?: string;
 }
 
 interface FactionFormProps {
@@ -38,7 +43,7 @@ export function FactionForm({
   isSaving = false,
   onCancel,
 }: FactionFormProps) {
-  const { register, control, handleSubmit, formState: { errors } } = useForm<FactionFormRaw>({
+  const { register, control, watch, setValue, handleSubmit, formState: { errors } } = useForm<FactionFormRaw>({
     resolver: zodResolver(factionFormSchema),
     defaultValues: {
       name: defaultValues?.name ?? '',
@@ -46,6 +51,8 @@ export function FactionForm({
       resources: (defaultValues?.resources ?? []).map((v) => ({ value: v })),
       description: defaultValues?.description ?? '',
       tags: defaultValues?.tags ?? [],
+      imageId: defaultValues?.imageId ?? null,
+      imageAlt: defaultValues?.imageAlt ?? '',
     },
   });
 
@@ -59,6 +66,8 @@ export function FactionForm({
       ...raw,
       goals: raw.goals.map((g) => g.value).filter(Boolean),
       resources: raw.resources.map((r) => r.value).filter(Boolean),
+      imageId: raw.imageId ?? null,
+      imageAlt: raw.imageAlt ?? '',
     });
   }
 
@@ -120,6 +129,23 @@ export function FactionForm({
         />
         {errors.name && <p id="faction-name-error" role="alert" className="text-xs text-red-600">{errors.name.message}</p>}
       </div>
+
+      <Controller
+        name="imageId"
+        control={control}
+        render={({ field }) => (
+          <ImagePicker
+            idPrefix="faction"
+            label="Obrazek"
+            imageId={field.value ?? null}
+            imageAlt={watch('imageAlt') ?? ''}
+            onChange={({ imageId, imageAlt }) => {
+              field.onChange(imageId);
+              setValue('imageAlt', imageAlt, { shouldDirty: true });
+            }}
+          />
+        )}
+      />
 
       {renderList('Cele', 'Dodaj cel', goalsArr, 'goals', 'Brak celów — dodaj co frakcja chce osiągnąć.')}
       {renderList('Zasoby', 'Dodaj zasób', resourcesArr, 'resources', 'Brak zasobów — dodaj co frakcja posiada.')}

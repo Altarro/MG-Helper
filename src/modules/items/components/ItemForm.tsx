@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { Plus, X } from 'lucide-react';
 import { TagInput } from '@shared/components/TagInput';
 import { RichTextEditor } from '@shared/components/RichTextEditor';
+import { ImagePicker } from '@shared/components/ImagePicker';
 import { ITEM_TYPES, ITEM_TYPE_LABELS } from '../types';
 
 const itemFormSchema = z.object({
@@ -12,6 +13,8 @@ const itemFormSchema = z.object({
   properties: z.array(z.object({ value: z.string() })),
   description: z.string().max(100_000),
   tags: z.array(z.string()).max(50),
+  imageId: z.string().nullish(),
+  imageAlt: z.string().max(200).default(''),
 });
 
 type ItemFormRaw = z.infer<typeof itemFormSchema>;
@@ -22,6 +25,8 @@ export interface ItemFormValues {
   properties: string[];
   description: string;
   tags: string[];
+  imageId?: string | null;
+  imageAlt?: string;
 }
 
 interface ItemFormProps {
@@ -42,6 +47,8 @@ export function ItemForm({
   const {
     register,
     control,
+    watch,
+    setValue,
     handleSubmit,
     formState: { errors },
   } = useForm<ItemFormRaw>({
@@ -52,6 +59,8 @@ export function ItemForm({
       properties: (defaultValues?.properties ?? []).map((v) => ({ value: v })),
       description: defaultValues?.description ?? '',
       tags: defaultValues?.tags ?? [],
+      imageId: defaultValues?.imageId ?? null,
+      imageAlt: defaultValues?.imageAlt ?? '',
     },
   });
 
@@ -63,6 +72,8 @@ export function ItemForm({
     return onSubmit({
       ...raw,
       properties: raw.properties.map((p) => p.value).filter(Boolean),
+      imageId: raw.imageId ?? null,
+      imageAlt: raw.imageAlt ?? '',
     });
   }
 
@@ -96,6 +107,23 @@ export function ItemForm({
           </select>
         </div>
       </div>
+
+      <Controller
+        name="imageId"
+        control={control}
+        render={({ field }) => (
+          <ImagePicker
+            idPrefix="item"
+            label="Obrazek"
+            imageId={field.value ?? null}
+            imageAlt={watch('imageAlt') ?? ''}
+            onChange={({ imageId, imageAlt }) => {
+              field.onChange(imageId);
+              setValue('imageAlt', imageAlt, { shouldDirty: true });
+            }}
+          />
+        )}
+      />
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">

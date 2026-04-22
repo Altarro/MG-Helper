@@ -5,8 +5,10 @@ import { useFactionById } from '../hooks/useFactionById';
 import { FactionForm } from './FactionForm';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
+import { EntityDetailPortrait } from '@shared/components/EntityDetailPortrait';
 import { NotesList } from '@modules/notes/components/NotesList';
 import { deleteEntity, updateEntity, getEntityById } from '@shared/db/operations';
+import { deleteAsset } from '@shared/db/assets';
 import { useCampaign } from '@shared/db/CampaignContext';
 import type { MgHelperDb } from '@shared/db/database';
 import { toast } from 'sonner';
@@ -78,12 +80,22 @@ export function FactionDetail() {
   async function handleUpdate(values: FactionFormValues) {
     setSaving(true);
     try {
+      const previousImageId = faction!.data.imageId ?? null;
+      const nextImageId = values.imageId ?? null;
       await updateEntity(db, faction!.id, {
         name: values.name,
         description: values.description,
         tags: values.tags,
-        data: { goals: values.goals, resources: values.resources },
+        data: {
+          goals: values.goals,
+          resources: values.resources,
+          imageId: nextImageId,
+          imageAlt: values.imageAlt ?? '',
+        },
       });
+      if (previousImageId && previousImageId !== nextImageId) {
+        await deleteAsset(db, previousImageId).catch(() => undefined);
+      }
       toast.success('Frakcja zaktualizowana');
       setIsEditing(false);
     } catch {
@@ -113,11 +125,19 @@ export function FactionDetail() {
       </Link>
 
       <div className="app-panel-strong flex flex-col gap-5 rounded-[1.9rem] border border-white/40 px-6 py-6 shadow-[0_28px_60px_rgba(18,45,66,0.12)] lg:flex-row lg:items-start lg:justify-between lg:px-7">
-        <div className="flex items-center gap-4">
-          <div className="app-panel text-primary-700 rounded-[1.25rem] p-3 shadow-[0_14px_28px_rgba(18,45,66,0.12)]">
-            <Flag className="h-5 w-5 shrink-0" />
-          </div>
-          <h1 className="text-surface-900 text-3xl font-semibold tracking-[-0.03em]">
+        <div className="flex min-w-0 items-center gap-4">
+          {!isEditing && faction.data.imageId ? (
+            <EntityDetailPortrait
+              imageId={faction.data.imageId}
+              alt={faction.data.imageAlt ?? faction.name}
+              size="lg"
+            />
+          ) : (
+            <div className="app-panel text-primary-700 rounded-[1.25rem] p-3 shadow-[0_14px_28px_rgba(18,45,66,0.12)]">
+              <Flag className="h-5 w-5 shrink-0" />
+            </div>
+          )}
+          <h1 className="text-surface-900 min-w-0 text-3xl font-semibold tracking-[-0.03em]">
             {faction.name}
           </h1>
         </div>
@@ -154,6 +174,8 @@ export function FactionDetail() {
               resources: faction.data.resources,
               description: faction.description,
               tags: faction.tags,
+              imageId: faction.data.imageId ?? null,
+              imageAlt: faction.data.imageAlt ?? '',
             }}
             onSubmit={handleUpdate}
             isSaving={saving}

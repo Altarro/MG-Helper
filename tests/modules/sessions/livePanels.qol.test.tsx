@@ -11,6 +11,7 @@ import { SessionNpcPanel } from '@modules/sessions/components/SessionNpcPanel';
 import { SessionHudTray } from '@modules/sessions/components/SessionHudTray';
 import { SessionSearchPanel } from '@modules/sessions/components/SessionSearchPanel';
 import type { SpotlightState } from '@modules/sessions/types';
+import { getSessionNpcPanelData } from '@modules/sessions/utils/liveSessionData';
 
 const TEST_ID = '__session-live-panels-qol__';
 const db = openCampaignDb(TEST_ID);
@@ -46,6 +47,7 @@ describe('Session live panels QoL regressions', () => {
 
     await db.entities.clear();
     await db.relations.clear();
+    await db.assets.clear();
     sessionStorage.clear();
     localStorage.removeItem('mg-live-session');
   });
@@ -77,6 +79,9 @@ describe('Session live panels QoL regressions', () => {
 
     await addRelation(db, { type: 'appears_in', sourceId: npc.id, targetId: session.id });
     await addRelation(db, { type: 'contains', sourceId: location.id, targetId: npc.id });
+
+    const panelData = await getSessionNpcPanelData(db, session.id, location.id);
+    expect(panelData.npcs, 'getSessionNpcPanelData should see NPC in session').toHaveLength(1);
 
     renderInCampaign(
       <SessionNpcPanel sessionId={session.id} currentLocationId={location.id} />,

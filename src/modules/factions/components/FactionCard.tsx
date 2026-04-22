@@ -2,21 +2,31 @@ import { memo } from 'react';
 import { Link } from 'react-router';
 import { Flag } from 'lucide-react';
 import type { Faction } from '../types';
+import { useAssetUrl } from '@shared/hooks/useAssetUrl';
 
 interface FactionCardProps {
   faction: Faction;
 }
 
 export const FactionCard = memo(function FactionCard({ faction }: FactionCardProps) {
+  const thumbUrl = useAssetUrl(faction.data.imageId ?? null, { thumb: true });
   return (
     <Link
       to={`/factions/${faction.id}`}
       className="app-card flex flex-col gap-3 rounded-[1.35rem] p-5 transition-all hover:-translate-y-0.5"
     >
       <div className="flex items-center gap-2.5 min-w-0">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[rgba(33,71,102,0.09)]">
-          <Flag className="h-4 w-4 text-primary-700" />
-        </div>
+        {thumbUrl ? (
+          <img
+            src={thumbUrl}
+            alt={faction.data.imageAlt || faction.name}
+            className="h-10 w-10 shrink-0 rounded-xl object-cover shadow-[0_4px_10px_rgba(18,45,66,0.12)]"
+          />
+        ) : (
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[rgba(33,71,102,0.09)]">
+            <Flag className="h-4 w-4 text-primary-700" />
+          </div>
+        )}
         <h3 className="truncate text-[1.02rem] font-semibold tracking-[-0.02em] text-surface-900">{faction.name}</h3>
       </div>
       {faction.data.goals.length > 0 && (

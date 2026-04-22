@@ -34,7 +34,12 @@ export function FactionList() {
         name: values.name,
         description: values.description,
         tags: values.tags,
-        data: { goals: values.goals, resources: values.resources },
+        data: {
+          goals: values.goals,
+          resources: values.resources,
+          imageId: values.imageId ?? null,
+          imageAlt: values.imageAlt ?? '',
+        },
       });
       toast.success(`Frakcja "${values.name}" utworzona`);
       setShowForm(false);

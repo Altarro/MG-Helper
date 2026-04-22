@@ -1,13 +1,17 @@
 import Dexie, { type Table } from 'dexie';
-import type { Entity, Relation } from '@shared/types';
-import { DB_VERSION, SCHEMA } from './schema';
+import type { Asset, Entity, Relation } from '@shared/types';
+import { DB_VERSION, SCHEMA, SCHEMA_V1 } from './schema';
 
 export class MgHelperDb extends Dexie {
   entities!: Table<Entity, string>;
   relations!: Table<Relation, string>;
+  assets!: Table<Asset, string>;
 
   constructor(dbName: string) {
     super(dbName);
+    // v1 — original schema without assets; keep registered so v1 DBs can upgrade cleanly.
+    this.version(1).stores(SCHEMA_V1);
+    // v2 — adds the `assets` store. Dexie creates the new object store automatically.
     this.version(DB_VERSION).stores(SCHEMA);
   }
 }

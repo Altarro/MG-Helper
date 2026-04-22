@@ -3,6 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { TagInput } from '@shared/components/TagInput';
 import { RichTextEditor } from '@shared/components/RichTextEditor';
+import { ImagePicker } from '@shared/components/ImagePicker';
 
 const npcFormSchema = z.object({
   name: z.string().min(1, 'Nazwa jest wymagana').max(200),
@@ -14,6 +15,8 @@ const npcFormSchema = z.object({
   playerName: z.string().max(200).default(''),
   description: z.string().max(100_000).default(''),
   tags: z.array(z.string()).max(50).default([]),
+  imageId: z.string().nullish(),
+  imageAlt: z.string().max(200).default(''),
 });
 
 export type NpcFormValues = z.infer<typeof npcFormSchema>;
@@ -38,6 +41,7 @@ export function NpcForm({
     control,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<NpcFormValues>({
     resolver: zodResolver(npcFormSchema),
@@ -50,6 +54,8 @@ export function NpcForm({
       playerName: '',
       description: '',
       tags: [],
+      imageId: null,
+      imageAlt: '',
       ...defaultValues,
     },
   });
@@ -77,6 +83,24 @@ export function NpcForm({
           </p>
         )}
       </div>
+
+      {/* Portrait */}
+      <Controller
+        name="imageId"
+        control={control}
+        render={({ field }) => (
+          <ImagePicker
+            idPrefix="npc"
+            label="Portret"
+            imageId={field.value ?? null}
+            imageAlt={watch('imageAlt') ?? ''}
+            onChange={({ imageId, imageAlt }) => {
+              field.onChange(imageId);
+              setValue('imageAlt', imageAlt, { shouldDirty: true });
+            }}
+          />
+        )}
+      />
 
       {/* Instinct */}
       <div className="flex flex-col gap-1.5">

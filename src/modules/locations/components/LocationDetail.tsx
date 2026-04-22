@@ -13,6 +13,7 @@ import { RelationPicker } from '@shared/components/RelationPicker';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { LoadingPage } from '@shared/components/LoadingSpinner';
 import { EmptyState } from '@shared/components/EmptyState';
+import { EntityDetailPortrait } from '@shared/components/EntityDetailPortrait';
 import { DraggableNpcChip } from '@shared/components/DraggableNpcChip';
 import { DroppableLocationZone } from '@shared/components/DroppableLocationZone';
 import {
@@ -22,6 +23,7 @@ import {
   assignContainment,
   removeContainment,
 } from '@shared/db/operations';
+import { deleteAsset } from '@shared/db/assets';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
 import { formatDate } from '@shared/utils/date';
@@ -112,6 +114,8 @@ export function LocationDetail() {
       } else {
         await removeContainment(db, locationId);
       }
+      const previousImageId = location!.data.imageId ?? null;
+      const nextImageId = values.imageId ?? null;
       await updateEntity(db, locationId, {
         name: values.name,
         description: values.description,
@@ -121,8 +125,13 @@ export function LocationDetail() {
           danger: values.danger,
           senses: { see: values.see, hear: values.hear, smell: values.smell, feel: values.feel },
           isDraft: locationIsDraft,
+          imageId: nextImageId,
+          imageAlt: values.imageAlt ?? '',
         }),
       });
+      if (previousImageId && previousImageId !== nextImageId) {
+        await deleteAsset(db, previousImageId).catch(() => undefined);
+      }
       toast.success('Lokacja zaktualizowana');
       setEditing(false);
     } catch {
@@ -154,6 +163,8 @@ export function LocationDetail() {
           locationType: values.locationType,
           danger: values.danger,
           senses: { see: values.see, hear: values.hear, smell: values.smell, feel: values.feel },
+          imageId: values.imageId ?? null,
+          imageAlt: values.imageAlt ?? '',
         }),
       });
       await assignContainment(db, { sourceId: parentId, targetId: entity.id });
@@ -226,6 +237,8 @@ export function LocationDetail() {
               parentLocationId: currentParentLocationId,
               description: location.description ?? '',
               tags: location.tags,
+              imageId: location.data.imageId ?? null,
+              imageAlt: location.data.imageAlt ?? '',
             }}
             excludeId={location.id}
             excludeIds={descendantIds}
@@ -239,7 +252,15 @@ export function LocationDetail() {
         <>
           {/* Header */}
           <div className="app-panel-strong mb-6 flex flex-col gap-5 rounded-[1.9rem] border border-white/40 px-6 py-6 shadow-[0_28px_60px_rgba(18,45,66,0.12)] lg:flex-row lg:items-start lg:justify-between lg:px-7">
-            <div>
+            <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start">
+              {location.data.imageId && (
+                <EntityDetailPortrait
+                  imageId={location.data.imageId}
+                  alt={location.data.imageAlt ?? location.name}
+                  size="lg"
+                />
+              )}
+              <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-surface-900 text-3xl font-semibold tracking-[-0.03em]">
                   {location.name}
@@ -259,6 +280,7 @@ export function LocationDetail() {
                 Utworzona {formatDate(location.createdAt)} · Edytowana{' '}
                 {formatDate(location.updatedAt)}
               </p>
+              </div>
             </div>
             <div className="flex gap-2">
               <button

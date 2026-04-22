@@ -3,9 +3,15 @@ import type { MgHelperDb } from '@shared/db/database';
 import type { CampaignMeta } from '@shared/types';
 import { nowISO } from './date';
 import { BACKUP_FORMAT_VERSION, type BackupPayload } from './backupContract';
+import { markBackupDone } from '@shared/hooks/useBackupReminder';
 
 export interface ExportJsonOptions {
   campaignMeta?: CampaignMeta | null;
+  /**
+   * When provided, updates the "last backup at" timestamp for this campaign
+   * so the reminder toast is dismissed for the next 24h.
+   */
+  campaignId?: string | null;
 }
 
 export async function createExportPayload(
@@ -42,5 +48,8 @@ export async function exportJson(
   a.download = `mg-helper-backup-${now}.json`;
   a.click();
   URL.revokeObjectURL(url);
+  if (options.campaignId) {
+    markBackupDone(options.campaignId);
+  }
   return payload;
 }

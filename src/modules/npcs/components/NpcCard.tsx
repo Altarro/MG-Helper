@@ -1,6 +1,7 @@
 import React from 'react';
 import { User, Crown } from 'lucide-react';
 import type { Npc } from '../types';
+import { useAssetUrl } from '@shared/hooks/useAssetUrl';
 
 interface NpcCardProps {
   npc: Npc;
@@ -9,6 +10,7 @@ interface NpcCardProps {
 
 export const NpcCard = React.memo(function NpcCard({ npc, onClick }: NpcCardProps) {
   const isPC = npc.data?.isPC === true;
+  const thumbUrl = useAssetUrl(npc.data?.imageId ?? null, { thumb: true });
   return (
     <button
       type="button"
@@ -16,9 +18,17 @@ export const NpcCard = React.memo(function NpcCard({ npc, onClick }: NpcCardProp
       className="app-card flex w-full flex-col gap-3 rounded-[1.35rem] p-5 text-left transition-all hover:-translate-y-0.5"
     >
       <div className="flex items-start gap-3">
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${isPC ? 'bg-[rgba(242,196,88,0.16)]' : 'bg-[rgba(33,71,102,0.09)]'}`}>
-          {isPC ? <Crown className="h-4 w-4 text-warning-600" /> : <User className="h-4 w-4 text-primary-700" />}
-        </div>
+        {thumbUrl ? (
+          <img
+            src={thumbUrl}
+            alt={npc.data?.imageAlt || npc.name}
+            className="h-12 w-12 shrink-0 rounded-2xl object-cover shadow-[0_4px_10px_rgba(18,45,66,0.12)]"
+          />
+        ) : (
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${isPC ? 'bg-[rgba(242,196,88,0.16)]' : 'bg-[rgba(33,71,102,0.09)]'}`}>
+            {isPC ? <Crown className="h-4 w-4 text-warning-600" /> : <User className="h-4 w-4 text-primary-700" />}
+          </div>
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="truncate text-[1.02rem] font-semibold tracking-[-0.02em] text-surface-900">{npc.name}</p>

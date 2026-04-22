@@ -54,6 +54,8 @@ export function NpcList() {
           playStyle: values.playStyle ?? '',
           isPC: values.isPC ?? false,
           playerName: values.playerName ?? '',
+          imageId: values.imageId ?? null,
+          imageAlt: values.imageAlt ?? '',
         },
       });
       toast.success(`Postać "${values.name}" utworzona`);

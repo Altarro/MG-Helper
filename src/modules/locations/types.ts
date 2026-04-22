@@ -47,6 +47,8 @@ export interface LocationData extends Record<string, unknown> {
   danger: number; // 0–5
   senses: LocationSenses;
   isDraft?: boolean;
+  imageId?: string | null; // reference to Asset (cover blob)
+  imageAlt?: string;
 }
 
 export function createLocationData(

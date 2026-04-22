@@ -1,6 +1,6 @@
 import type { CampaignMeta, Entity, Relation } from '@shared/types';
 
-export const BACKUP_FORMAT_VERSION = 2;
+export const BACKUP_FORMAT_VERSION = 3;
 
 export interface BackupPayload {
   formatVersion: typeof BACKUP_FORMAT_VERSION;

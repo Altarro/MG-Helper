@@ -5,8 +5,10 @@ import { useItemById } from '../hooks/useItemById';
 import { ItemForm } from './ItemForm';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
+import { EntityDetailPortrait } from '@shared/components/EntityDetailPortrait';
 import { NotesList } from '@modules/notes/components/NotesList';
 import { deleteEntity, updateEntity } from '@shared/db/operations';
+import { deleteAsset } from '@shared/db/assets';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
 import { ITEM_TYPE_LABELS } from '../types';
@@ -51,12 +53,22 @@ export function ItemDetail() {
   async function handleUpdate(values: ItemFormValues) {
     setSaving(true);
     try {
+      const previousImageId = item!.data.imageId ?? null;
+      const nextImageId = values.imageId ?? null;
       await updateEntity(db, item!.id, {
         name: values.name,
         description: values.description,
         tags: values.tags,
-        data: { itemType: values.itemType, properties: values.properties },
+        data: {
+          itemType: values.itemType,
+          properties: values.properties,
+          imageId: nextImageId,
+          imageAlt: values.imageAlt ?? '',
+        },
       });
+      if (previousImageId && previousImageId !== nextImageId) {
+        await deleteAsset(db, previousImageId).catch(() => undefined);
+      }
       toast.success('Przedmiot zaktualizowany');
       setIsEditing(false);
     } catch {
@@ -87,9 +99,17 @@ export function ItemDetail() {
 
       <div className="app-panel-strong flex flex-col gap-5 rounded-[1.9rem] border border-white/40 px-6 py-6 shadow-[0_28px_60px_rgba(18,45,66,0.12)] lg:flex-row lg:items-start lg:justify-between lg:px-7">
         <div className="flex items-center gap-4">
-          <div className="app-danger-card rounded-[1.25rem] p-3 text-amber-700 shadow-[0_14px_28px_rgba(210,166,67,0.18)]">
-            <Package className="h-5 w-5 shrink-0" />
-          </div>
+          {!isEditing && item.data.imageId ? (
+            <EntityDetailPortrait
+              imageId={item.data.imageId}
+              alt={item.data.imageAlt ?? item.name}
+              size="lg"
+            />
+          ) : (
+            <div className="app-danger-card rounded-[1.25rem] p-3 text-amber-700 shadow-[0_14px_28px_rgba(210,166,67,0.18)]">
+              <Package className="h-5 w-5 shrink-0" />
+            </div>
+          )}
           <div>
             <h1 className="text-surface-900 text-3xl font-semibold tracking-[-0.03em]">
               {item.name}
@@ -134,6 +154,8 @@ export function ItemDetail() {
               properties: item.data.properties,
               description: item.description,
               tags: item.tags,
+              imageId: item.data.imageId ?? null,
+              imageAlt: item.data.imageAlt ?? '',
             }}
             onSubmit={handleUpdate}
             isSaving={saving}

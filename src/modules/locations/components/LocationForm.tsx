@@ -3,6 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { TagInput } from '@shared/components/TagInput';
 import { RichTextEditor } from '@shared/components/RichTextEditor';
+import { ImagePicker } from '@shared/components/ImagePicker';
 import { useLocations } from '../hooks/useLocations';
 import { LOCATION_TYPES, LOCATION_TYPE_LABELS } from '../types';
 
@@ -17,6 +18,8 @@ const locationFormSchema = z.object({
   parentLocationId: z.string().optional(),
   description: z.string().max(100_000).default(''),
   tags: z.array(z.string()).max(50).default([]),
+  imageId: z.string().nullish(),
+  imageAlt: z.string().max(200).default(''),
 });
 
 export type LocationFormValues = z.infer<typeof locationFormSchema>;
@@ -49,6 +52,7 @@ export function LocationForm({
     register,
     control,
     watch,
+    setValue,
     handleSubmit,
     formState: { errors },
   } = useForm<LocationFormValues>({
@@ -64,6 +68,8 @@ export function LocationForm({
       parentLocationId: lockedParentId,
       description: '',
       tags: [],
+      imageId: null,
+      imageAlt: '',
       ...defaultValues,
     },
   });
@@ -94,6 +100,24 @@ export function LocationForm({
           </p>
         )}
       </div>
+
+      {/* Cover image */}
+      <Controller
+        name="imageId"
+        control={control}
+        render={({ field }) => (
+          <ImagePicker
+            idPrefix="loc"
+            label="Obrazek"
+            imageId={field.value ?? null}
+            imageAlt={watch('imageAlt') ?? ''}
+            onChange={({ imageId, imageAlt }) => {
+              field.onChange(imageId);
+              setValue('imageAlt', imageAlt, { shouldDirty: true });
+            }}
+          />
+        )}
+      />
 
       {/* Type + Danger */}
       <div className="grid grid-cols-2 gap-3">

@@ -2,9 +2,13 @@ import { useState, type ReactNode } from 'react';
 import { PrimarySidebar } from './PrimarySidebar';
 import { PrimaryTopBar } from './PrimaryTopBar';
 import { Menu } from 'lucide-react';
+import { useBackupReminder } from '@shared/hooks/useBackupReminder';
+import { useCampaign } from '@shared/db/CampaignContext';
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { campaignId } = useCampaign();
+  useBackupReminder(campaignId);
 
   return (
     <div className="flex min-h-dvh">
