@@ -87,7 +87,9 @@ describe('SessionLive smoke tests', () => {
     await user.click(screen.getByRole('button', { name: 'Inspiracje' }));
 
     await waitFor(() => {
-      expect(screen.getByText('Generator podpowiedzi do improwizacji: postacie, lokacje, zdarzenia i tabele wlasne.')).toBeInTheDocument();
+      expect(
+        screen.getByText('Szybkie podpowiedzi do improwizacji: postacie, lokacje, zdarzenia i tabele wlasne.'),
+      ).toBeInTheDocument();
     });
   });
 
@@ -176,7 +178,9 @@ describe('SessionLive smoke tests', () => {
 
     await user.click(screen.getByRole('button', { name: 'Rozwiń menu boczne' }));
     await user.click(screen.getByRole('button', { name: 'Inspiracje' }));
-    expect(screen.getByText('Generator podpowiedzi do improwizacji: postacie, lokacje, zdarzenia i tabele wlasne.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Szybkie podpowiedzi do improwizacji: postacie, lokacje, zdarzenia i tabele wlasne.'),
+    ).toBeInTheDocument();
 
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1920 });
     window.dispatchEvent(new Event('resize'));

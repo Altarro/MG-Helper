@@ -330,7 +330,7 @@ export function SessionLive() {
 
         <div
           className={`fixed top-1/2 z-[35] -translate-y-1/2 transition-all duration-300 ease-out ${
-            openSection ? 'right-[348px]' : 'right-0'
+            openSection ? 'right-[min(26rem,42vw)]' : 'right-0'
           }`}
           onMouseEnter={() => setRailHovered(true)}
           onMouseLeave={() => {
@@ -389,13 +389,19 @@ export function SessionLive() {
                       }
                       setOpenSection(sectionId);
                     }}
-                    className={`relative flex h-9 w-[7.5rem] items-center justify-center rounded-l-full border border-r-0 px-3 text-center text-[11px] font-semibold tracking-[0.01em] transition-all ${
+                    className={`group relative flex h-9 w-[7.5rem] items-center justify-center overflow-hidden rounded-l-full border border-r-0 px-3 text-center text-[11px] font-semibold tracking-[0.01em] transition-all ${
                       active
                         ? 'border-[rgba(18,45,66,0.2)] bg-[linear-gradient(180deg,var(--color-primary-600)_0%,var(--color-primary-700)_100%)] text-[#f7f3e8] shadow-[0_14px_28px_rgba(18,45,66,0.2)]'
                         : 'app-pill-muted text-surface-700 hover:text-primary-800 border-[rgba(86,93,94,0.14)] bg-[rgba(223,225,218,0.94)] shadow-[0_8px_18px_rgba(18,45,66,0.08)] hover:bg-[rgba(229,231,223,0.98)]'
                     }`}
                   >
-                    {label}
+                    {!active && (
+                      <span
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(111,146,164,0.04)_0%,rgba(111,146,164,0.16)_100%)] opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+                      />
+                    )}
+                    <span className="relative z-[1]">{label}</span>
                   </button>
                 );
               })}
@@ -413,7 +419,7 @@ export function SessionLive() {
         )}
 
         <div
-          className={`fixed top-[6rem] right-0 bottom-10 z-[34] flex w-[348px] max-w-[36vw] flex-col overflow-hidden rounded-l-[1.8rem] border border-r-0 border-[rgba(86,93,94,0.14)] bg-[linear-gradient(180deg,rgba(223,225,218,0.96)_0%,rgba(210,212,203,0.98)_100%)] shadow-[0_28px_52px_rgba(18,45,66,0.18)] transition-transform duration-300 ease-out ${
+          className={`fixed top-[5.5rem] right-0 bottom-6 z-[34] flex w-[min(26rem,42vw)] min-w-[21.5rem] max-w-[calc(100vw-1.25rem)] flex-col overflow-hidden rounded-l-[1.8rem] border border-r-0 border-[rgba(86,93,94,0.14)] bg-[linear-gradient(180deg,rgba(223,225,218,0.96)_0%,rgba(210,212,203,0.98)_100%)] shadow-[0_28px_52px_rgba(18,45,66,0.18)] transition-transform duration-300 ease-out ${
             openSection ? 'translate-x-0' : 'translate-x-full'
           } ${openSection ? 'pointer-events-auto' : 'pointer-events-none'}`}
         >
@@ -434,8 +440,7 @@ export function SessionLive() {
               </div>
               <div
                 ref={panelScrollRef}
-                className="rail-scroll min-h-0 flex-1 overflow-y-auto p-3 pb-8"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                className="rail-scroll min-h-0 flex-1 overflow-y-auto px-3.5 py-3.5 pb-10"
                 onScroll={handlePanelScroll}
                 onPointerDown={handlePanelPointerDown}
                 onPointerMove={handlePanelPointerMove}
@@ -450,7 +455,7 @@ export function SessionLive() {
                   type="button"
                   onClick={handleScrollToTop}
                   aria-label="Przewiń na górę"
-                  className="app-button-secondary text-surface-700 absolute right-4 bottom-4 inline-flex h-9 w-9 items-center justify-center rounded-full shadow-[0_10px_22px_rgba(18,45,66,0.16)]"
+                  className="app-button-secondary text-surface-700 absolute right-4 bottom-4 inline-flex h-10 w-10 items-center justify-center rounded-full border-[rgba(33,71,102,0.2)] bg-[rgba(223,225,218,0.9)] shadow-[0_12px_24px_rgba(18,45,66,0.18)]"
                 >
                   <ChevronUp className="h-4 w-4" />
                 </button>

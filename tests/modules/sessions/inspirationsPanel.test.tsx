@@ -141,9 +141,13 @@ describe('SessionInspirationsPanel', () => {
       </MemoryRouter>,
     );
 
+    await user.click(screen.getByRole('button', { name: /Feedback o inspiracjach/i }));
     await user.selectOptions(screen.getByDisplayValue('UX'), 'quality');
     await user.selectOptions(screen.getByDisplayValue('4/5'), '5');
-    await user.type(screen.getByPlaceholderText('Co warto poprawic w panelu Inspiracje?'), 'Bardzo przydatne podczas impro.');
+    await user.type(
+      screen.getByPlaceholderText('Co najbardziej przeszkadza w panelu Inspiracje?'),
+      'Bardzo przydatne podczas impro.',
+    );
     await user.click(screen.getByRole('button', { name: 'Wyslij feedback' }));
 
     expect(submitGeneratorFeedbackMock).toHaveBeenCalledTimes(1);

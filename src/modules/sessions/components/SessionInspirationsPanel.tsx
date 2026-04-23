@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
-import { Sparkles, User, MapPin, Dice5, Table2, WandSparkles, RotateCcw } from 'lucide-react';
+import { Sparkles, User, MapPin, Dice5, Table2, WandSparkles, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
 import { useGeneratorPacks } from '@modules/generator/hooks/useGeneratorPacks';
@@ -41,6 +41,43 @@ interface SessionInspirationsPanelProps {
   currentLocationId: string | null;
 }
 
+interface CollapsibleSectionProps {
+  title: string;
+  subtitle?: string;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+  defaultOpenLabel?: string;
+}
+
+function CollapsibleSection({
+  title,
+  subtitle,
+  open,
+  onToggle,
+  children,
+  defaultOpenLabel = 'Rozwin',
+}: CollapsibleSectionProps) {
+  return (
+    <div className="app-panel rounded-[1.35rem] p-3.5">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="group flex w-full items-center gap-3 text-left"
+        aria-expanded={open}
+      >
+        <span className="text-surface-800 text-sm font-semibold">{title}</span>
+        {subtitle ? <span className="text-surface-500 text-xs">{subtitle}</span> : null}
+        <span className="ml-auto text-surface-500 inline-flex h-6 w-6 items-center justify-center rounded-full border border-[rgba(86,93,94,0.16)] bg-[rgba(223,225,218,0.85)] transition-colors group-hover:text-primary-700">
+          {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+        </span>
+      </button>
+      {open ? <div className="mt-3 border-t border-[rgba(86,93,94,0.1)] pt-3">{children}</div> : null}
+      {!open ? <p className="text-surface-500 mt-2 text-xs">{defaultOpenLabel} sekcje</p> : null}
+    </div>
+  );
+}
+
 export function SessionInspirationsPanel({ sessionId, currentLocationId }: SessionInspirationsPanelProps) {
   const navigate = useNavigate();
   const { db, campaignId } = useCampaign();
@@ -68,6 +105,9 @@ export function SessionInspirationsPanel({ sessionId, currentLocationId }: Sessi
   const [feedbackCategory, setFeedbackCategory] = useState<'ux' | 'quality' | 'speed' | 'other'>('ux');
   const [feedbackRating, setFeedbackRating] = useState<1 | 2 | 3 | 4 | 5>(4);
   const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const { activePack, filteredCustomTables, getTableById, isBootstrapping, bootstrapDefaultPack } =
     useGeneratorPacks({
       customSearch,
@@ -286,7 +326,7 @@ export function SessionInspirationsPanel({ sessionId, currentLocationId }: Sessi
   function handleSubmitFeedback() {
     const message = feedbackMessage.trim();
     if (message.length < 5) {
-      toast.error('Wpisz krotszy feedback? Minimum 5 znakow.');
+      toast.error('Wpisz dluzszy feedback. Minimum 5 znakow.');
       return;
     }
     submitGeneratorFeedback({
@@ -308,12 +348,12 @@ export function SessionInspirationsPanel({ sessionId, currentLocationId }: Sessi
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       {onboardingVisible && (
         <div className="app-panel rounded-[1.35rem] border border-[rgba(33,71,102,0.2)] bg-[rgba(227,236,239,0.72)] p-3.5">
           <p className="text-surface-800 text-sm font-semibold">Pierwsze uruchomienie Inspiracji</p>
           <p className="text-surface-700 mt-1 text-xs">
-            Wybierz tryb, kliknij <strong>Losuj</strong>, potem zapisz wynik jako notatke albo encje.
+            Zacznij od trybu i kliknij <strong>Losuj</strong>. Potem zapisz wynik jako notatke albo encje.
             Skroty: <strong>R</strong> (losuj) i <strong>Q</strong> (losuj ponownie).
           </p>
           <button
@@ -322,28 +362,27 @@ export function SessionInspirationsPanel({ sessionId, currentLocationId }: Sessi
               localStorage.setItem(settingsKeys.onboardingDismissed, '1');
               setOnboardingVisible(false);
             }}
-            className="app-button-secondary mt-2 rounded-xl px-3 py-1.5 text-[11px] font-medium"
+            className="app-button-secondary mt-3 rounded-xl px-3 py-1.5 text-[11px] font-medium"
           >
             Rozumiem
           </button>
         </div>
       )}
+
       <div className="app-panel rounded-[1.45rem] p-4">
-        <div className="mb-3">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-surface-500 text-xs font-semibold tracking-[0.18em] uppercase">
-              Inspiracje
+        <div className="mb-4 flex items-start justify-between gap-2">
+          <div>
+            <p className="text-surface-500 text-xs font-semibold tracking-[0.18em] uppercase">Inspiracje</p>
+            <p className="text-surface-700 mt-1 text-sm">
+              Szybkie podpowiedzi do improwizacji: postacie, lokacje, zdarzenia i tabele wlasne.
             </p>
-            <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700 ring-1 ring-primary-200 ring-inset">
-              {rollHistory.length}
-            </span>
           </div>
-          <p className="text-surface-700 mt-1 text-sm">
-            Generator podpowiedzi do improwizacji: postacie, lokacje, zdarzenia i tabele wlasne.
-          </p>
+          <span className="rounded-full bg-white/80 px-2 py-1 text-[10px] font-semibold text-primary-700 ring-1 ring-primary-200 ring-inset">
+            Historia: {rollHistory.length}
+          </span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
           {(
             [
               ['character', MODE_LABELS.character],
@@ -365,13 +404,46 @@ export function SessionInspirationsPanel({ sessionId, currentLocationId }: Sessi
             </button>
           ))}
         </div>
+
+        <div className="app-input-shell rounded-[1rem] px-3 py-2.5">
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-primary-700 inline-flex items-center gap-1 rounded-full border border-[rgba(33,71,102,0.18)] bg-[rgba(111,146,164,0.12)] px-2.5 py-1 text-[11px] font-semibold">
+              {modeIcon}
+              {MODE_LABELS[mode]}
+            </span>
+            <span className="text-surface-500 text-xs">{MODE_HINTS[mode]}</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => roll()}
+              disabled={!activePack}
+              className="app-button-primary inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold"
+            >
+              <WandSparkles className="h-3.5 w-3.5" />
+              Losuj
+            </button>
+            <button
+              type="button"
+              onClick={rollAgain}
+              disabled={!activePack}
+              className="app-button-secondary rounded-xl px-3 py-2 text-xs font-medium"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <RotateCcw className="h-3.5 w-3.5" />
+                Losuj ponownie
+              </span>
+            </button>
+          </div>
+          {previewRoll && <p className="text-surface-500 mt-2 text-xs">Podglad: {previewRoll.resultText}</p>}
+          {isCommitting && <p className="text-surface-500 mt-1 text-xs">Zapisywanie historii...</p>}
+        </div>
       </div>
 
       {!activePack && (
         <div className="app-panel rounded-[1.35rem] p-3.5">
           <p className="text-surface-700 text-sm">
-            Brak zestawu generatora dla tej kampanii. Przygotuj domyslny zestaw, aby uruchomic
-            losowanie.
+            Brak zestawu generatora dla tej kampanii. Przygotuj domyslny zestaw, aby uruchomic losowanie.
           </p>
           <button
             type="button"
@@ -384,33 +456,79 @@ export function SessionInspirationsPanel({ sessionId, currentLocationId }: Sessi
         </div>
       )}
 
-      <div className="app-panel rounded-[1.35rem] p-3.5">
-        <div className="mb-2 flex items-center gap-2">
-          <span className="text-primary-700 inline-flex items-center gap-1 rounded-full border border-[rgba(33,71,102,0.18)] bg-[rgba(111,146,164,0.12)] px-2.5 py-1 text-[11px] font-semibold">
-            {modeIcon}
-            {MODE_LABELS[mode]}
-          </span>
-          <span className="text-surface-500 text-xs">{MODE_HINTS[mode]}</span>
+      {lastRoll ? (
+        <div className="app-panel rounded-[1.35rem] p-3.5">
+          <p className="text-surface-500 mb-1 text-[11px] font-semibold tracking-[0.14em] uppercase">Wynik</p>
+          <p className="text-primary-900 text-sm font-semibold">{lastRoll.resultText}</p>
+          {lastRoll.sourceTableIds.length > 0 && (
+            <p className="text-surface-500 mt-1 text-xs">
+              Zrodlo: {lastRoll.sourceTableIds.map((id) => getTableById(id)?.name ?? id).join(', ')}
+            </p>
+          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void handleCopyResult()}
+              className="app-button-secondary rounded-xl px-3 py-2 text-xs font-medium"
+            >
+              Kopiuj wynik
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleAddResultToSessionNotes()}
+              className="app-button-secondary rounded-xl px-3 py-2 text-xs font-medium"
+            >
+              Dodaj do notatki sesji
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleCreateEntityFromRoll()}
+              className="app-button-secondary rounded-xl px-3 py-2 text-xs font-medium"
+            >
+              Utworz encje z wyniku
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/settings')}
+              className="app-button-secondary rounded-xl px-3 py-2 text-xs font-medium"
+            >
+              Otworz ustawienia generatora
+            </button>
+          </div>
         </div>
+      ) : (
+        <div className="app-input-shell rounded-[1.25rem] border-dashed px-4 py-4 text-sm text-surface-600">
+          <div className="flex items-start gap-2">
+            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary-500" />
+            <p>Kliknij "Losuj", aby wygenerowac pierwsza inspiracje.</p>
+          </div>
+        </div>
+      )}
 
+      <CollapsibleSection
+        title="Ustawienia zaawansowane"
+        subtitle="Rzadziej zmieniane opcje generatora"
+        open={advancedOpen || mode === 'customTable'}
+        onToggle={() => setAdvancedOpen((prev) => !prev)}
+      >
         {mode === 'customTable' && (
-          <div className="mb-2">
-            <label className="text-surface-500 mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em]">
+          <div className="mb-3 space-y-2.5 rounded-[0.95rem] border border-[rgba(86,93,94,0.12)] bg-[rgba(223,225,218,0.64)] p-2.5">
+            <label className="text-surface-500 block text-[11px] font-semibold uppercase tracking-[0.14em]">
               Szukaj tabeli
             </label>
             <input
               value={customSearch}
               onChange={(event) => setCustomSearch(event.target.value)}
               placeholder="np. plot twist, plotka, loot..."
-              className="app-input mb-2 w-full rounded-xl px-3 py-2 text-sm"
+              className="app-input w-full rounded-xl px-3 py-2 text-sm"
             />
             <input
               value={tagFilter}
               onChange={(event) => setTagFilter(event.target.value)}
               placeholder="Filtr tagu, np. miasto, walka..."
-              className="app-input mb-2 w-full rounded-xl px-3 py-2 text-sm"
+              className="app-input w-full rounded-xl px-3 py-2 text-sm"
             />
-            <label className="mb-2 inline-flex items-center gap-2 text-xs text-surface-700">
+            <label className="inline-flex items-center gap-2 text-xs text-surface-700">
               <input
                 type="checkbox"
                 checked={favoritesOnly}
@@ -418,9 +536,6 @@ export function SessionInspirationsPanel({ sessionId, currentLocationId }: Sessi
                 className="h-4 w-4 rounded border-surface-300 text-primary-700 focus:ring-primary-500/30"
               />
               Tylko ulubione
-            </label>
-            <label className="text-surface-500 mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em]">
-              Tabela wlasna
             </label>
             <select
               value={customTableId}
@@ -434,64 +549,37 @@ export function SessionInspirationsPanel({ sessionId, currentLocationId }: Sessi
                 </option>
               ))}
             </select>
-            {filteredCustomTables.length === 0 && (
-              <p className="text-surface-500 mt-1 text-xs">
-                Brak tabel pasujacych do frazy.
-              </p>
-            )}
+            {filteredCustomTables.length === 0 && <p className="text-surface-500 text-xs">Brak pasujacych tabel.</p>}
             {customTableId && (
               <button
                 type="button"
                 onClick={() => toggleFavoriteTable(customTableId)}
-                className="app-button-secondary mt-2 rounded-xl px-3 py-1.5 text-[11px] font-medium"
+                className="app-button-secondary rounded-xl px-3 py-1.5 text-[11px] font-medium"
               >
                 {favoriteTableIds.includes(customTableId) ? 'Odepnij ulubiona tabele' : 'Przypnij do ulubionych'}
               </button>
             )}
           </div>
         )}
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => roll()}
-            disabled={!activePack}
-            className="app-button-primary inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold"
-          >
-            <WandSparkles className="h-3.5 w-3.5" />
-            Losuj
-          </button>
-          <button
-            type="button"
-            onClick={rollAgain}
-            disabled={!activePack}
-            className="app-button-secondary rounded-xl px-3 py-2 text-xs font-medium"
-          >
-            <span className="inline-flex items-center gap-1.5">
-              <RotateCcw className="h-3.5 w-3.5" />
-            Losuj ponownie
-            </span>
-          </button>
-        </div>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => handleQuickPreset(3, 'character')}
-            className="app-button-secondary rounded-xl px-3 py-1.5 text-[11px] font-medium"
-            title="Szybki preset: losuj postac 3 razy"
-          >
-            3x Postac
-          </button>
-          <button
-            type="button"
-            onClick={() => handleQuickPreset(5, 'location')}
-            className="app-button-secondary rounded-xl px-3 py-1.5 text-[11px] font-medium"
-            title="Szybki preset: losuj lokacje 5 razy"
-          >
-            5x Lokacja
-          </button>
-        </div>
-        <div className="mt-3 grid gap-2 md:grid-cols-2">
+        <div className="space-y-2.5">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => handleQuickPreset(3, 'character')}
+              className="app-button-secondary rounded-xl px-3 py-2 text-xs font-medium"
+              title="Szybki preset: losuj postac 3 razy"
+            >
+              Szybki preset: 3x Postac
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickPreset(5, 'location')}
+              className="app-button-secondary rounded-xl px-3 py-2 text-xs font-medium"
+              title="Szybki preset: losuj lokacje 5 razy"
+            >
+              Szybki preset: 5x Lokacja
+            </button>
+          </div>
           <div>
             <label className="text-surface-500 mb-1 block text-[11px] font-semibold uppercase tracking-[0.14em]">
               Seed (opcjonalnie)
@@ -503,7 +591,7 @@ export function SessionInspirationsPanel({ sessionId, currentLocationId }: Sessi
               className="app-input w-full rounded-xl px-3 py-2 text-sm"
             />
           </div>
-          <label className="mt-5 inline-flex items-center gap-2 text-xs text-surface-700">
+          <label className="inline-flex items-center gap-2 text-xs text-surface-700">
             <input
               type="checkbox"
               checked={withoutRepetition}
@@ -512,14 +600,6 @@ export function SessionInspirationsPanel({ sessionId, currentLocationId }: Sessi
             />
             Bez powtorzen (w aktywnym losowaniu)
           </label>
-        </div>
-        {previewRoll && (
-          <p className="text-surface-500 mt-2 text-xs">
-            Podglad: {previewRoll.resultText}
-          </p>
-        )}
-        {isCommitting && <p className="text-surface-500 mt-1 text-xs">Zapisywanie historii...</p>}
-        <div className="mt-3 flex flex-col gap-2">
           {mode === 'character' && (
             <label className="inline-flex items-center gap-2 text-xs text-surface-700">
               <input
@@ -563,84 +643,32 @@ export function SessionInspirationsPanel({ sessionId, currentLocationId }: Sessi
             Auto-zapis do historii
           </label>
         </div>
-      </div>
-
-      {lastRoll ? (
-        <div className="app-panel rounded-[1.35rem] p-3.5">
-          <p className="text-surface-500 mb-1 text-[11px] font-semibold uppercase tracking-[0.14em]">
-            Ostatni wynik
-          </p>
-          <p className="text-primary-900 text-sm font-semibold">{lastRoll.resultText}</p>
-          {lastRoll.sourceTableIds.length > 0 && (
-            <p className="text-surface-500 mt-1 text-xs">
-              Zrodlo:{' '}
-              {lastRoll.sourceTableIds
-                .map((id) => getTableById(id)?.name ?? id)
-                .join(', ')}
-            </p>
-          )}
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => void handleCopyResult()}
-              className="app-button-secondary rounded-xl px-3 py-2 text-xs font-medium"
-            >
-              Kopiuj wynik
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleAddResultToSessionNotes()}
-              className="app-button-secondary rounded-xl px-3 py-2 text-xs font-medium"
-            >
-              Dodaj do notatki sesji
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleCreateEntityFromRoll()}
-              className="app-button-secondary rounded-xl px-3 py-2 text-xs font-medium"
-            >
-              Utworz encje z wyniku
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/settings')}
-              className="app-button-secondary rounded-xl px-3 py-2 text-xs font-medium"
-            >
-              Otworz Ustawienia generatora
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="app-input-shell rounded-[1.25rem] border-dashed px-4 py-4 text-sm text-surface-600">
-          <div className="flex items-start gap-2">
-            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary-500" />
-            <p>Kliknij "Losuj", aby wygenerowac pierwsza inspiracje.</p>
-          </div>
-        </div>
-      )}
+      </CollapsibleSection>
 
       {rollHistory.length > 0 && (
-        <div className="app-panel rounded-[1.35rem] p-3.5">
-          <p className="text-surface-500 mb-2 text-[11px] font-semibold uppercase tracking-[0.14em]">
-            Historia losowan
-          </p>
+        <CollapsibleSection
+          title="Historia losowan"
+          subtitle={`${rollHistory.length} ostatnich wpisow`}
+          open={historyOpen}
+          onToggle={() => setHistoryOpen((prev) => !prev)}
+        >
           <div className="flex flex-col gap-1.5">
             {rollHistory.map((item) => (
-              <div
-                key={item.id}
-                className="app-input-shell rounded-[0.9rem] px-3 py-2 text-xs text-surface-700"
-              >
+              <div key={item.id} className="app-input-shell rounded-[0.9rem] px-3 py-2 text-xs text-surface-700">
                 {item.resultText}
               </div>
             ))}
           </div>
-        </div>
+        </CollapsibleSection>
       )}
-      <div className="app-panel rounded-[1.35rem] p-3.5">
-        <p className="text-surface-500 mb-2 text-[11px] font-semibold uppercase tracking-[0.14em]">
-          Feedback o Inspiracjach
-        </p>
-        <div className="grid gap-2 md:grid-cols-2">
+
+      <CollapsibleSection
+        title="Feedback o inspiracjach"
+        subtitle="Pomoz ulepszyc generator"
+        open={feedbackOpen}
+        onToggle={() => setFeedbackOpen((prev) => !prev)}
+      >
+        <div className="grid gap-2 sm:grid-cols-2">
           <select
             value={feedbackCategory}
             onChange={(event) => setFeedbackCategory(event.target.value as 'ux' | 'quality' | 'speed' | 'other')}
@@ -666,7 +694,7 @@ export function SessionInspirationsPanel({ sessionId, currentLocationId }: Sessi
         <textarea
           value={feedbackMessage}
           onChange={(event) => setFeedbackMessage(event.target.value)}
-          placeholder="Co warto poprawic w panelu Inspiracje?"
+          placeholder="Co najbardziej przeszkadza w panelu Inspiracje?"
           className="app-input mt-2 min-h-20 w-full rounded-xl px-3 py-2 text-xs"
         />
         <button
@@ -676,7 +704,7 @@ export function SessionInspirationsPanel({ sessionId, currentLocationId }: Sessi
         >
           Wyslij feedback
         </button>
-      </div>
+      </CollapsibleSection>
     </div>
   );
 }
