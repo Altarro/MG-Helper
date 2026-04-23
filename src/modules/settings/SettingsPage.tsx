@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Download, Upload, CheckCircle, AlertCircle, Loader2, Sparkles, Trash2, Archive, FolderArchive, Eraser, HardDrive } from 'lucide-react';
 import { exportJson } from '@shared/utils/exportJson';
@@ -57,10 +57,7 @@ export function SettingsPage() {
         .toArray(),
     [db, campaignId],
   );
-  const telemetryInsights = useMemo(() => getGeneratorTelemetryInsights(), [
-    campaignId,
-    generatorPacks?.length ?? 0,
-  ]);
+  const telemetryInsights = getGeneratorTelemetryInsights();
   const migrationBackups = useLiveQuery(
     () => listGeneratorMigrationBackups(db, campaignId),
     [db, campaignId],

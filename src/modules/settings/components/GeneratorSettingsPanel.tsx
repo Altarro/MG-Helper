@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { generateId } from '@shared/utils/id';
 import { nowISO } from '@shared/utils/date';
@@ -125,11 +125,11 @@ export function GeneratorSettingsPanel({
         ]),
       ),
     });
-  }, [selectedTable?.id, selectedTable?.updatedAt]);
+  }, [selectedTable]);
 
-  async function persistPack(pack: GeneratorPackRecord) {
+  const persistPack = useCallback(async (pack: GeneratorPackRecord) => {
     await saveGeneratorPack(db, { ...pack, updatedAt: nowISO() });
-  }
+  }, [db]);
 
   useEffect(() => {
     if (!selectedPack || !debouncedTableNameDraft) return;
@@ -144,7 +144,7 @@ export function GeneratorSettingsPanel({
         table.id === debouncedTableNameDraft.tableId ? { ...table, name: next, updatedAt: nowISO() } : table,
       ),
     });
-  }, [debouncedTableNameDraft, selectedPack]);
+  }, [debouncedTableNameDraft, persistPack, selectedPack]);
 
   useEffect(() => {
     if (!selectedPack || !debouncedEntryDraftState) return;
@@ -184,7 +184,7 @@ export function GeneratorSettingsPanel({
           : table,
       ),
     });
-  }, [debouncedEntryDraftState, selectedPack]);
+  }, [debouncedEntryDraftState, persistPack, selectedPack]);
 
   useEffect(() => {
     if (!importPayload.trim() || importFlowStarted) return;

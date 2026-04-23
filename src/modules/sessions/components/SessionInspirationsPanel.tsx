@@ -106,7 +106,7 @@ export function SessionInspirationsPanel({ sessionId, currentLocationId }: Sessi
         }
       : undefined,
   });
-  const previewRoll = useMemo(() => preview(), [preview, mode, customTableId, seed, withoutRepetition]);
+  const previewRoll = useMemo(() => preview(), [preview]);
 
   useEffect(() => {
     const migrated = migrateLegacyGeneratorSettings(campaignId);
@@ -129,6 +129,9 @@ export function SessionInspirationsPanel({ sessionId, currentLocationId }: Sessi
       setSeed(storedSeed);
     }
     setOnboardingVisible(localStorage.getItem(settingsKeys.onboardingDismissed) !== '1');
+    // setSeed is intentionally omitted: its identity can change between renders and
+    // would retrigger this migration/init effect unexpectedly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaignId, settingsKeys]);
 
   useEffect(() => {
