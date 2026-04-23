@@ -12,7 +12,6 @@
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
     "noEmit": true,
-    "ignoreDeprecations": "6.0",
     "jsx": "react-jsx",
 
     /* Linting / Strict */
@@ -25,11 +24,10 @@
     "forceConsistentCasingInFileNames": true,
 
     /* Aliases */
-    "baseUrl": ".",
     "paths": {
-      "@app/*": ["src/app/*"],
-      "@modules/*": ["src/modules/*"],
-      "@shared/*": ["src/shared/*"]
+      "@app/*": ["./src/app/*"],
+      "@modules/*": ["./src/modules/*"],
+      "@shared/*": ["./src/shared/*"]
     }
   },
   "include": ["src"]

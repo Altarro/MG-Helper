@@ -2,6 +2,10 @@
   "extends": "../tsconfig.app.json",
   "compilerOptions": {
     "types": ["vitest/globals", "@testing-library/jest-dom", "vite/client", "node"],
+    "strict": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noUncheckedIndexedAccess": false,
     "noEmit": true
   },
   "include": ["./**/*.ts", "./**/*.tsx"]
