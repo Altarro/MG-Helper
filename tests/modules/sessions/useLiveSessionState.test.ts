@@ -82,6 +82,17 @@ describe('useLiveSessionState', () => {
     expect(result.current.openCardIds).toEqual(['x', 'y']);
   });
 
+  it('restores persisted state after unmount/mount cycle (reload simulation)', () => {
+    const { result, unmount } = renderHook(() => useLiveSessionState(SESSION_ID));
+    act(() => result.current.setCurrentLocationId('loc-reload'));
+    act(() => result.current.openCard('card-a'));
+    unmount();
+
+    const remounted = renderHook(() => useLiveSessionState(SESSION_ID));
+    expect(remounted.result.current.currentLocationId).toBe('loc-reload');
+    expect(remounted.result.current.openCardIds).toEqual(['card-a']);
+  });
+
   it('falls back to empty state when sessionStorage contains invalid JSON', () => {
     sessionStorage.setItem(key(), '{not-json');
     const { result } = renderHook(() => useLiveSessionState(SESSION_ID));

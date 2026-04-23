@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ArrowLeft, Zap, StopCircle, ChevronLeft } from 'lucide-react';
+import { ArrowLeft, Zap, StopCircle, ChevronLeft, ChevronUp } from 'lucide-react';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
 import type { NpcDragData } from '@shared/components/DraggableNpcChip';
@@ -25,6 +25,8 @@ import { ThreadTreePanel } from './ThreadTreePanel';
 import { ActiveThreatsPanel } from './ActiveThreatsPanel';
 import { LocationPickerModal } from './LocationPickerModal';
 import { SessionSearchPanel } from './SessionSearchPanel';
+import { SessionCluesPanel } from './SessionCluesPanel';
+import { SessionInspirationsPanel } from './SessionInspirationsPanel';
 import { QuickNotePanel } from '@modules/notes/components/QuickNotePanel';
 import { useCurrentSceneNpcIds } from '../hooks/useLiveSessionQueries';
 import { toast } from 'sonner';
@@ -38,6 +40,16 @@ const DEFAULT_SPOTLIGHT: SpotlightState = {
   isPaused: false,
   sessionStarted: false,
 };
+
+const RAIL_SECTIONS = [
+  ['threats', 'Zagrożenia'],
+  ['notes', 'Notatki'],
+  ['npcs', 'Postacie'],
+  ['threads', 'Wątki'],
+  ['clues', 'Wskazówki'],
+  ['inspirations', 'Inspiracje'],
+  ['search', 'Wyszukaj'],
+] as const;
 
 export function SessionLive() {
   const { id } = useParams<{ id: string }>();
@@ -59,10 +71,14 @@ export function SessionLive() {
   const [activeNpcDrag, setActiveNpcDrag] = useState<NpcDragData | null>(null);
   const sceneCenterRef = useRef<SceneCenterHandle>(null);
   const [openSection, setOpenSection] = useState<
-    'npcs' | 'threads' | 'threats' | 'notes' | 'search' | null
+    'npcs' | 'threads' | 'threats' | 'notes' | 'clues' | 'inspirations' | 'search' | null
   >(null);
   const [locationPickerOpen, setLocationPickerOpen] = useState(false);
   const [railHovered, setRailHovered] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const panelScrollRef = useRef<HTMLDivElement | null>(null);
+  const panelDragRef = useRef<{ startY: number; scrollTop: number } | null>(null);
+  const railButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const sessionIdForHooks = session?.id ?? id ?? '';
 
   const sceneNpcIds = useCurrentSceneNpcIds(sessionIdForHooks, currentLocationId);
@@ -134,6 +150,37 @@ export function SessionLive() {
     navigate(`/sessions/${id}/cleanup`);
   }
 
+  const handlePanelPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const element = panelScrollRef.current;
+    if (!element) return;
+    if (
+      event.target instanceof Element &&
+      event.target.closest('button, a, input, textarea, select, label, [role="button"]')
+    ) {
+      return;
+    }
+    element.setPointerCapture(event.pointerId);
+    panelDragRef.current = { startY: event.clientY, scrollTop: element.scrollTop };
+  }, []);
+
+  const handlePanelPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const element = panelScrollRef.current;
+    if (!element || !panelDragRef.current) return;
+    element.scrollTop = panelDragRef.current.scrollTop - (event.clientY - panelDragRef.current.startY);
+  }, []);
+
+  const handlePanelPointerUp = useCallback(() => {
+    panelDragRef.current = null;
+  }, []);
+
+  const handlePanelScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
+    setShowScrollTop(event.currentTarget.scrollTop > 180);
+  }, []);
+
+  const handleScrollToTop = useCallback(() => {
+    panelScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
   if (session === undefined) return <LoadingSpinner />;
 
   if (!session) {
@@ -152,6 +199,8 @@ export function SessionLive() {
   function panelTitle(section: NonNullable<typeof openSection>): string {
     if (section === 'npcs') return 'Postacie';
     if (section === 'threads') return 'Wątki';
+    if (section === 'clues') return 'Wskazówki';
+    if (section === 'inspirations') return 'Inspiracje';
     if (section === 'threats') return 'Zagrożenia';
     if (section === 'notes') return 'Notatki';
     return 'Wyszukaj';
@@ -191,45 +240,55 @@ export function SessionLive() {
         />
       );
     }
+    if (section === 'clues') return <SessionCluesPanel sessionId={sessionId} />;
+    if (section === 'inspirations') {
+      return <SessionInspirationsPanel sessionId={sessionId} currentLocationId={currentLocationId} />;
+    }
     return <SessionSearchPanel sessionId={sessionId} />;
   }
 
   function closeRightPanel() {
     setOpenSection(null);
     setRailHovered(false);
+    setShowScrollTop(false);
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-transparent">
-      <div className="shrink-0 px-4 pt-3 pb-3">
-        <div className="app-panel-strong flex items-center gap-3 rounded-[1.8rem] px-5 py-4">
-          <Link
-            to={`/sessions/${id}`}
-            className="text-surface-600 hover:text-primary-800 flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(223,225,218,0.72)] transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[rgba(242,196,88,0.14)] text-[#9a6710]">
-            <Zap className="h-4 w-4" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-surface-500 text-[11px] font-semibold tracking-[0.18em] uppercase">
-              Tryb na żywo
-            </p>
-            <h1 className="text-primary-900 truncate text-xl font-semibold tracking-[-0.03em]">
-              {title}
-            </h1>
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
+      <section className="app-panel-strong shrink-0 rounded-[2rem] px-6 py-5 lg:px-8">
+        <div className="mb-4 inline-flex items-center rounded-full border border-[rgba(33,71,102,0.16)] bg-[rgba(111,146,164,0.12)] px-3 py-1 text-[11px] font-semibold tracking-[0.18em] text-primary-700 uppercase">
+          Sesja na żywo
+        </div>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0 flex items-center gap-3">
+            <Link
+              to={`/sessions/${id}`}
+              className="app-button-secondary text-surface-600 hover:text-primary-800 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[rgba(242,196,88,0.14)] text-[#9a6710]">
+              <Zap className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-primary-900 truncate text-2xl font-semibold tracking-[-0.03em]">
+                {title}
+              </h1>
+              <p className="text-surface-700 mt-1 text-sm leading-6">
+                Operacyjny widok scen, postaci i zagrożeń podczas prowadzenia sesji.
+              </p>
+            </div>
           </div>
           <button
             type="button"
             onClick={() => setConfirmEnd(true)}
-            className="text-danger-700 inline-flex items-center gap-2 rounded-2xl border border-[rgba(176,108,103,0.32)] bg-[rgba(176,108,103,0.08)] px-4 py-3 text-sm font-medium transition-colors hover:bg-[rgba(176,108,103,0.14)]"
+            className="inline-flex items-center gap-2 rounded-2xl border border-[rgba(176,108,103,0.32)] bg-[rgba(176,108,103,0.08)] px-4 py-3 text-sm font-semibold text-danger-700 transition-colors hover:bg-[rgba(176,108,103,0.14)]"
           >
             <StopCircle className="h-4 w-4" />
             Zakończ sesję
           </button>
         </div>
-      </div>
+      </section>
 
       <DndContext
         onDragStart={(event) => {
@@ -239,7 +298,7 @@ export function SessionLive() {
         onDragEnd={(event) => void handleDragEnd(event)}
         onDragCancel={() => setActiveNpcDrag(null)}
       >
-        <div className="grid flex-1 grid-cols-[300px_minmax(0,1fr)] gap-4 overflow-hidden px-4 pb-4">
+        <div className="grid min-h-0 flex-1 grid-cols-[300px_minmax(0,1fr)] gap-4 overflow-hidden px-1 pb-1">
           <aside className="flex min-h-0 flex-col gap-4">
             <div className="app-panel min-h-0 flex-[1.88] overflow-hidden rounded-[1.65rem]">
               <SessionTimeline sessionId={session.id} />
@@ -288,7 +347,7 @@ export function SessionLive() {
                 setRailHovered(true);
               }}
               aria-label="Rozwiń menu boczne"
-              className="text-surface-500 hover:text-primary-700 flex h-12 w-6 items-center justify-center rounded-l-full border border-r-0 border-[rgba(86,93,94,0.14)] bg-[rgba(223,225,218,0.94)] shadow-[0_10px_24px_rgba(18,45,66,0.14)]"
+              className="app-button-secondary text-surface-500 hover:text-primary-700 flex h-12 w-6 items-center justify-center rounded-l-full border-r-0 shadow-[0_10px_24px_rgba(18,45,66,0.14)]"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
             </button>
@@ -296,20 +355,33 @@ export function SessionLive() {
 
           {(openSection || railHovered) && (
             <div className="flex flex-col gap-2.5">
-              {(
-                [
-                  ['threats', 'Zagrożenia'],
-                  ['notes', 'Notatki'],
-                  ['npcs', 'Postacie'],
-                  ['threads', 'Wątki'],
-                  ['search', 'Wyszukaj'],
-                ] as const
-              ).map(([sectionId, label]) => {
+              {RAIL_SECTIONS.map(([sectionId, label], index) => {
                 const active = openSection === sectionId;
                 return (
                   <button
                     key={sectionId}
+                    ref={(node) => {
+                      railButtonRefs.current[index] = node;
+                    }}
                     type="button"
+                    aria-pressed={active}
+                    onKeyDown={(event) => {
+                      if (event.key === 'ArrowDown') {
+                        event.preventDefault();
+                        railButtonRefs.current[(index + 1) % RAIL_SECTIONS.length]?.focus();
+                      } else if (event.key === 'ArrowUp') {
+                        event.preventDefault();
+                        railButtonRefs.current[
+                          (index - 1 + RAIL_SECTIONS.length) % RAIL_SECTIONS.length
+                        ]?.focus();
+                      } else if (event.key === 'Home') {
+                        event.preventDefault();
+                        railButtonRefs.current[0]?.focus();
+                      } else if (event.key === 'End') {
+                        event.preventDefault();
+                        railButtonRefs.current[RAIL_SECTIONS.length - 1]?.focus();
+                      }
+                    }}
                     onClick={() => {
                       if (active) {
                         closeRightPanel();
@@ -320,7 +392,7 @@ export function SessionLive() {
                     className={`relative flex h-9 w-[7.5rem] items-center justify-center rounded-l-full border border-r-0 px-3 text-center text-[11px] font-semibold tracking-[0.01em] transition-all ${
                       active
                         ? 'border-[rgba(18,45,66,0.2)] bg-[linear-gradient(180deg,var(--color-primary-600)_0%,var(--color-primary-700)_100%)] text-[#f7f3e8] shadow-[0_14px_28px_rgba(18,45,66,0.2)]'
-                        : 'text-surface-700 hover:text-primary-800 border-[rgba(86,93,94,0.14)] bg-[rgba(223,225,218,0.94)] shadow-[0_8px_18px_rgba(18,45,66,0.08)] hover:bg-[rgba(229,231,223,0.98)]'
+                        : 'app-pill-muted text-surface-700 hover:text-primary-800 border-[rgba(86,93,94,0.14)] bg-[rgba(223,225,218,0.94)] shadow-[0_8px_18px_rgba(18,45,66,0.08)] hover:bg-[rgba(229,231,223,0.98)]'
                     }`}
                   >
                     {label}
@@ -341,7 +413,7 @@ export function SessionLive() {
         )}
 
         <div
-          className={`fixed top-[5.5rem] right-0 bottom-14 z-[34] w-[348px] max-w-[36vw] overflow-hidden rounded-l-[1.8rem] border border-r-0 border-[rgba(86,93,94,0.14)] bg-[linear-gradient(180deg,rgba(223,225,218,0.96)_0%,rgba(210,212,203,0.98)_100%)] shadow-[0_28px_52px_rgba(18,45,66,0.18)] transition-transform duration-300 ease-out ${
+          className={`fixed top-[6rem] right-0 bottom-10 z-[34] flex w-[348px] max-w-[36vw] flex-col overflow-hidden rounded-l-[1.8rem] border border-r-0 border-[rgba(86,93,94,0.14)] bg-[linear-gradient(180deg,rgba(223,225,218,0.96)_0%,rgba(210,212,203,0.98)_100%)] shadow-[0_28px_52px_rgba(18,45,66,0.18)] transition-transform duration-300 ease-out ${
             openSection ? 'translate-x-0' : 'translate-x-full'
           } ${openSection ? 'pointer-events-auto' : 'pointer-events-none'}`}
         >
@@ -360,9 +432,29 @@ export function SessionLive() {
                   Zamknij
                 </button>
               </div>
-              <div className="h-full overflow-y-auto p-3">
+              <div
+                ref={panelScrollRef}
+                className="rail-scroll min-h-0 flex-1 overflow-y-auto p-3 pb-8"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                onScroll={handlePanelScroll}
+                onPointerDown={handlePanelPointerDown}
+                onPointerMove={handlePanelPointerMove}
+                onPointerUp={handlePanelPointerUp}
+                onPointerCancel={handlePanelPointerUp}
+                onPointerLeave={handlePanelPointerUp}
+              >
                 {renderPanelContent(openSection, session.id)}
               </div>
+              {showScrollTop && (
+                <button
+                  type="button"
+                  onClick={handleScrollToTop}
+                  aria-label="Przewiń na górę"
+                  className="app-button-secondary text-surface-700 absolute right-4 bottom-4 inline-flex h-9 w-9 items-center justify-center rounded-full shadow-[0_10px_22px_rgba(18,45,66,0.16)]"
+                >
+                  <ChevronUp className="h-4 w-4" />
+                </button>
+              )}
             </>
           )}
         </div>

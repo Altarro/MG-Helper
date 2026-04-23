@@ -1,0 +1,75 @@
+{
+  "packs": [
+    {
+      "id": "sample-city-intrigue",
+      "campaignId": "sample",
+      "name": "City Intrigue Starter",
+      "description": "Wzorcowa paczka pod intryge miejską.",
+      "isActive": true,
+      "createdAt": "2026-04-23T00:00:00.000Z",
+      "updatedAt": "2026-04-23T00:00:00.000Z",
+      "tables": [
+        {
+          "id": "sample-first-name",
+          "name": "firstName",
+          "type": "firstName",
+          "isActive": true,
+          "createdAt": "2026-04-23T00:00:00.000Z",
+          "updatedAt": "2026-04-23T00:00:00.000Z",
+          "entries": [
+            { "id": "fn-1", "value": "Mira", "weight": 1, "tags": ["miasto"], "isActive": true },
+            { "id": "fn-2", "value": "Daren", "weight": 1, "tags": ["port"], "isActive": true }
+          ]
+        },
+        {
+          "id": "sample-last-name",
+          "name": "lastName",
+          "type": "lastName",
+          "isActive": true,
+          "createdAt": "2026-04-23T00:00:00.000Z",
+          "updatedAt": "2026-04-23T00:00:00.000Z",
+          "entries": [
+            { "id": "ln-1", "value": "Voss", "weight": 1, "tags": ["handel"], "isActive": true },
+            { "id": "ln-2", "value": "Krell", "weight": 1, "tags": ["ulica"], "isActive": true }
+          ]
+        },
+        {
+          "id": "sample-location-name",
+          "name": "locationName",
+          "type": "locationName",
+          "isActive": true,
+          "createdAt": "2026-04-23T00:00:00.000Z",
+          "updatedAt": "2026-04-23T00:00:00.000Z",
+          "entries": [
+            { "id": "loc-1", "value": "Czarny Pomost", "weight": 1, "tags": ["port"], "isActive": true },
+            { "id": "loc-2", "value": "Plac Solny", "weight": 1, "tags": ["rynek"], "isActive": true }
+          ]
+        },
+        {
+          "id": "sample-event",
+          "name": "event",
+          "type": "event",
+          "isActive": true,
+          "createdAt": "2026-04-23T00:00:00.000Z",
+          "updatedAt": "2026-04-23T00:00:00.000Z",
+          "entries": [
+            { "id": "ev-1", "value": "Kupiec znika po cichym spotkaniu w dokach.", "weight": 2, "tags": ["intryga"], "isActive": true },
+            { "id": "ev-2", "value": "Na rynku pojawia sie falszywy list gonczy.", "weight": 1, "tags": ["spisek"], "isActive": true }
+          ]
+        },
+        {
+          "id": "sample-rumors",
+          "name": "Plotki z tawerny",
+          "type": "custom:rumors",
+          "isActive": true,
+          "createdAt": "2026-04-23T00:00:00.000Z",
+          "updatedAt": "2026-04-23T00:00:00.000Z",
+          "entries": [
+            { "id": "ru-1", "value": "Latarnik widzial lampy pod woda.", "weight": 1, "tags": ["mrok", "port"], "isActive": true },
+            { "id": "ru-2", "value": "Straz nocna sprzedaje trasy patroli.", "weight": 1, "tags": ["korupcja"], "isActive": true }
+          ]
+        }
+      ]
+    }
+  ]
+}

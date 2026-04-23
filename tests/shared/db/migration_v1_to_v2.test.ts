@@ -28,7 +28,9 @@ describe('Dexie v1 → v2 migration', () => {
 
     const upgraded = new MgHelperDb(dbName);
     await upgraded.open();
-    expect(upgraded.tables.map((t) => t.name).sort()).toEqual(['assets', 'entities', 'relations'].sort());
+    expect(upgraded.tables.map((t) => t.name).sort()).toEqual(
+      ['assets', 'entities', 'generatorPacks', 'generatorRollLogs', 'migrationBackups', 'relations'].sort(),
+    );
     const row = await upgraded.entities.get('e1');
     expect(row?.name).toBe('Test');
     await upgraded.close();

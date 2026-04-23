@@ -7,6 +7,15 @@
   display: none;
 }
 
+.rail-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.rail-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 @theme {
   /* Colors - palette derived from the provided image */
   --color-primary-50: #d7e3e7;

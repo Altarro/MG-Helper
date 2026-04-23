@@ -240,6 +240,46 @@ export const importedRelationSchema = z.object({
   createdAt: z.string(),
 });
 
+const importedGeneratorEntrySchema = z.object({
+  id: z.string().min(1),
+  value: z.string().min(1),
+  weight: z.number().finite().positive(),
+  tags: z.array(z.string()).default([]),
+  isActive: z.boolean(),
+});
+
+const importedGeneratorTableSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  type: z.string().min(1),
+  entries: z.array(importedGeneratorEntrySchema),
+  isActive: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+const importedGeneratorPackSchema = z.object({
+  id: z.string().min(1),
+  campaignId: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string(),
+  isActive: z.boolean(),
+  tables: z.array(importedGeneratorTableSchema),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+const importedGeneratorRollLogSchema = z.object({
+  id: z.string().min(1),
+  campaignId: z.string().min(1),
+  sessionId: z.string().nullable().optional(),
+  packId: z.string().min(1),
+  kind: z.string().min(1),
+  resultText: z.string().min(1),
+  sourceTableIds: z.array(z.string()),
+  createdAt: z.string(),
+});
+
 export const importedDbSchema = z.object({
   entities: z.array(importedEntitySchema),
   relations: z.array(importedRelationSchema),
@@ -259,6 +299,8 @@ export const versionedBackupSchema = z.object({
   }).nullable(),
   entities: z.array(importedEntitySchema),
   relations: z.array(importedRelationSchema),
+  generatorPacks: z.array(importedGeneratorPackSchema).default([]),
+  generatorRollLogs: z.array(importedGeneratorRollLogSchema).default([]),
 });
 
 export type VersionedBackup = z.infer<typeof versionedBackupSchema>;

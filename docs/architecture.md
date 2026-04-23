@@ -129,3 +129,18 @@ Skutek: silna izolacja danych między kampaniami i prostszy model backupu.
 - [release-readiness.md](release-readiness.md) — checklista release.
 - [tasks.md](tasks.md) — aktywny plan pracy.
 - [CHANGELOG.md](CHANGELOG.md) — historia zmian.
+
+## 11. Generator Inspiracji (Etap 1)
+
+Foundation generatora jest przygotowany jako osobny moduł frontendowy:
+
+- Kontrakty domenowe: `src/modules/generator/contracts.ts`.
+- Schematy wejścia/importu (Zod): `src/modules/generator/schemas.ts`.
+- Parsery importu CSV/JSON (z walidacją): `src/modules/generator/importFormats.ts`.
+- Scaffold serwisu losowania: `src/modules/generator/service.ts`.
+
+Założenia Etapu 1:
+
+- Brak migracji Dexie i brak nowych tabel DB na tym etapie.
+- Kontrakty i walidacja są gotowe do Etapu 2 (core generator + persistence).
+- `Sesja live` ma gotowy panel `Inspiracje` jako UI scaffold pod podłączenie danych.

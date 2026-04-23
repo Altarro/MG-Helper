@@ -15,7 +15,7 @@ import { LocationPreviewModal } from './LocationPreviewModal';
 import { ThreatPreviewModal } from './ThreatPreviewModal';
 import { EntityPreviewModal } from './EntityPreviewModal';
 import { getDraftLocationId, ensureSessionDraftLocation } from '../utils/draftScene';
-import { setNpcCurrentLocation } from '../utils/liveSessionCommands';
+import { ensureEntityAppearsInSession, setNpcCurrentLocation } from '../utils/liveSessionCommands';
 import { toast } from 'sonner';
 
 interface SessionSearchPanelProps {
@@ -24,6 +24,7 @@ interface SessionSearchPanelProps {
 
 export function SessionSearchPanel({ sessionId }: SessionSearchPanelProps) {
   const { db } = useCampaign();
+  const [scope, setScope] = useState<'session' | 'campaign'>('session');
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | Entity['type']>('all');
   const [preview, setPreview] = useState<{
@@ -50,6 +51,19 @@ export function SessionSearchPanel({ sessionId }: SessionSearchPanelProps) {
       .sort((a, b) => a.name.localeCompare(b.name, 'pl'));
   }, [db, sessionId]);
   const sessionEntities = useMemo(() => sessionEntitiesQuery ?? [], [sessionEntitiesQuery]);
+  const campaignEntitiesQuery = useLiveQuery(
+    async () =>
+      (await db.entities.toArray())
+        .filter((entity) => entity.type !== 'event')
+        .sort((a, b) => a.name.localeCompare(b.name, 'pl')),
+    [db],
+  );
+  const campaignEntities = useMemo(() => campaignEntitiesQuery ?? [], [campaignEntitiesQuery]);
+  const sourceEntities = scope === 'session' ? sessionEntities : campaignEntities;
+  const sessionEntityIdSet = useMemo(
+    () => new Set(sessionEntities.map((entity) => entity.id)),
+    [sessionEntities],
+  );
 
   const sceneNpcIdSet =
     useLiveQuery(async () => {
@@ -67,33 +81,71 @@ export function SessionSearchPanel({ sessionId }: SessionSearchPanelProps) {
 
   const normalized = query.trim().toLowerCase();
   const availableTypes = useMemo(
-    () => [...new Set(sessionEntities.map((entity) => entity.type))].sort(),
-    [sessionEntities],
+    () => [...new Set(sourceEntities.map((entity) => entity.type))].sort(),
+    [sourceEntities],
   );
   const filtered = useMemo(
     () =>
       normalized
-        ? sessionEntities.filter((entity) => {
+        ? sourceEntities.filter((entity) => {
             const haystack = `${entity.name} ${entity.description ?? ''}`.toLowerCase();
             const queryMatch = haystack.includes(normalized);
             const typeMatch = typeFilter === 'all' || entity.type === typeFilter;
             return queryMatch && typeMatch;
           })
-        : sessionEntities.filter((entity) => typeFilter === 'all' || entity.type === typeFilter),
-    [sessionEntities, normalized, typeFilter],
+        : sourceEntities.filter((entity) => typeFilter === 'all' || entity.type === typeFilter),
+    [sourceEntities, normalized, typeFilter],
   );
 
   return (
-    <div className="flex h-full flex-col gap-3">
+    <div className="flex flex-col gap-3">
       <div className="rounded-[1.45rem] border border-[rgba(86,93,94,0.12)] bg-[rgba(223,225,218,0.64)] p-3">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <p className="text-surface-500 text-xs font-semibold tracking-[0.18em] uppercase">Wyszukaj</p>
+          <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700 ring-1 ring-primary-200 ring-inset">
+            {filtered.length}
+          </span>
+        </div>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setScope('session');
+              setTypeFilter('all');
+            }}
+            className={`rounded-full px-3 py-1.5 text-[11px] font-semibold transition-all ${
+              scope === 'session' ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+            }`}
+          >
+            W sesji
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setScope('campaign');
+              setTypeFilter('all');
+            }}
+            className={`rounded-full px-3 py-1.5 text-[11px] font-semibold transition-all ${
+              scope === 'campaign'
+                ? 'app-pill'
+                : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+            }`}
+          >
+            W kampanii
+          </button>
+        </div>
         <label className="app-input-shell flex items-center gap-2 rounded-2xl px-3 py-2.5">
           <Search className="text-surface-500 h-3.5 w-3.5" />
           <input
             type="text"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Szukaj po wszystkim w sesji..."
-            aria-label="Szukaj encji w sesji"
+            placeholder={
+              scope === 'session'
+                ? 'Szukaj po wszystkim w sesji...'
+                : 'Szukaj po całej kampanii...'
+            }
+            aria-label={scope === 'session' ? 'Szukaj encji w sesji' : 'Szukaj encji w kampanii'}
             className="text-surface-900 placeholder:text-surface-500 w-full bg-transparent text-sm outline-none"
             autoFocus
           />
@@ -125,12 +177,14 @@ export function SessionSearchPanel({ sessionId }: SessionSearchPanelProps) {
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="flex flex-col gap-2.5">
         {filtered.length === 0 ? (
           <p className="text-surface-600 rounded-[1.35rem] border border-[rgba(86,93,94,0.12)] bg-[rgba(223,225,218,0.64)] p-4 text-sm">
             {normalized
               ? 'Brak wyników dla tego zapytania. Spróbuj innej frazy lub typu encji.'
-              : 'Brak encji w sesji. Dodaj encje z paneli sesji.'}
+              : scope === 'session'
+                ? 'Brak encji w sesji. Dodaj encje z paneli sesji.'
+                : 'Brak encji w kampanii.'}
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-2.5">
@@ -166,6 +220,9 @@ export function SessionSearchPanel({ sessionId }: SessionSearchPanelProps) {
                             void (async () => {
                               if (entity.type === 'npc') {
                                 try {
+                                  if (!sessionEntityIdSet.has(entity.id)) {
+                                    await ensureEntityAppearsInSession(db, entity.id, sessionId);
+                                  }
                                   if (isPinned) {
                                     await setNpcCurrentLocation(db, entity.id, null);
                                   } else {
@@ -185,6 +242,9 @@ export function SessionSearchPanel({ sessionId }: SessionSearchPanelProps) {
                                   );
                                 }
                                 return;
+                              }
+                              if (!sessionEntityIdSet.has(entity.id)) {
+                                await ensureEntityAppearsInSession(db, entity.id, sessionId);
                               }
                               if (isPinned) closeCard(entity.id);
                               else openCard(entity.id);

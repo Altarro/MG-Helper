@@ -165,20 +165,20 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
   const nonPlayers = npcs.filter((npc) => !isPlayerNpc(npc));
 
   return (
-    <div className="flex h-full flex-col bg-white">
+    <div className="flex flex-col rounded-[1.1rem] border border-[rgba(86,93,94,0.12)] bg-[rgba(244,245,241,0.94)]">
       {/* Header toolbar */}
-      <div className="border-b border-surface-200 bg-surface-50 px-3 py-2.5">
-        <div className="mb-2 flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-surface-500">Postacie w sesji</span>
-          <span className="rounded-full bg-surface-200 px-2 py-0.5 text-[10px] font-semibold text-surface-600">
+      <div className="rounded-t-[1.1rem] border-b border-[rgba(86,93,94,0.12)] bg-[rgba(244,245,241,0.96)] px-3 py-2.5">
+        <div className="mb-2.5 flex items-center gap-2">
+          <span className="text-[11px] font-semibold tracking-[0.12em] text-surface-500 uppercase">Postacie w sesji</span>
+          <span className="app-pill-muted rounded-full px-2 py-0.5 text-[10px] font-semibold text-surface-600">
             {npcs.length}
           </span>
         </div>
-        <div className="grid grid-cols-3 gap-1.5">
+        <div className="grid grid-cols-3 gap-2">
           <button
             type="button"
             onClick={() => setPickerOpen(true)}
-            className="flex items-center justify-center gap-1 rounded-md border border-surface-300 bg-white px-2 py-1 text-xs text-surface-700 transition-colors hover:bg-surface-50"
+            className="app-button-secondary flex items-center justify-center gap-1 rounded-xl px-2 py-2 text-[11px] font-medium whitespace-nowrap"
             title="Dodaj do sesji z kampanii"
           >
             <UserPlus className="h-3.5 w-3.5" />
@@ -190,7 +190,7 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
               onClick={() => void handleToggleAll()}
               title={allPinned ? 'Odepnij wszystkich ze sceny' : 'Przypnij wszystkich do sceny'}
               aria-label={allPinned ? 'Odepnij wszystkich ze sceny' : 'Przypnij wszystkich do sceny'}
-              className="flex items-center justify-center gap-1 rounded-md border border-surface-300 bg-white px-2 py-1 text-xs text-surface-700 transition-colors hover:bg-surface-50"
+              className="app-button-secondary flex items-center justify-center gap-1 rounded-xl px-2 py-2 text-[11px] font-medium whitespace-nowrap"
             >
               {allPinned ? <MapPinOff className="h-3.5 w-3.5" /> : <MapPin className="h-3.5 w-3.5" />}
               {allPinned ? 'Odepnij' : 'Przypnij'}
@@ -201,10 +201,10 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
           <button
             type="button"
             onClick={() => setQuickAddOpen((v) => !v)}
-            className={`flex items-center justify-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors ${
+            className={`flex items-center justify-center gap-1 rounded-xl px-2 py-2 text-[11px] font-medium whitespace-nowrap transition-colors ${
               quickAddOpen
-                ? 'border-primary-400 bg-primary-50 text-primary-700'
-                : 'border-surface-300 bg-white text-surface-700 hover:bg-surface-50'
+                ? 'app-button-primary'
+                : 'app-button-secondary text-surface-700'
             }`}
             title="Szybkie dodanie postaci do sesji"
           >
@@ -216,14 +216,14 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
 
       {/* Quick-add form */}
       {quickAddOpen && (
-        <form onSubmit={handleQuickAdd} className="flex items-center gap-2 border-b border-surface-200 bg-surface-50/70 px-3 py-2">
+        <form onSubmit={handleQuickAdd} className="flex items-center gap-2 border-b border-[rgba(86,93,94,0.12)] bg-[rgba(244,245,241,0.9)] px-3 py-2.5">
           <input
             type="text"
             placeholder="Imię NPC..."
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoFocus
-            className="flex-1 rounded border border-surface-300 px-2 py-1 text-sm focus:border-primary-400 focus:outline-none"
+            className="app-input flex-1 rounded-xl px-2.5 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           />
           <label className="flex items-center gap-1 text-xs text-surface-600 select-none cursor-pointer">
             <input
@@ -237,7 +237,7 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
           <button
             type="submit"
             disabled={!name.trim() || saving}
-            className="rounded-md bg-primary-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+            className="app-button-primary rounded-xl px-3 py-1.5 text-xs font-medium disabled:opacity-50"
           >
             Dodaj do sesji
           </button>
@@ -245,7 +245,7 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
       )}
 
       {/* NPC list */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="px-1 py-1">
         {npcs.length === 0 ? (
           <p className="p-6 text-center text-sm text-surface-400">
             Brak postaci w sesji. Dodaj je z kampanii albo szybkim dodaniem.
@@ -258,7 +258,7 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
             ].map((group) => {
               const isCollapsed = collapsedGroups[group.key];
               return (
-              <section key={group.label} className="overflow-hidden rounded-lg border border-surface-200">
+              <section key={group.label} className="app-panel overflow-hidden rounded-[1.15rem]">
                 <button
                   type="button"
                   onClick={() =>
@@ -267,13 +267,13 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
                       [group.key]: !prev[group.key],
                     }))
                   }
-                  className="flex w-full items-center justify-between bg-surface-50 px-2.5 py-1.5 text-left"
+                  className="flex w-full items-center justify-between border-b border-[rgba(86,93,94,0.1)] bg-[rgba(223,225,218,0.48)] px-2.5 py-2 text-left"
                 >
                   <span className="flex items-center gap-1.5">
                     <ChevronRight className={`h-3.5 w-3.5 text-surface-400 transition-transform ${isCollapsed ? '' : 'rotate-90'}`} />
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-surface-500">{group.label}</span>
+                    <span className="text-[11px] font-semibold tracking-[0.14em] text-surface-500 uppercase">{group.label}</span>
                   </span>
-                  <span className="rounded-full bg-surface-200 px-1.5 py-0.5 text-[10px] font-semibold text-surface-600">
+                  <span className="app-pill-muted rounded-full px-1.5 py-0.5 text-[10px] font-semibold text-surface-600">
                     {group.items.length}
                   </span>
                 </button>
@@ -291,7 +291,7 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
                         : () => handleAddToLocation(npc.id);
 
                       return (
-                        <li key={npc.id} className="group flex items-center gap-2 px-3 py-2 hover:bg-surface-50">
+                        <li key={npc.id} className="group flex items-center gap-1.5 px-2.5 py-2.5 transition-colors hover:bg-[rgba(229,231,223,0.98)]">
                           <button
                             type="button"
                             title={inLocation ? 'Odepnij ze sceny' : 'Przypnij do sceny'}
@@ -311,7 +311,7 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
                           <Link
                             to={`/npcs/${npc.id}`}
                             state={{ returnToSessionLive: sessionId }}
-                            className="flex-1 truncate text-sm font-medium text-surface-800 hover:text-primary-700"
+                            className="min-w-0 flex-1 truncate pr-1 text-sm font-medium text-surface-800 hover:text-primary-700"
                           >
                             {npc.name}
                           </Link>

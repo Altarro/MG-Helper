@@ -7,6 +7,7 @@ import { importFull } from '@shared/utils/importFull';
 import { importJson } from '@shared/utils/importJson';
 import { BACKUP_FORMAT_VERSION } from '@shared/utils/backupContract';
 import type { ProcessedImage } from '@shared/utils/imagePipeline';
+import { saveGeneratorPack, appendGeneratorRollLog } from '@modules/generator/repository';
 
 vi.mock('dompurify', () => ({
   default: {
@@ -39,6 +40,8 @@ beforeEach(async () => {
   await db.entities.clear();
   await db.relations.clear();
   await db.assets.clear();
+  await db.generatorPacks.clear();
+  await db.generatorRollLogs.clear();
 });
 
 describe('full backup round-trip (ZIP)', () => {
@@ -80,6 +83,40 @@ describe('full backup round-trip (ZIP)', () => {
     const restoredNpc = await db.entities.get(npc.id);
     expect(restoredNpc?.data.imageId).toBe(assetId);
     expect(await getAsset(db, assetId)).toBeDefined();
+  });
+
+  it('exports and re-imports generator packs and roll logs', async () => {
+    await saveGeneratorPack(db, {
+      id: 'pack-full-1',
+      campaignId: 'camp-full',
+      name: 'Full Pack',
+      description: '',
+      isActive: true,
+      tables: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    await appendGeneratorRollLog(db, {
+      campaignId: 'camp-full',
+      sessionId: null,
+      packId: 'pack-full-1',
+      kind: 'eventTable',
+      resultText: 'Full test',
+      sourceTableIds: [],
+    });
+
+    const archive = await createFullBackupArchive(db, { campaignMeta: null });
+
+    await db.entities.clear();
+    await db.relations.clear();
+    await db.assets.clear();
+    await db.generatorPacks.clear();
+    await db.generatorRollLogs.clear();
+
+    const result = await importFull(db, archive.bytes);
+    expect(result.ok).toBe(true);
+    expect((await db.generatorPacks.toArray()).length).toBe(1);
+    expect((await db.generatorRollLogs.toArray()).length).toBe(1);
   });
 
   it('warns and zeroes imageId when the archive is missing the asset files', async () => {
