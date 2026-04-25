@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router';
 import { ChevronRight, Link2 } from 'lucide-react';
 import { useCampaign } from '@shared/db/CampaignContext';
 import type { Entity } from '@shared/types';
+import { CLUE_TYPE_LABELS, normalizeClueTypes } from '@modules/clues/types';
 
 interface SessionCluesPanelProps {
   sessionId: string;
@@ -394,6 +395,13 @@ export function SessionCluesPanel({ sessionId }: SessionCluesPanelProps) {
                         >
                           {row.clue.name}
                         </Link>
+                        <div className="hidden min-w-0 shrink flex-wrap gap-1 sm:flex">
+                          {normalizeClueTypes(row.clue.data.clueTypes).map((type) => (
+                            <span key={type} className="app-pill-muted rounded-full px-1.5 py-0.5 text-[10px] font-semibold">
+                              {CLUE_TYPE_LABELS[type]}
+                            </span>
+                          ))}
+                        </div>
                         <span
                           className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                             row.clue.data.discovered

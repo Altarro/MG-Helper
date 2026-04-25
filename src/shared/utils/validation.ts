@@ -105,6 +105,14 @@ export const sessionSchema = baseEntitySchema.extend({
     number: z.number().int().min(1).default(1),
     date: z.string().default(''),
     summary: z.string().max(5000).default(''),
+    plannedDurationMin: z.number().int().min(1).max(24 * 60).optional(),
+    scenes: z.array(
+      z.object({
+        name: z.string().max(30).default(''),
+        goal: z.string().max(1000).default(''),
+        estimatedDurationMin: z.number().int().min(5).max(24 * 60).default(15),
+      }),
+    ).max(50).default([]),
     sortOrder: z.number().int().min(0).optional(),
   }).default({}),
 });
@@ -125,12 +133,28 @@ export const itemSchema = baseEntitySchema.extend({
   }).default({}),
 });
 
-export const clueSchema = baseEntitySchema.extend({
-  data: z.object({
-    clueType: z.enum(CLUE_TYPES).default('event'),
+const clueDataSchema = z
+  .object({
+    clueTypes: z.array(z.enum(CLUE_TYPES)).max(6).optional(),
+    clueType: z.enum(CLUE_TYPES).optional(),
     hint: z.string().max(2000).default(''),
     discovered: z.boolean().default(false),
-  }).default({}),
+  })
+  .transform((data) => {
+    const fromArray = Array.isArray(data.clueTypes) ? data.clueTypes : [];
+    const normalized = [...new Set(fromArray)].filter((value) => CLUE_TYPES.includes(value));
+    const fallback = data.clueType && CLUE_TYPES.includes(data.clueType) ? [data.clueType] : ['event'];
+    const clueTypes = normalized.length > 0 ? normalized : fallback;
+    return {
+      clueTypes,
+      clueType: clueTypes[0],
+      hint: data.hint,
+      discovered: data.discovered,
+    };
+  });
+
+export const clueSchema = baseEntitySchema.extend({
+  data: clueDataSchema.default({}),
 });
 
 export type ClueFormValues = z.infer<typeof clueSchema>;

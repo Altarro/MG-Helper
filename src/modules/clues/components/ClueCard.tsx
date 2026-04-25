@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { User, MapPin, Zap, CheckCircle2, Circle, type LucideIcon } from 'lucide-react';
+import { User, MapPin, Zap, Package, CheckCircle2, Circle, type LucideIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import type { Clue } from '../types';
 import { CLUE_TYPE_LABELS } from '../types';
@@ -8,6 +8,7 @@ const CLUE_ICONS: Record<string, LucideIcon> = {
   character: User,
   location: MapPin,
   event: Zap,
+  item: Package,
 };
 
 interface ClueCardProps {
@@ -17,7 +18,8 @@ interface ClueCardProps {
 }
 
 export const ClueCard = memo(function ClueCard({ clue, onClick, onToggleDiscovered }: ClueCardProps) {
-  const Icon = CLUE_ICONS[clue.data.clueType] ?? Zap;
+  const primaryType = clue.data.clueTypes[0] ?? 'event';
+  const Icon = CLUE_ICONS[primaryType] ?? Zap;
   const discovered = clue.data.discovered;
 
   return (
@@ -39,9 +41,11 @@ export const ClueCard = memo(function ClueCard({ clue, onClick, onToggleDiscover
             <span className="truncate text-[1.02rem] font-semibold tracking-[-0.02em] text-surface-900 group-hover:text-primary-800">
               {clue.name}
             </span>
-            <span className="app-pill rounded-full px-2.5 py-1 text-xs">
-              {CLUE_TYPE_LABELS[clue.data.clueType] ?? clue.data.clueType}
-            </span>
+            {clue.data.clueTypes.map((type) => (
+              <span key={type} className="app-pill rounded-full px-2.5 py-1 text-xs">
+                {CLUE_TYPE_LABELS[type] ?? type}
+              </span>
+            ))}
             {discovered && (
               <span className="rounded-full border border-[rgba(95,155,125,0.22)] bg-[rgba(95,155,125,0.16)] px-2.5 py-1 text-xs text-success-600">
                 Odkryta
@@ -89,7 +93,8 @@ export const ClueRow = memo(function ClueRow({
   metaLabel?: string;
   onToggleDiscovered?: (clue: Clue) => void;
 }) {
-  const Icon = CLUE_ICONS[clue.data.clueType] ?? Zap;
+  const primaryType = clue.data.clueTypes[0] ?? 'event';
+  const Icon = CLUE_ICONS[primaryType] ?? Zap;
   const discovered = clue.data.discovered;
 
   return (

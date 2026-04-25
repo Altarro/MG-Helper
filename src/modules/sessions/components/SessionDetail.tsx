@@ -349,6 +349,8 @@ export function SessionDetail() {
           number: values.number,
           date: values.date,
           summary: values.summary,
+          plannedDurationMin: values.plannedDurationMin,
+          scenes: values.scenes,
         },
       });
       toast.success('Sesja zaktualizowana');
@@ -515,6 +517,8 @@ export function SessionDetail() {
               date: session.data.date,
               name: session.name,
               summary: session.data.summary,
+              plannedDurationMin: session.data.plannedDurationMin,
+              scenes: session.data.scenes ?? [],
               description: session.description,
               tags: session.tags,
             }}
@@ -531,6 +535,31 @@ export function SessionDetail() {
             Streszczenie
           </h2>
           <p className="text-surface-800 max-w-[90ch] text-sm leading-7">{session.data.summary}</p>
+        </section>
+      )}
+
+      {!isEditing && (session.data.plannedDurationMin || (session.data.scenes?.length ?? 0) > 0) && (
+        <section className="app-panel rounded-[1.8rem] p-5 lg:p-6">
+          <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-[0.18em] uppercase">
+            Sceny
+          </h2>
+          {session.data.plannedDurationMin && (
+            <p className="mb-3 text-sm text-surface-700">
+              Planowany czas sesji: <span className="font-semibold">{session.data.plannedDurationMin} min</span>
+            </p>
+          )}
+          {(session.data.scenes?.length ?? 0) > 0 ? (
+            <ol className="flex list-decimal flex-col gap-2 pl-5">
+              {(session.data.scenes ?? []).map((scene, index) => (
+                <li key={`${scene.name}-${index}`} className="text-sm text-surface-800">
+                  <p className="font-medium">{scene.name} <span className="text-surface-500">({scene.estimatedDurationMin} min)</span></p>
+                  {scene.goal && <p className="text-xs text-surface-600">{scene.goal}</p>}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="text-xs text-surface-500">Brak scen.</p>
+          )}
         </section>
       )}
 

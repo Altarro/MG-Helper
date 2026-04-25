@@ -15,7 +15,7 @@ import type { ClueFormValues } from './ClueForm';
 import { getEntityDetailPath, getEntityTypeLabel } from '@shared/utils/entityTypeMeta';
 import type { Entity } from '@shared/types/entity';
 
-type FilterTab = 'all' | 'discovered' | 'hidden' | 'character' | 'location' | 'event';
+type FilterTab = 'all' | 'discovered' | 'hidden' | 'character' | 'location' | 'event' | 'item';
 
 const TAB_LABELS: Record<FilterTab, string> = {
   all: 'Wszystkie',
@@ -24,6 +24,7 @@ const TAB_LABELS: Record<FilterTab, string> = {
   character: 'Postacie',
   location: 'Lokacje',
   event: 'Zdarzenia',
+  item: 'Przedmioty',
 };
 
 const STORY_TARGET_ORDER: Record<string, number> = {
@@ -73,7 +74,7 @@ export function ClueList() {
       tab === 'all' ||
       (tab === 'discovered' && clue.data.discovered) ||
       (tab === 'hidden' && !clue.data.discovered) ||
-      clue.data.clueType === tab;
+      (tab !== 'discovered' && tab !== 'hidden' && clue.data.clueTypes.includes(tab));
 
     return matchesQuery && matchesTab;
   });
@@ -125,7 +126,8 @@ export function ClueList() {
         description: values.description,
         tags: values.tags,
         data: {
-          clueType: values.clueType,
+          clueTypes: values.clueTypes,
+          clueType: values.clueTypes[0],
           hint: values.hint,
           discovered: values.discovered,
         },

@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import type { Clue } from '../types';
 import type { ClueFormValues } from './ClueForm';
 
-type FilterTab = 'all' | 'discovered' | 'hidden' | 'character' | 'location' | 'event';
+type FilterTab = 'all' | 'discovered' | 'hidden' | 'character' | 'location' | 'event' | 'item';
 
 const TAB_LABELS: Record<FilterTab, string> = {
   all: 'Wszystkie',
@@ -21,6 +21,7 @@ const TAB_LABELS: Record<FilterTab, string> = {
   character: 'Postacie',
   location: 'Lokacje',
   event: 'Zdarzenia',
+  item: 'Przedmioty',
 };
 
 export function ClueList() {
@@ -44,7 +45,7 @@ export function ClueList() {
       tab === 'all' ||
       (tab === 'discovered' && clue.data.discovered) ||
       (tab === 'hidden' && !clue.data.discovered) ||
-      clue.data.clueType === tab;
+      (tab !== 'discovered' && tab !== 'hidden' && clue.data.clueTypes.includes(tab));
 
     return matchesQuery && matchesTab;
   });
@@ -58,7 +59,8 @@ export function ClueList() {
         description: values.description,
         tags: values.tags,
         data: {
-          clueType: values.clueType,
+          clueTypes: values.clueTypes,
+          clueType: values.clueTypes[0],
           hint: values.hint,
           discovered: values.discovered,
         },

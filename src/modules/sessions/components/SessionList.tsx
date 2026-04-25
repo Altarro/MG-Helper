@@ -72,6 +72,8 @@ export function SessionList() {
           number: values.number,
           date: values.date,
           summary: values.summary,
+          plannedDurationMin: values.plannedDurationMin,
+          scenes: values.scenes,
         },
       });
       toast.success(`Sesja ${values.number} utworzona`);

@@ -43,7 +43,8 @@ export function ClueSection({ parentId, title = 'Wskazówki' }: ClueSectionProps
         description: values.description,
         tags: values.tags,
         data: {
-          clueType: values.clueType,
+          clueTypes: values.clueTypes,
+          clueType: values.clueTypes[0],
           hint: values.hint,
           discovered: values.discovered,
         },

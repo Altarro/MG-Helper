@@ -5,6 +5,7 @@ import { useCampaign } from '@shared/db/CampaignContext';
 import { Modal } from '@shared/components/Modal';
 import type { EntityType } from '@shared/types/entity';
 import { getEntityDetailPath, getEntityTypeLabel } from '@shared/utils/entityTypeMeta';
+import { CLUE_TYPE_LABELS, normalizeClueTypes } from '@modules/clues/types';
 
 interface EntityPreviewModalProps {
   entityId: string;
@@ -29,13 +30,17 @@ function renderTypeDetails(entityType: EntityPreviewModalProps['entityType'], da
     );
   }
   if (entityType === 'clue') {
-    const clueType = typeof data.clueType === 'string' ? data.clueType : null;
+    const clueTypes = normalizeClueTypes(
+      Array.isArray(data.clueTypes) ? data.clueTypes : data.clueType,
+    );
     const discovered = data.discovered === true;
     return (
       <div className="flex flex-wrap gap-1">
-        {clueType && (
-          <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs text-cyan-700">{clueType}</span>
-        )}
+        {clueTypes.map((type) => (
+          <span key={type} className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs text-cyan-700">
+            {CLUE_TYPE_LABELS[type]}
+          </span>
+        ))}
         <span className={`rounded-full px-2 py-0.5 text-xs ${discovered ? 'bg-green-100 text-green-700' : 'bg-surface-100 text-surface-600'}`}>
           {discovered ? 'Odkryta' : 'Nieodkryta'}
         </span>

@@ -15,8 +15,8 @@ import {
   Moon,
   Compass,
   Milestone,
-  CalendarDays,
   StickyNote,
+  Theater,
 } from 'lucide-react';
 import { useDarkMode } from '@shared/hooks/useDarkMode';
 
@@ -61,7 +61,7 @@ const navGroups = [
     items: [
       { to: '/sessions', label: 'Sesje', icon: BookOpen },
       { to: '/clocks', label: 'Zegary', icon: Clock },
-      { to: '/timeline', label: 'Oś czasu', icon: CalendarDays },
+      { to: '/backstage', label: 'Za kulisami', icon: Theater },
       { to: '/notes', label: 'Notatki', icon: StickyNote },
     ],
   },

@@ -68,7 +68,8 @@ export function ClueDetail() {
         description: values.description,
         tags: values.tags,
         data: {
-          clueType: values.clueType,
+          clueTypes: values.clueTypes,
+          clueType: values.clueTypes[0],
           hint: values.hint,
           discovered: values.discovered,
         },
@@ -141,9 +142,11 @@ export function ClueDetail() {
               {clue.name}
             </h1>
             <div className="mt-3 flex flex-wrap gap-2">
-              <span className="inline-flex rounded-full border border-cyan-200/80 bg-cyan-100/75 px-3 py-1 text-xs font-semibold text-cyan-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.28)]">
-                {CLUE_TYPE_LABELS[clue.data.clueType]}
-              </span>
+              {clue.data.clueTypes.map((type) => (
+                <span key={type} className="inline-flex rounded-full border border-cyan-200/80 bg-cyan-100/75 px-3 py-1 text-xs font-semibold text-cyan-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.28)]">
+                  {CLUE_TYPE_LABELS[type]}
+                </span>
+              ))}
               <span
                 className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
                   clue.data.discovered
@@ -180,7 +183,7 @@ export function ClueDetail() {
               name: clue.name,
               description: clue.description,
               tags: clue.tags,
-              clueType: clue.data.clueType,
+              clueTypes: clue.data.clueTypes,
               hint: clue.data.hint,
               discovered: clue.data.discovered,
             }}

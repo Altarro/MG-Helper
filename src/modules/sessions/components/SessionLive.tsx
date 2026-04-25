@@ -19,6 +19,7 @@ import { useCampaign } from '@shared/db/CampaignContext';
 import { SceneCenter } from './SceneCenter';
 import type { SceneCenterHandle } from './SceneCenter';
 import { SpotlightTracker } from './SpotlightTracker';
+import { SessionNowPlayingPanel } from './SessionNowPlayingPanel';
 import { SessionTimeline } from './SessionTimeline';
 import { SessionNpcPanel } from './SessionNpcPanel';
 import { ThreadTreePanel } from './ThreadTreePanel';
@@ -307,6 +308,11 @@ export function SessionLive() {
               className="app-panel min-h-0 flex-[1.12] overflow-y-auto rounded-[1.65rem] p-3"
               style={{ scrollbarWidth: 'none' }}
             >
+              <SessionNowPlayingPanel
+                scenes={Array.isArray(session.data.scenes) ? session.data.scenes : []}
+                plannedDurationMin={session.data.plannedDurationMin}
+                isPaused={(spotlightState ?? DEFAULT_SPOTLIGHT).isPaused}
+              />
               <SpotlightTracker
                 sessionId={session.id}
                 state={spotlightState ?? DEFAULT_SPOTLIGHT}

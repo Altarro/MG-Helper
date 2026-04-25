@@ -1,15 +1,18 @@
+import { useRef } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { TagInput } from '@shared/components/TagInput';
 import { RichTextEditor } from '@shared/components/RichTextEditor';
-import { CLUE_TYPE_LABELS } from '../types';
+import { CLUE_TYPES, CLUE_TYPE_LABELS, normalizeClueTypes } from '../types';
+
+const SINGLE_CLICK_DELAY_MS = 250;
 
 const clueFormSchema = z.object({
   name: z.string().min(1, 'Nazwa jest wymagana').max(200),
   description: z.string().max(100_000).default(''),
   tags: z.array(z.string().min(1).max(50)).max(50).default([]),
-  clueType: z.enum(['character', 'location', 'event']).default('event'),
+  clueTypes: z.array(z.enum(CLUE_TYPES)).min(1, 'Wybierz minimum jeden typ wskazówki'),
   hint: z.string().max(2000).default(''),
   discovered: z.boolean().default(false),
 });
@@ -24,6 +27,10 @@ interface ClueFormProps {
 }
 
 export function ClueForm({ defaultValues, onSubmit, onCancel, isSaving }: ClueFormProps) {
+  const singleClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const defaultClueTypes: ClueFormValues['clueTypes'] = defaultValues?.clueTypes
+    ? normalizeClueTypes(defaultValues.clueTypes)
+    : ['character'];
   const {
     register,
     handleSubmit,
@@ -35,10 +42,10 @@ export function ClueForm({ defaultValues, onSubmit, onCancel, isSaving }: ClueFo
       name: '',
       description: '',
       tags: [],
-      clueType: 'event',
       hint: '',
       discovered: false,
       ...defaultValues,
+      clueTypes: defaultClueTypes,
     },
   });
 
@@ -67,14 +74,56 @@ export function ClueForm({ defaultValues, onSubmit, onCancel, isSaving }: ClueFo
       {/* Type */}
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium text-surface-800">Typ wskazówki</label>
-        <select
-          {...register('clueType')}
-          className="app-input w-full rounded-2xl px-3.5 py-3 text-sm text-surface-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-        >
-          {(Object.entries(CLUE_TYPE_LABELS) as [string, string][]).map(([value, label]) => (
-            <option key={value} value={value}>{label}</option>
-          ))}
-        </select>
+        <Controller
+          control={control}
+          name="clueTypes"
+          render={({ field }) => (
+            <div className="flex flex-wrap gap-2">
+              {(Object.entries(CLUE_TYPE_LABELS) as [string, string][]).map(([value, label]) => {
+                const isSelected = field.value.includes(value as ClueFormValues['clueTypes'][number]);
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => {
+                      if (singleClickTimerRef.current) clearTimeout(singleClickTimerRef.current);
+                      singleClickTimerRef.current = setTimeout(() => {
+                        field.onChange([value as ClueFormValues['clueTypes'][number]]);
+                      }, SINGLE_CLICK_DELAY_MS);
+                    }}
+                    onDoubleClick={() => {
+                      if (singleClickTimerRef.current) {
+                        clearTimeout(singleClickTimerRef.current);
+                        singleClickTimerRef.current = null;
+                      }
+                      if (isSelected) {
+                        // Keep at least one selected type.
+                        const next = field.value.filter((item) => item !== value);
+                        if (next.length > 0) field.onChange(next);
+                        return;
+                      }
+                      field.onChange([...field.value, value as ClueFormValues['clueTypes'][number]]);
+                    }}
+                    className={`rounded-full px-3 py-1 text-sm font-medium transition-colors ${
+                      isSelected
+                        ? 'app-pill'
+                        : 'border border-surface-300 text-surface-600 hover:bg-surface-50'
+                    }`}
+                    aria-pressed={isSelected}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        />
+        <p className="text-surface-500 text-xs">
+          Klik: pojedynczy typ. Dwuklik: dodaj/usuń typ (multi). Musi zostać co najmniej jeden.
+        </p>
+        {errors.clueTypes && (
+          <p role="alert" className="text-xs text-red-600">{errors.clueTypes.message}</p>
+        )}
       </div>
 
       {/* Hint */}

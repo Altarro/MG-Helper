@@ -18,7 +18,7 @@ const ROUTE_LABELS: Record<string, string> = {
   graph: 'Graf',
   clues: 'Wskazówki',
   threads: 'Wątki',
-  timeline: 'Oś czasu',
+  backstage: 'Za kulisami',
   notes: 'Notatki',
   live: 'Na żywo',
   report: 'Raport',

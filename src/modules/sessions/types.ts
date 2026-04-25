@@ -4,7 +4,15 @@ export interface SessionData {
   number: number;   // session number (e.g. 1, 2, ...)
   date: string;     // ISO date string "YYYY-MM-DD"
   summary: string;  // short plain-text summary
+  plannedDurationMin?: number;
+  scenes?: SessionScene[];
   sortOrder?: number;
+}
+
+export interface SessionScene {
+  name: string;
+  goal: string;
+  estimatedDurationMin: number;
 }
 
 export type Session = Entity & { type: 'session'; data: SessionData };

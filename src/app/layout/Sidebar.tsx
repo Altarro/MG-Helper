@@ -14,8 +14,8 @@ import {
   Moon,
   Compass,
   Milestone,
-  CalendarDays,
   StickyNote,
+  Theater,
 } from 'lucide-react';
 import { useDarkMode } from '@shared/hooks/useDarkMode';
 
@@ -31,7 +31,7 @@ const navItems = [
   { to: '/graph', label: 'Graf', icon: GitFork },
   { to: '/clues', label: 'Wskazówki', icon: Compass },
   { to: '/threads', label: 'Wątki', icon: Milestone },
-  { to: '/timeline', label: 'Oś czasu', icon: CalendarDays },
+  { to: '/backstage', label: 'Za kulisami', icon: Theater },
   { to: '/notes', label: 'Notatki', icon: StickyNote },
 ] as const;
 

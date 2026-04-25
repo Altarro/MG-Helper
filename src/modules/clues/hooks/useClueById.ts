@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { useRelations } from '@shared/hooks/useRelations';
-import { isClue } from '../types';
+import { toClue } from '../types';
 import type { Clue } from '../types';
 
 /** Reactive single Clue entity + its relations */
@@ -14,7 +14,7 @@ export function useClueById(id: string | undefined): {
     async () => {
       if (!id) return undefined;
       const e = await db.entities.get(id);
-      return e && isClue(e) ? e : undefined;
+      return e ? toClue(e) ?? undefined : undefined;
     },
     [db, id],
   );
