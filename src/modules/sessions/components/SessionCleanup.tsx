@@ -21,7 +21,8 @@ import {
   SESSION_COMPLETED_DEFAULT_REASON,
   threatNeedsCleanupReason,
 } from '@shared/utils/threatLifecycle';
-import { THREAT_DEATH_REASON_PRESETS } from '@modules/fronts/types';
+import { THREAT_DEATH_REASON_PRESETS, inferThreatCompletionOutcomeFromClock } from '@modules/fronts/types';
+import { isClock, type Clock } from '@modules/clocks/types';
 
 // ── Data hooks ────────────────────────────────────────────────────────────────
 
@@ -295,7 +296,7 @@ function CreateThreatFromThreadModal({
   async function handleSubmit(values: ThreatFormValues) {
     setSaving(true);
     try {
-      const lifecycle = normalizeThreatLifecycle(values.status, values.reasonOfDead);
+      const lifecycle = normalizeThreatLifecycle(values.status, values.completionReason);
       const threat = await addEntity(db, {
         type: 'threat',
         name: values.name,
@@ -457,7 +458,10 @@ function ThreadCleanupRow({
 
 function ThreatCleanupRow({ threat }: { threat: Entity }) {
   const { db } = useCampaign();
-  const initial = typeof threat.data.reasonOfDead === 'string' ? threat.data.reasonOfDead : '';
+  const initial =
+    typeof threat.data.completionReason === 'string'
+      ? threat.data.completionReason
+      : (typeof threat.data.reasonOfDead === 'string' ? threat.data.reasonOfDead : '');
   const [reason, setReason] = useState<string>(initial);
   const [saving, setSaving] = useState(false);
   const [warnEmpty, setWarnEmpty] = useState(false);
@@ -475,11 +479,26 @@ function ThreatCleanupRow({ threat }: { threat: Entity }) {
         return;
       }
 
+      const trackRel = await db.relations
+        .where('sourceId')
+        .equals(threat.id)
+        .filter((r) => r.type === 'tracks')
+        .first();
+
+      let linkedClock: Clock | null = null;
+      if (trackRel) {
+        const clockEntity = await getEntityById(db, trackRel.targetId);
+        if (clockEntity && isClock(clockEntity)) linkedClock = clockEntity;
+      }
+
+      const completionOutcome = inferThreatCompletionOutcomeFromClock(linkedClock);
+
       // Otherwise persist the provided reason and ensure threat is marked completed
       await updateEntity(db, threat.id, {
         data: {
           ...threat.data,
           ...normalizeThreatLifecycle('completed', trimmed),
+          completionOutcome,
         },
       });
       setWarnEmpty(false);

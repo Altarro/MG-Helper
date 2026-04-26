@@ -30,6 +30,7 @@ import { SessionCluesPanel } from './SessionCluesPanel';
 import { SessionInspirationsPanel } from './SessionInspirationsPanel';
 import { QuickNotePanel } from '@modules/notes/components/QuickNotePanel';
 import { useCurrentSceneNpcIds } from '../hooks/useLiveSessionQueries';
+import { useSessionSignals } from '../hooks/useSessionSignals';
 import { toast } from 'sonner';
 import { ensureEntityAppearsInSession, moveNpcToLocation } from '../utils/liveSessionCommands';
 
@@ -83,6 +84,7 @@ export function SessionLive() {
   const sessionIdForHooks = session?.id ?? id ?? '';
 
   const sceneNpcIds = useCurrentSceneNpcIds(sessionIdForHooks, currentLocationId);
+  const { deadDuringSession } = useSessionSignals(session?.id ?? id);
   const sceneThreadIds =
     useLiveQuery(async () => {
       if (openCardIds.length === 0) return [] as string[];
@@ -308,6 +310,22 @@ export function SessionLive() {
               className="app-panel min-h-0 flex-[1.12] overflow-y-auto rounded-[1.65rem] p-3"
               style={{ scrollbarWidth: 'none' }}
             >
+              <div className="mb-3 rounded-2xl border border-[rgba(176,108,103,0.18)] bg-[rgba(176,108,103,0.08)] px-3 py-2">
+                <p className="text-[11px] font-semibold tracking-[0.14em] text-danger-700 uppercase">
+                  Umarło w tej sesji (placeholder)
+                </p>
+                {deadDuringSession.length === 0 ? (
+                  <p className="mt-1 text-xs text-surface-600">Brak odnotowanych wpisów.</p>
+                ) : (
+                  <ul className="mt-1 space-y-1">
+                    {deadDuringSession.slice(-4).reverse().map((item) => (
+                      <li key={`${item.entityId}-${item.timestamp}`} className="text-xs text-surface-700">
+                        {item.entityName}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
               <SessionNowPlayingPanel
                 scenes={Array.isArray(session.data.scenes) ? session.data.scenes : []}
                 plannedDurationMin={session.data.plannedDurationMin}

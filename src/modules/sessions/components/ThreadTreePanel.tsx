@@ -16,6 +16,7 @@ import {
   ensureEntitiesAppearInSession,
   removeEntityFromSession,
 } from '../utils/liveSessionCommands';
+import { recordSessionSignal } from '../utils/sessionSignals';
 import { toast } from 'sonner';
 
 interface ThreadTreePanelProps {
@@ -408,6 +409,19 @@ export function ThreadTreePanel({
       }
 
       await Promise.all(operations);
+      await recordSessionSignal(db, {
+        sessionId,
+        signalType: 'thread_created_in_session',
+        entityType: thread.type,
+        entityId: thread.id,
+        entityName: thread.name,
+        metadata: {
+          mode: addingMode ?? 'root',
+          parentThreadId: addingMode === 'child' ? parentThreadId : null,
+          kind: newKind,
+          derivationKind: addingMode === 'child' ? newDerivationKind : null,
+        },
+      });
       toast.success(`Wątek „${trimmed}” dodany`);
       resetAddForm();
     } catch {

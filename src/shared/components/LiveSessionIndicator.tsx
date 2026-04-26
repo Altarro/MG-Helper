@@ -5,6 +5,7 @@ import {
   getLiveSessionMarker,
   setLiveSessionMarker,
   type LiveSessionMarker,
+  LIVE_SESSION_MARKER_UPDATED_EVENT,
 } from '@modules/sessions/hooks/useLiveSessionState';
 
 export function LiveSessionIndicator() {
@@ -17,10 +18,12 @@ export function LiveSessionIndicator() {
     }
     window.addEventListener('storage', sync);
     window.addEventListener('focus', sync);
+    window.addEventListener(LIVE_SESSION_MARKER_UPDATED_EVENT, sync);
     const t = setTimeout(sync, 200);
     return () => {
       window.removeEventListener('storage', sync);
       window.removeEventListener('focus', sync);
+      window.removeEventListener(LIVE_SESSION_MARKER_UPDATED_EVENT, sync);
       clearTimeout(t);
     };
   }, []);

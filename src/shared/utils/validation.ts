@@ -1,16 +1,16 @@
 import { z } from 'zod';
 import { ENTITY_TYPES, RELATION_TYPES } from '@shared/types';
-import { CLUE_TYPES } from '@modules/clues/types';
-import { FRONT_CATEGORIES, THREAT_TYPES } from '@modules/fronts/types';
-import { THREAT_STATUSES } from '@modules/fronts/types';
-import { ITEM_TYPES } from '@modules/items/types';
-import { LOCATION_TYPES } from '@modules/locations/types';
+import {
+  FRONT_CATEGORIES,
+  THREAT_STATUSES,
+} from '@modules/fronts/types';
 import {
   THREAD_KINDS,
   THREAD_PRIORITIES,
   THREAD_STATUSES,
 } from '@modules/threads/types';
 import { BACKUP_FORMAT_VERSION } from './backupContract';
+import { LIFECYCLE_STATUSES } from '@shared/types/entityLifecycle';
 import {
   CLUE_STRENGTH_OPTIONS,
   THREAD_DERIVATION_KIND_OPTIONS,
@@ -49,13 +49,14 @@ export const npcSchema = baseEntitySchema.extend({
     playStyle: z.string().max(1000).default(''),
     isPC: z.boolean().default(false),
     playerName: z.string().max(200).default(''),
+    status: z.enum(LIFECYCLE_STATUSES).optional(),
     ...imageRefFields,
   }).default({}),
 });
 
 export const locationSchema = baseEntitySchema.extend({
   data: z.object({
-    locationType: z.enum(LOCATION_TYPES).default('region'),
+    locationType: z.string().min(1).default('region'),
     danger: z.number().int().min(0).max(5).default(0),
     senses: z.object({
       see: z.string().max(300).default(''),
@@ -64,6 +65,7 @@ export const locationSchema = baseEntitySchema.extend({
       feel: z.string().max(300).default(''),
     }).default({}),
     isDraft: z.boolean().optional(),
+    status: z.enum(LIFECYCLE_STATUSES).optional(),
     ...imageRefFields,
   }).default({}),
 });
@@ -78,11 +80,13 @@ export const frontSchema = baseEntitySchema.extend({
 
 export const threatSchema = baseEntitySchema.extend({
   data: z.object({
-    threatType: z.enum(THREAT_TYPES).default('dark_entity'),
+    threatType: z.string().min(1).default('dark_entity'),
+    radarArchetype: z.string().min(1).default('living_world'),
     status: z.enum(THREAT_STATUSES).default('active'),
     impulse: z.string().max(500).default(''),
     moves: z.array(z.string().max(500)).max(20).default([]),
     trigger: z.string().max(500).default(''),
+    completionReason: z.string().max(1000).default(''),
     reasonOfDead: z.string().max(1000).default(''),
     forkThreatId: z.string().min(1).optional(),
     inheritanceNotes: z.string().max(4000).default(''),
@@ -97,6 +101,8 @@ export const clockSchema = baseEntitySchema.extend({
     filled: z.number().int().min(0).default(0),
     tickLabels: z.array(z.string().max(300)).max(12).default([]),
     isActive: z.boolean().default(true),
+    lastAdvanceSessionId: z.string().min(1).optional(),
+    lastAdvanceAt: z.string().min(1).optional(),
   }).default({}),
 });
 
@@ -121,29 +127,33 @@ export const factionSchema = baseEntitySchema.extend({
   data: z.object({
     goals: z.array(z.string().max(500)).max(10).default([]),
     resources: z.array(z.string().max(500)).max(20).default([]),
+    status: z.enum(LIFECYCLE_STATUSES).optional(),
     ...imageRefFields,
   }).default({}),
 });
 
 export const itemSchema = baseEntitySchema.extend({
   data: z.object({
-    itemType: z.enum(ITEM_TYPES).default('misc'),
+    itemType: z.string().min(1).default('misc'),
     properties: z.array(z.string().max(300)).max(20).default([]),
+    status: z.enum(LIFECYCLE_STATUSES).optional(),
     ...imageRefFields,
   }).default({}),
 });
 
 const clueDataSchema = z
   .object({
-    clueTypes: z.array(z.enum(CLUE_TYPES)).max(6).optional(),
-    clueType: z.enum(CLUE_TYPES).optional(),
+    clueTypes: z.array(z.string().min(1)).max(6).optional(),
+    clueType: z.string().min(1).optional(),
     hint: z.string().max(2000).default(''),
     discovered: z.boolean().default(false),
   })
   .transform((data) => {
     const fromArray = Array.isArray(data.clueTypes) ? data.clueTypes : [];
-    const normalized = [...new Set(fromArray)].filter((value) => CLUE_TYPES.includes(value));
-    const fallback = data.clueType && CLUE_TYPES.includes(data.clueType) ? [data.clueType] : ['event'];
+    const normalized = [...new Set(fromArray)].filter(
+      (value) => !value.startsWith('custom:') || value.length > 'custom:'.length,
+    );
+    const fallback = data.clueType && data.clueType.length > 0 ? [data.clueType] : ['event'];
     const clueTypes = normalized.length > 0 ? normalized : fallback;
     return {
       clueTypes,

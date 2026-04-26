@@ -1,6 +1,7 @@
 import { updateEntity } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
+import { withClockAdvanceMeta } from '../clockAdvance';
 import { ClockVisual } from './ClockVisual';
 import type { Clock } from '../types';
 
@@ -25,8 +26,9 @@ export function ClockWidget({ clock, size = 64, showLabel = true, className = ''
   async function handleTick(newFilled: number) {
     if (dead) return;
     try {
+      const nextFilled = Math.max(0, Math.min(newFilled, segments));
       await updateEntity(db, clock.id, {
-        data: { ...clock.data, filled: Math.max(0, Math.min(newFilled, segments)) },
+        data: withClockAdvanceMeta(clock.data, nextFilled) as unknown as Record<string, unknown>,
       });
     } catch {
       toast.error('Nie udało się zaktualizować zegara');

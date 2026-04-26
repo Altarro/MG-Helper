@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router';
-import { ArrowLeft, MapPin, Pencil, Trash2, Plus } from 'lucide-react';
+import { ArrowLeft, MapPin, Pencil, Trash2, Plus, Skull } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useNpcById } from '../hooks/useNpcById';
 import type { NpcLocationHistoryEvent } from '../types';
@@ -25,11 +25,13 @@ import { Modal } from '@shared/components/Modal';
 import { EntityDetailPortrait } from '@shared/components/EntityDetailPortrait';
 import { toast } from 'sonner';
 import { formatDate, formatDateTime } from '@shared/utils/date';
-import { getSessionData } from '@shared/utils/entityData';
+import { getNpcLifecycleStatus, getSessionData } from '@shared/utils/entityData';
+import { withLifecycleStatus } from '@shared/types/entityLifecycle';
 import { getEntityDetailPath } from '@shared/utils/entityTypeMeta';
 import type { NpcFormValues } from './NpcForm';
 import type { Entity } from '@shared/types/entity';
 import { setNpcCurrentLocation } from '@modules/sessions/utils/liveSessionCommands';
+import { recordEntityMutationInSession, recordSessionSignal } from '@modules/sessions/utils/sessionSignals';
 
 function compareSessionsDesc(
   a: Entity & { type: 'session' },
@@ -116,6 +118,7 @@ export function NpcDetail() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showKillConfirm, setShowKillConfirm] = useState(false);
   const [showRelationPicker, setShowRelationPicker] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -208,16 +211,19 @@ export function NpcDetail() {
         name: values.name,
         description: values.description,
         tags: values.tags,
-        data: {
-          instinct: values.instinct,
-          motivation: values.motivation,
-          appearance: values.appearance,
-          playStyle: values.playStyle,
-          isPC: values.isPC ?? false,
-          playerName: values.playerName ?? '',
-          imageId: nextImageId,
-          imageAlt: values.imageAlt ?? '',
-        },
+        data: withLifecycleStatus(
+          {
+            instinct: values.instinct,
+            motivation: values.motivation,
+            appearance: values.appearance,
+            playStyle: values.playStyle,
+            isPC: values.isPC ?? false,
+            playerName: values.playerName ?? '',
+            imageId: nextImageId,
+            imageAlt: values.imageAlt ?? '',
+          },
+          getNpcLifecycleStatus({ data: npc!.data }),
+        ) as unknown as Record<string, unknown>,
       });
       if (previousImageId && previousImageId !== nextImageId) {
         await deleteAsset(db, previousImageId).catch(() => undefined);
@@ -258,12 +264,49 @@ export function NpcDetail() {
     }
   }
 
+  async function applyNpcDead(nextDead: boolean) {
+    try {
+      await updateEntity(db, npc!.id, {
+        data: withLifecycleStatus(npc!.data, nextDead ? 'completed' : 'active') as unknown as Record<string, unknown>,
+      });
+      if (returnToSessionLive) {
+        await recordEntityMutationInSession(db, {
+          sessionId: returnToSessionLive,
+          entityType: 'npc',
+          entityId: npc!.id,
+          entityName: npc!.name,
+          changedFields: ['status'],
+          source: 'npc-detail/toggle-dead',
+          extra: { status: nextDead ? 'completed' : 'active', isPC: npc!.data.isPC === true },
+        });
+        if (nextDead) {
+          await recordSessionSignal(db, {
+            sessionId: returnToSessionLive,
+            signalType: 'entity_died_in_session',
+            entityType: 'npc',
+            entityId: npc!.id,
+            entityName: npc!.name,
+            metadata: { source: 'npc-detail/kill', isPC: npc!.data.isPC === true },
+          });
+        }
+      }
+      toast.success(
+        nextDead ? 'Postać oznaczona jako nie żyje (encja pozostaje w kampanii)' : 'Postać przywrócona do żywych',
+      );
+      setShowKillConfirm(false);
+    } catch {
+      toast.error('Nie udało się zapisać stanu postaci');
+    }
+  }
+
   function handleNavigateToEntity(entity: Entity) {
     const detailPath = getEntityDetailPath(entity.type, entity.id);
     if (detailPath) {
       navigate(detailPath);
     }
   }
+
+  const npcIsDead = getNpcLifecycleStatus({ data: npc!.data }) === 'completed';
 
   return (
     <div className="mx-auto max-w-5xl p-6">
@@ -303,7 +346,11 @@ export function NpcDetail() {
       ) : (
         <>
           {/* Header */}
-          <div className="app-panel-strong mb-6 flex flex-col gap-5 rounded-[1.9rem] border border-white/40 px-6 py-6 shadow-[0_28px_60px_rgba(18,45,66,0.12)] lg:flex-row lg:items-start lg:justify-between lg:px-7">
+          <div
+            className={`app-panel-strong mb-6 flex flex-col gap-5 rounded-[1.9rem] border border-white/40 px-6 py-6 shadow-[0_28px_60px_rgba(18,45,66,0.12)] lg:flex-row lg:items-start lg:justify-between lg:px-7 ${
+              npcIsDead ? 'opacity-90' : ''
+            }`}
+          >
             <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start">
               {npc.data.imageId && (
                 <EntityDetailPortrait
@@ -313,15 +360,23 @@ export function NpcDetail() {
                 />
               )}
               <div className="min-w-0">
-                <h1 className="text-surface-900 text-3xl font-semibold tracking-[-0.03em]">
-                  {npc.name}
-                </h1>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-surface-900 text-3xl font-semibold tracking-[-0.03em]">
+                    {npc.name}
+                  </h1>
+                  {npcIsDead && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-danger-300/60 bg-danger-50 px-2.5 py-1 text-xs font-semibold text-danger-800">
+                      <Skull className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                      Nie żyje
+                    </span>
+                  )}
+                </div>
                 <p className="text-surface-400 mt-1 text-xs">
                   Utworzony {formatDate(npc.createdAt)} · Edytowany {formatDate(npc.updatedAt)}
                 </p>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <MarkdownExportButton entity={npc} />
               <button
                 type="button"
@@ -332,6 +387,24 @@ export function NpcDetail() {
                 <Pencil className="h-4 w-4" />
                 Edytuj
               </button>
+              {npcIsDead ? (
+                <button
+                  type="button"
+                  onClick={() => void applyNpcDead(false)}
+                  className="app-button-secondary inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
+                >
+                  Przywróć (żyje)
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowKillConfirm(true)}
+                  className="app-button-secondary inline-flex items-center gap-1.5 rounded-full border border-danger-200 px-4 py-2 text-sm font-medium text-danger-800 hover:bg-danger-50"
+                >
+                  <Skull className="h-4 w-4" />
+                  Zabij postać
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
@@ -609,6 +682,20 @@ export function NpcDetail() {
         destructive
         onConfirm={handleDelete}
         onCancel={() => setShowDeleteConfirm(false)}
+      />
+
+      <ConfirmDialog
+        open={showKillConfirm}
+        title="Zabij postać (bez usuwania)"
+        description={
+          npc.data.isPC
+            ? `Postać gracza „${npc.name}” zostanie oznaczona jako nie żyje. Karta pozostanie w kampanii.`
+            : `NPC „${npc.name}” zostanie oznaczony jako nie żyje. Encja pozostanie w kampanii — relacje i historia zostaną zachowane.`
+        }
+        confirmLabel="Oznacz jako nie żyje"
+        destructive={false}
+        onConfirm={() => void applyNpcDead(true)}
+        onCancel={() => setShowKillConfirm(false)}
       />
 
       {showRelationPicker && (

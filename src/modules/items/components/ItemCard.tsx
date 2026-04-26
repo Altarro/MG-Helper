@@ -1,20 +1,24 @@
 import { memo } from 'react';
 import { Link } from 'react-router';
-import { Package } from 'lucide-react';
+import { Package, OctagonAlert } from 'lucide-react';
 import { ITEM_TYPE_LABELS } from '../types';
 import type { Item } from '../types';
 import { useAssetUrl } from '@shared/hooks/useAssetUrl';
+import { getItemLifecycleStatus } from '@shared/utils/entityData';
 
 interface ItemCardProps {
   item: Item;
 }
 
 export const ItemCard = memo(function ItemCard({ item }: ItemCardProps) {
+  const isDestroyed = getItemLifecycleStatus({ data: item.data }) === 'completed';
   const thumbUrl = useAssetUrl(item.data.imageId ?? null, { thumb: true });
   return (
     <Link
       to={`/items/${item.id}`}
-      className="app-card flex flex-col gap-3 rounded-[1.35rem] p-5 transition-all hover:-translate-y-0.5"
+      className={`app-card flex flex-col gap-3 rounded-[1.35rem] p-5 transition-all hover:-translate-y-0.5 ${
+        isDestroyed ? 'opacity-90' : ''
+      }`}
     >
       <div className="flex items-center gap-2.5 min-w-0">
         {thumbUrl ? (
@@ -29,9 +33,17 @@ export const ItemCard = memo(function ItemCard({ item }: ItemCardProps) {
           </div>
         )}
         <h3 className="truncate text-[1.02rem] font-semibold tracking-[-0.02em] text-surface-900">{item.name}</h3>
-        <span className="app-danger-pill ml-auto shrink-0 rounded-full px-2.5 py-1 text-xs">
-          {ITEM_TYPE_LABELS[item.data.itemType]}
-        </span>
+        <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1">
+          {isDestroyed && (
+            <span className="inline-flex items-center gap-0.5 rounded-full border border-danger-300/50 bg-danger-50 px-2 py-0.5 text-[10px] font-semibold text-danger-800">
+              <OctagonAlert className="h-3 w-3" aria-hidden />
+              Zniszcz./zgub.
+            </span>
+          )}
+          <span className="app-danger-pill rounded-full px-2.5 py-1 text-xs">
+            {ITEM_TYPE_LABELS[item.data.itemType]}
+          </span>
+        </div>
       </div>
       {item.data.properties.length > 0 && (
         <p className="line-clamp-2 text-sm leading-6 text-surface-700">

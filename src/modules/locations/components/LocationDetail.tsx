@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useParams, useNavigate, useLocation } from 'react-router';
-import { ArrowLeft, Pencil, Trash2, Plus } from 'lucide-react';
+import { ArrowLeft, Pencil, Trash2, Plus, OctagonAlert } from 'lucide-react';
 import { useLocationById } from '../hooks/useLocationById';
 import { useLocationTree } from '../hooks/useLocationTree';
 import { useContained } from '@shared/hooks/useContained';
@@ -29,10 +29,13 @@ import { toast } from 'sonner';
 import { formatDate } from '@shared/utils/date';
 import { getEntityDetailPath } from '@shared/utils/entityTypeMeta';
 import { createLocationData, LOCATION_TYPE_LABELS } from '../types';
+import { getLocationLifecycleStatus } from '@shared/utils/entityData';
+import { withLifecycleStatus } from '@shared/types/entityLifecycle';
 import { DndContext } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
 import type { NpcDragData } from '@shared/components/DraggableNpcChip';
 import { moveNpcToLocation } from '@modules/sessions/utils/liveSessionCommands';
+import { recordEntityMutationInSession } from '@modules/sessions/utils/sessionSignals';
 import type { LocationFormValues } from './LocationForm';
 import type { Entity } from '@shared/types/entity';
 
@@ -77,6 +80,7 @@ export function LocationDetail() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDestroyConfirm, setShowDestroyConfirm] = useState(false);
   const [showRelationPicker, setShowRelationPicker] = useState(false);
   const [addChildToId, setAddChildToId] = useState<string | null>(null);
   const [savingChild, setSavingChild] = useState(false);
@@ -103,6 +107,7 @@ export function LocationDetail() {
 
   const locationId = location.id;
   const locationIsDraft = location.data.isDraft;
+  const locationIsDestroyed = getLocationLifecycleStatus({ data: location.data }) === 'completed';
   const { locationType, danger, senses } = location.data;
   const descendantIds = descendantLocations.map((location) => location.id);
 
@@ -125,6 +130,7 @@ export function LocationDetail() {
           danger: values.danger,
           senses: { see: values.see, hear: values.hear, smell: values.smell, feel: values.feel },
           isDraft: locationIsDraft,
+          status: getLocationLifecycleStatus({ data: location!.data }),
           imageId: nextImageId,
           imageAlt: values.imageAlt ?? '',
         }),
@@ -148,6 +154,31 @@ export function LocationDetail() {
       navigate('/locations');
     } catch {
       toast.error('Nie udało się usunąć lokacji');
+    }
+  }
+
+  async function applyLocationDestroyed(nextDestroyed: boolean) {
+    try {
+      await updateEntity(db, locationId, {
+        data: withLifecycleStatus(location!.data, nextDestroyed ? 'completed' : 'active') as unknown as Record<string, unknown>,
+      });
+      if (returnToSessionLive) {
+        await recordEntityMutationInSession(db, {
+          sessionId: returnToSessionLive,
+          entityType: 'location',
+          entityId: locationId,
+          entityName: location!.name,
+          changedFields: ['status'],
+          source: 'location-detail/toggle-destroyed',
+          extra: { status: nextDestroyed ? 'completed' : 'active' },
+        });
+      }
+      toast.success(
+        nextDestroyed ? 'Lokacja oznaczona jako zniszczona (encja pozostaje w kampanii)' : 'Lokacja przywrócona',
+      );
+      setShowDestroyConfirm(false);
+    } catch {
+      toast.error('Nie udało się zapisać stanu lokacji');
     }
   }
 
@@ -251,7 +282,11 @@ export function LocationDetail() {
       ) : (
         <>
           {/* Header */}
-          <div className="app-panel-strong mb-6 flex flex-col gap-5 rounded-[1.9rem] border border-white/40 px-6 py-6 shadow-[0_28px_60px_rgba(18,45,66,0.12)] lg:flex-row lg:items-start lg:justify-between lg:px-7">
+          <div
+            className={`app-panel-strong mb-6 flex flex-col gap-5 rounded-[1.9rem] border border-white/40 px-6 py-6 shadow-[0_28px_60px_rgba(18,45,66,0.12)] lg:flex-row lg:items-start lg:justify-between lg:px-7 ${
+              locationIsDestroyed ? 'opacity-90' : ''
+            }`}
+          >
             <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start">
               {location.data.imageId && (
                 <EntityDetailPortrait
@@ -275,6 +310,12 @@ export function LocationDetail() {
                     ⚠ {DANGER_LABELS[danger] ?? `Danger ${danger}`}
                   </span>
                 )}
+                {locationIsDestroyed && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-danger-300/60 bg-danger-50 px-2.5 py-1 text-xs font-semibold text-danger-800">
+                    <OctagonAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    Zniszczona
+                  </span>
+                )}
               </div>
               <p className="text-surface-400 mt-1 text-xs">
                 Utworzona {formatDate(location.createdAt)} · Edytowana{' '}
@@ -282,7 +323,7 @@ export function LocationDetail() {
               </p>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => setEditing(true)}
@@ -292,6 +333,24 @@ export function LocationDetail() {
                 <Pencil className="h-4 w-4" />
                 Edytuj
               </button>
+              {locationIsDestroyed ? (
+                <button
+                  type="button"
+                  onClick={() => void applyLocationDestroyed(false)}
+                  className="app-button-secondary inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
+                >
+                  Przywróć lokację
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowDestroyConfirm(true)}
+                  className="app-button-secondary inline-flex items-center gap-1.5 rounded-full border border-danger-200 px-4 py-2 text-sm font-medium text-danger-800 hover:bg-danger-50"
+                >
+                  <OctagonAlert className="h-4 w-4" />
+                  Zniszcz lokację
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
@@ -505,6 +564,16 @@ export function LocationDetail() {
         destructive
         onConfirm={handleDelete}
         onCancel={() => setShowDeleteConfirm(false)}
+      />
+
+      <ConfirmDialog
+        open={showDestroyConfirm}
+        title="Zniszcz lokację (bez usuwania)"
+        description={`Lokacja „${location.name}” zostanie oznaczona jako zniszczona. Encja pozostanie w kampanii — relacje i historia zostaną zachowane.`}
+        confirmLabel="Oznacz jako zniszczoną"
+        destructive={false}
+        onConfirm={() => void applyLocationDestroyed(true)}
+        onCancel={() => setShowDestroyConfirm(false)}
       />
 
       {showRelationPicker && (

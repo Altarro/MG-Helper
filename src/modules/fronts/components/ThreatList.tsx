@@ -99,7 +99,7 @@ export function ThreatList() {
   async function handleCreate(values: ThreatFormValues) {
     setSaving(true);
     try {
-      const lifecycle = normalizeThreatLifecycle(values.status, values.reasonOfDead);
+      const lifecycle = normalizeThreatLifecycle(values.status, values.completionReason);
       const entity = await addEntity(db, {
         type: 'threat',
         name: values.name,
@@ -107,12 +107,16 @@ export function ThreatList() {
         tags: values.tags,
         data: {
           threatType: values.threatType,
+          radarArchetype: values.radarArchetype,
           impulse: values.impulse,
           moves: values.moves,
           trigger: values.trigger,
           inheritanceNotes: values.inheritanceNotes,
           forkThreatId: values.forkThreatId,
           ...lifecycle,
+          ...(lifecycle.status === 'completed'
+            ? { completionOutcome: values.completionOutcome ?? 'resolved_early' }
+            : { completionOutcome: undefined }),
         },
       });
 

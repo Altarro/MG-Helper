@@ -10,6 +10,7 @@ import { addEntity } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
 import type { NpcFormValues } from './NpcForm';
+import { getNpcLifecycleStatus } from '@shared/utils/entityData';
 
 export function NpcList() {
   const npcs = useNpcs();
@@ -18,6 +19,7 @@ export function NpcList() {
   const [query, setQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [tab, setTab] = useState<'all' | 'players' | 'npcs'>('all');
+  const [hideDead, setHideDead] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -34,7 +36,8 @@ export function NpcList() {
       tab === 'all' ||
       (tab === 'players' && npc.data?.isPC === true) ||
       (tab === 'npcs' && !npc.data?.isPC);
-    return matchesQuery && matchesTag && matchesTab;
+    const matchesDead = !hideDead || getNpcLifecycleStatus({ data: npc.data }) !== 'completed';
+    return matchesQuery && matchesTag && matchesTab && matchesDead;
   });
 
   const allTags = npcs ? [...new Set(npcs.flatMap((n) => n.tags))].sort() : [];
@@ -111,6 +114,15 @@ export function NpcList() {
               {label}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => setHideDead((v) => !v)}
+            className={`rounded-full px-4 py-2 text-xs font-semibold tracking-[0.01em] transition-all ${
+              hideDead ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+            }`}
+          >
+            Ukryj nie żyjące
+          </button>
         </div>
 
         <div className="relative mt-6">
@@ -172,12 +184,12 @@ export function NpcList() {
           <EmptyState
             title="Brak postaci"
             description={
-              lowerQuery || activeTag || tab !== 'all'
+              lowerQuery || activeTag || tab !== 'all' || hideDead
                 ? 'Brak wyników dla podanych filtrów.'
                 : 'Utwórz pierwszą postać, aby zacząć budować obsadę kampanii.'
             }
             action={
-              !lowerQuery && !activeTag && tab === 'all' ? (
+              !lowerQuery && !activeTag && tab === 'all' && !hideDead ? (
                 <button
                   type="button"
                   onClick={() => setShowForm(true)}

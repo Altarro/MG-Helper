@@ -1,8 +1,9 @@
 import { memo } from 'react';
 import { User, MapPin, Zap, Package, CheckCircle2, Circle, type LucideIcon } from 'lucide-react';
 import { Link } from 'react-router';
+import { useCampaign } from '@shared/db/CampaignContext';
+import { getCatalogLabelByValue } from '@modules/settings/campaignCatalogSettings';
 import type { Clue } from '../types';
-import { CLUE_TYPE_LABELS } from '../types';
 
 const CLUE_ICONS: Record<string, LucideIcon> = {
   character: User,
@@ -18,6 +19,7 @@ interface ClueCardProps {
 }
 
 export const ClueCard = memo(function ClueCard({ clue, onClick, onToggleDiscovered }: ClueCardProps) {
+  const { campaignId } = useCampaign();
   const primaryType = clue.data.clueTypes[0] ?? 'event';
   const Icon = CLUE_ICONS[primaryType] ?? Zap;
   const discovered = clue.data.discovered;
@@ -43,7 +45,7 @@ export const ClueCard = memo(function ClueCard({ clue, onClick, onToggleDiscover
             </span>
             {clue.data.clueTypes.map((type) => (
               <span key={type} className="app-pill rounded-full px-2.5 py-1 text-xs">
-                {CLUE_TYPE_LABELS[type] ?? type}
+                {getCatalogLabelByValue('clueType', type, campaignId)}
               </span>
             ))}
             {discovered && (

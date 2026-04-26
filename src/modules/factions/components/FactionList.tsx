@@ -10,6 +10,7 @@ import { addEntity } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
 import type { FactionFormValues } from './FactionForm';
+import { getFactionLifecycleStatus } from '@shared/utils/entityData';
 
 export function FactionList() {
   const factions = useFactions();
@@ -18,13 +19,17 @@ export function FactionList() {
   const [query, setQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [hideDisbanded, setHideDisbanded] = useState(false);
 
   const lowerQuery = query.trim().toLowerCase();
-  const filtered = factions?.filter((f) =>
-    !lowerQuery ||
-    f.name.toLowerCase().includes(lowerQuery) ||
-    f.tags.some((t) => t.toLowerCase().includes(lowerQuery)),
-  );
+  const filtered = factions?.filter((f) => {
+    if (hideDisbanded && getFactionLifecycleStatus({ data: f.data }) === 'completed') return false;
+    return (
+      !lowerQuery ||
+      f.name.toLowerCase().includes(lowerQuery) ||
+      f.tags.some((t) => t.toLowerCase().includes(lowerQuery))
+    );
+  });
 
   async function handleCreate(values: FactionFormValues) {
     setSaving(true);
@@ -82,6 +87,16 @@ export function FactionList() {
           />
           {query && <button type="button" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-surface-500 transition-colors hover:text-primary-700"><X className="h-4 w-4" /></button>}
         </div>
+
+        <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm text-surface-700">
+          <input
+            type="checkbox"
+            checked={hideDisbanded}
+            onChange={(e) => setHideDisbanded(e.target.checked)}
+            className="border-surface-300 accent-primary-600 h-4 w-4 rounded"
+          />
+          Ukryj rozbite
+        </label>
       </section>
 
       {showForm && (

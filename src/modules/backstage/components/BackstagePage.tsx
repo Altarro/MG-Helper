@@ -107,8 +107,10 @@ export function BackstagePage() {
             Radar zagrożeń
           </h2>
           <p className="text-xs text-surface-500">
-            Kolory i kolejność to podpowiedź pilności (pięć stopni). Obecność = jak bardzo zagrożenie „żyje” na stole;
-            dług = napięcie między wskazówkami a wątkami.
+            Kolory i kolejność to podpowiedź pilności (pięć stopni). Słupki: ślad na stole (wątek / wskazówka / NPC
+            „powiązany z” / zagrożenie), presja od ostatniego ticku zegara w przód, udział wątków zakończonych,
+            udział wskazówek nieodkrytych — wagi zależą od archetypu ustawionego na karcie zagrożenia. Żółty baner to
+            najsilniejsza sugestia „na stole teraz”; apka nie zapisuje ticków ani ruchów za Ciebie.
           </p>
           <ThreatRadarPanel rows={threatRows} />
         </section>

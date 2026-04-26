@@ -12,7 +12,7 @@ import { NpcCampaignPickerModal } from './NpcCampaignPickerModal';
 import { toast } from 'sonner';
 import { toastRemoveEntitySuccess, toastRemoveEntityError } from '@shared/utils/toastSessionEntity';
 import { useContainedNpcs, useSessionNpcPanelData } from '../hooks/useLiveSessionQueries';
-import { isPlayerNpc } from '@shared/utils/entityData';
+import { getNpcLifecycleStatus, isPlayerNpc } from '@shared/utils/entityData';
 import {
   ensureEntityAppearsInSession,
   removeEntityFromSession,
@@ -317,6 +317,11 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
                           </Link>
                           {isPlayerNpc(npc) && (
                             <span className="shrink-0 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">Gracz</span>
+                          )}
+                          {getNpcLifecycleStatus({ data: npc.data }) === 'completed' && (
+                            <span className="shrink-0 rounded-full border border-danger-200 bg-danger-50 px-1.5 py-0.5 text-[10px] font-semibold text-danger-800">
+                              Nie żyje
+                            </span>
                           )}
                           {autoAddedIds.has(npc.id) && (
                             <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Dodano do sesji</span>

@@ -17,6 +17,7 @@ import type { Threat } from '@modules/fronts/types';
 import type { Clue } from '@modules/clues/types';
 import type { Clock } from '@modules/clocks/types';
 import { isCompleted } from '@modules/clocks/types';
+import { loadThreatRadarWeights } from '../radarSettings';
 
 export interface BackstageData {
   sessions: Session[];
@@ -81,16 +82,27 @@ function buildSnapshot(entities: Entity[], relations: Relation[]): BackstageSnap
     threatSessionIds.set(tid, new Set());
   }
 
-  const threatClues = new Map<string, { discovered: boolean }[]>();
+  const threatClues = new Map<string, { clueId: string; discovered: boolean }[]>();
+  const threatClueSeen = new Map<string, Set<string>>();
   const threatThreadIds = new Map<string, string[]>();
+  const threatNpcIds = new Map<string, Set<string>>();
   const threatClocks = new Map<
     string,
-    { filled: number; segments: number; isActive: boolean; isCompleted: boolean }[]
+    {
+      filled: number;
+      segments: number;
+      isActive: boolean;
+      isCompleted: boolean;
+      lastAdvanceSessionId?: string;
+      lastAdvanceAt?: string;
+    }[]
   >();
 
   for (const tid of activeThreatIds) {
     threatClues.set(tid, []);
+    threatClueSeen.set(tid, new Set());
     threatThreadIds.set(tid, []);
+    threatNpcIds.set(tid, new Set());
     threatClocks.set(tid, []);
   }
 
@@ -117,7 +129,13 @@ function buildSnapshot(entities: Entity[], relations: Relation[]): BackstageSnap
     if (rel.type === 'clues_for' && activeThreatIds.has(rel.targetId)) {
       const clue = byId.get(rel.sourceId);
       if (clue && isClue(clue)) {
-        threatClues.get(rel.targetId)?.push({ discovered: clue.data.discovered === true });
+        const seen = threatClueSeen.get(rel.targetId)!;
+        if (seen.has(clue.id)) continue;
+        seen.add(clue.id);
+        threatClues.get(rel.targetId)?.push({
+          clueId: clue.id,
+          discovered: clue.data.discovered === true,
+        });
       }
     }
     if (rel.type === 'affects') {
@@ -148,9 +166,38 @@ function buildSnapshot(entities: Entity[], relations: Relation[]): BackstageSnap
           segments,
           isActive,
           isCompleted: isCompleted(c),
+          lastAdvanceSessionId:
+            typeof c.data.lastAdvanceSessionId === 'string' ? c.data.lastAdvanceSessionId : undefined,
+          lastAdvanceAt: typeof c.data.lastAdvanceAt === 'string' ? c.data.lastAdvanceAt : undefined,
         });
       }
     }
+    if (rel.type === 'related_to') {
+      const ea = byId.get(rel.sourceId);
+      const eb = byId.get(rel.targetId);
+      if (!ea || !eb) continue;
+      if (ea.type === 'npc' && eb.type === 'threat' && activeThreatIds.has(eb.id)) {
+        threatNpcIds.get(eb.id)?.add(ea.id);
+      } else if (ea.type === 'threat' && eb.type === 'npc' && activeThreatIds.has(ea.id)) {
+        threatNpcIds.get(ea.id)?.add(eb.id);
+      }
+    }
+  }
+
+  const threatFootprintSessionIds = new Map<string, Set<string>>();
+  for (const tid of activeThreatIds) {
+    const fp = new Set<string>();
+    for (const sid of threatSessionIds.get(tid) ?? []) fp.add(sid);
+    for (const threadId of threatThreadIds.get(tid) ?? []) {
+      for (const sid of threadSessionIds.get(threadId) ?? []) fp.add(sid);
+    }
+    for (const row of threatClues.get(tid) ?? []) {
+      for (const sid of clueSessionIds.get(row.clueId) ?? []) fp.add(sid);
+    }
+    for (const npcId of threatNpcIds.get(tid) ?? []) {
+      for (const sid of npcSessionIds.get(npcId) ?? []) fp.add(sid);
+    }
+    threatFootprintSessionIds.set(tid, fp);
   }
 
   return {
@@ -169,6 +216,7 @@ function buildSnapshot(entities: Entity[], relations: Relation[]): BackstageSnap
     threatClues,
     threatThreadIds,
     threatClocks,
+    threatFootprintSessionIds,
   };
 }
 
@@ -176,19 +224,20 @@ function buildSnapshot(entities: Entity[], relations: Relation[]): BackstageSnap
  * Read-only backstage payload: thread×session matrix data + threat radar rows.
  */
 export function useBackstage(): BackstageData | undefined {
-  const { db } = useCampaign();
+  const { db, campaignId } = useCampaign();
   return useLiveQuery(async () => {
-    const [entities, relAppears, relClues, relAffects, relTracks] = await Promise.all([
+    const [entities, relAppears, relClues, relAffects, relTracks, relRelated] = await Promise.all([
       db.entities.toArray(),
       db.relations.where('type').equals('appears_in').toArray(),
       db.relations.where('type').equals('clues_for').toArray(),
       db.relations.where('type').equals('affects').toArray(),
       db.relations.where('type').equals('tracks').toArray(),
+      db.relations.where('type').equals('related_to').toArray(),
     ]);
 
-    const relations: Relation[] = [...relAppears, ...relClues, ...relAffects, ...relTracks];
+    const relations: Relation[] = [...relAppears, ...relClues, ...relAffects, ...relTracks, ...relRelated];
     const snapshot = buildSnapshot(entities, relations);
-    const threatRows = computeAllThreatRadarRows(snapshot);
+    const threatRows = computeAllThreatRadarRows(snapshot, loadThreatRadarWeights(campaignId));
 
     return {
       sessions: snapshot.sessions,
@@ -205,5 +254,5 @@ export function useBackstage(): BackstageData | undefined {
       snapshot,
       threatRows,
     };
-  }, [db]);
+  }, [db, campaignId]);
 }

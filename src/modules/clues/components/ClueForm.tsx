@@ -4,7 +4,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { TagInput } from '@shared/components/TagInput';
 import { RichTextEditor } from '@shared/components/RichTextEditor';
-import { CLUE_TYPES, CLUE_TYPE_LABELS, normalizeClueTypes } from '../types';
+import { useCampaign } from '@shared/db/CampaignContext';
+import { getActiveCatalogOptions } from '@modules/settings/campaignCatalogSettings';
+import { normalizeClueTypes } from '../types';
 
 const SINGLE_CLICK_DELAY_MS = 250;
 
@@ -12,7 +14,7 @@ const clueFormSchema = z.object({
   name: z.string().min(1, 'Nazwa jest wymagana').max(200),
   description: z.string().max(100_000).default(''),
   tags: z.array(z.string().min(1).max(50)).max(50).default([]),
-  clueTypes: z.array(z.enum(CLUE_TYPES)).min(1, 'Wybierz minimum jeden typ wskazówki'),
+  clueTypes: z.array(z.string().min(1)).min(1, 'Wybierz minimum jeden typ wskazówki'),
   hint: z.string().max(2000).default(''),
   discovered: z.boolean().default(false),
 });
@@ -27,7 +29,9 @@ interface ClueFormProps {
 }
 
 export function ClueForm({ defaultValues, onSubmit, onCancel, isSaving }: ClueFormProps) {
+  const { campaignId } = useCampaign();
   const singleClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clueTypeOptions = getActiveCatalogOptions(campaignId, 'clueType');
   const defaultClueTypes: ClueFormValues['clueTypes'] = defaultValues?.clueTypes
     ? normalizeClueTypes(defaultValues.clueTypes)
     : ['character'];
@@ -79,7 +83,7 @@ export function ClueForm({ defaultValues, onSubmit, onCancel, isSaving }: ClueFo
           name="clueTypes"
           render={({ field }) => (
             <div className="flex flex-wrap gap-2">
-              {(Object.entries(CLUE_TYPE_LABELS) as [string, string][]).map(([value, label]) => {
+              {clueTypeOptions.map(({ id: value, label }) => {
                 const isSelected = field.value.includes(value as ClueFormValues['clueTypes'][number]);
                 return (
                   <button

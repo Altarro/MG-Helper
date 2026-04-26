@@ -1,4 +1,5 @@
 import type { Entity } from '@shared/types/entity';
+import { isCompleted, type Clock } from '@modules/clocks/types';
 
 export const FRONT_CATEGORIES = ['campaign', 'adventure'] as const;
 export type FrontCategory = (typeof FRONT_CATEGORIES)[number];
@@ -19,7 +20,7 @@ export function isFront(entity: Entity): entity is Front {
   return entity.type === 'front';
 }
 
-export const THREAT_TYPES = [
+export const DEFAULT_THREAT_TYPES = [
   'ambitious_organization',
   'arcane_enemy',
   'city',
@@ -35,8 +36,10 @@ export const THREAT_TYPES = [
   'religious_institution',
   'wealthy_merchant',
 ] as const;
-export type ThreatType = (typeof THREAT_TYPES)[number];
-export const THREAT_TYPE_LABELS: Record<ThreatType, string> = {
+export const THREAT_TYPES = DEFAULT_THREAT_TYPES;
+export type DefaultThreatType = (typeof DEFAULT_THREAT_TYPES)[number];
+export type ThreatType = DefaultThreatType | `custom:${string}`;
+export const THREAT_TYPE_LABELS: Record<string, string> = {
   ambitious_organization: 'Ambitna organizacja',
   arcane_enemy: 'Wróg magiczny',
   city: 'Miasto',
@@ -52,6 +55,13 @@ export const THREAT_TYPE_LABELS: Record<ThreatType, string> = {
   religious_institution: 'Instytucja religijna',
   wealthy_merchant: 'Bogaty kupiec',
 };
+
+export function getThreatTypeLabel(threatType: ThreatType): string {
+  if ((THREAT_TYPES as readonly string[]).includes(threatType)) {
+    return THREAT_TYPE_LABELS[threatType as DefaultThreatType] ?? threatType;
+  }
+  return threatType.startsWith('custom:') ? threatType.slice('custom:'.length) : threatType;
+}
 
 export interface ThreatTypePreset {
   impulse: string;
@@ -146,13 +156,48 @@ export const THREAT_STATUS_LABELS: Record<ThreatStatus, string> = {
   completed: 'Zakończone',
 };
 
+/** Archetyp pod radar „Za kulisami” — niezależny od rodzaju PBTA (`threatType`). */
+export const DEFAULT_RADAR_ARCHETYPES = ['living_world', 'mystery', 'predator', 'ambush', 'avalanche'] as const;
+export const RADAR_ARCHETYPES = DEFAULT_RADAR_ARCHETYPES;
+export type DefaultRadarArchetype = (typeof DEFAULT_RADAR_ARCHETYPES)[number];
+export type RadarArchetype = DefaultRadarArchetype | `custom:${string}`;
+export const RADAR_ARCHETYPE_LABELS: Record<DefaultRadarArchetype, string> = {
+  living_world: 'Żyjący świat',
+  mystery: 'Tajemnica',
+  predator: 'Drapieżnik',
+  ambush: 'Zasadzka',
+  avalanche: 'Lawina',
+};
+
+export const DEFAULT_RADAR_ARCHETYPE: RadarArchetype = 'living_world';
+
+/** Jak zakończyło się zagrożenie (tylko przy statusie `completed`). */
+export const THREAT_COMPLETION_OUTCOMES = ['resolved_early', 'completed_by_clock'] as const;
+export type ThreatCompletionOutcome = (typeof THREAT_COMPLETION_OUTCOMES)[number];
+export const THREAT_COMPLETION_OUTCOME_LABELS: Record<ThreatCompletionOutcome, string> = {
+  /** Upadło / zamknięte fabularnie przy niepełnym lub brakującym zegarze. */
+  resolved_early: 'Rozwiązane',
+  /** Domknięcie zegara (ostatni segment) jako kanoniczne zakończenie. */
+  completed_by_clock: 'Ukończone',
+};
+
 export interface ThreatData {
   threatType: ThreatType;
+  /** Archetyp radaru backstage; brak = `DEFAULT_RADAR_ARCHETYPE` przy odczycie. */
+  radarArchetype?: RadarArchetype;
   status?: ThreatStatus;
   impulse: string;
   moves: string[];
   trigger?: string;
+  /** Preferowane pole z powodem zakończenia zagrożenia. */
+  completionReason?: string;
+  /** Legacy alias dla kompatybilności starych zapisów. */
   reasonOfDead?: string;
+  /**
+   * Przy `completed`: rozróżnienie „rozwiązane przed zegarem” vs „ukończone domknięciem zegara”.
+   * Brak wartości = starsze rekordy (nie zapisano sposobu).
+   */
+  completionOutcome?: ThreatCompletionOutcome;
   forkThreatId?: string;
   inheritanceNotes?: string;
 }
@@ -161,4 +206,20 @@ export type Threat = Entity & { type: 'threat'; data: ThreatData };
 
 export function isThreat(entity: Entity): entity is Threat {
   return entity.type === 'threat';
+}
+
+export function getThreatRadarArchetype(data: ThreatData): RadarArchetype {
+  const v = data.radarArchetype;
+  if (!v || typeof v !== 'string') return DEFAULT_RADAR_ARCHETYPE;
+  if ((RADAR_ARCHETYPES as readonly string[]).includes(v)) return v as RadarArchetype;
+  if (v.startsWith('custom:') && v.length > 'custom:'.length) return v as RadarArchetype;
+  return DEFAULT_RADAR_ARCHETYPE;
+}
+
+/** Heurystyka: pełny zegar → ukończenie zegarem; w przeciwnym razie rozwiązanie „wcześniejsze”. */
+export function inferThreatCompletionOutcomeFromClock(
+  clock: Clock | null | undefined,
+): ThreatCompletionOutcome {
+  if (clock && isCompleted(clock)) return 'completed_by_clock';
+  return 'resolved_early';
 }

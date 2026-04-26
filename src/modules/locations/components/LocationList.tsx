@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { createLocationData, LOCATION_TYPE_LABELS } from '../types';
 import type { LocationType } from '../types';
 import type { LocationFormValues } from './LocationForm';
+import { getLocationLifecycleStatus } from '@shared/utils/entityData';
 
 type FilterType = 'all' | LocationType;
 
@@ -21,6 +22,7 @@ export function LocationList() {
   const { db } = useCampaign();
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<FilterType>('all');
+  const [hideDestroyed, setHideDestroyed] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -31,7 +33,8 @@ export function LocationList() {
       loc.name.toLowerCase().includes(lowerQuery) ||
       loc.tags.some((t) => t.toLowerCase().includes(lowerQuery));
     const matchesType = typeFilter === 'all' || loc.data.locationType === typeFilter;
-    return matchesQuery && matchesType;
+    const matchesDestroyed = !hideDestroyed || getLocationLifecycleStatus({ data: loc.data }) !== 'completed';
+    return matchesQuery && matchesType && matchesDestroyed;
   });
 
   async function handleCreate(values: LocationFormValues) {
@@ -128,6 +131,15 @@ export function LocationList() {
               {label}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => setHideDestroyed((v) => !v)}
+            className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${
+              hideDestroyed ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+            }`}
+          >
+            Ukryj zniszczone
+          </button>
         </div>
       </section>
 
@@ -151,12 +163,12 @@ export function LocationList() {
           <EmptyState
             title="Brak lokacji"
             description={
-              lowerQuery || typeFilter !== 'all'
+              lowerQuery || typeFilter !== 'all' || hideDestroyed
                 ? 'Brak wyników dla podanych filtrów.'
                 : 'Utwórz pierwszą lokację klikając „Nowa lokacja”.'
             }
             action={
-              !lowerQuery && typeFilter === 'all' ? (
+              !lowerQuery && typeFilter === 'all' && !hideDestroyed ? (
                 <button type="button" onClick={() => setShowForm(true)} className="app-button-primary rounded-2xl px-4 py-3 text-sm font-medium">
                   Nowa lokacja
                 </button>

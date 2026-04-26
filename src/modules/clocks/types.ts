@@ -9,6 +9,10 @@ export interface ClockData {
   filled: number;             // how many are filled (0 … segments)
   tickLabels?: string[];      // optional description for each segment (index 0 = first tick)
   isActive?: boolean;         // false = clock is "dead" (threat neutralised etc.)
+  /** ISO — ostatni tick w przód (backstage / radar). */
+  lastAdvanceAt?: string;
+  /** Sesja, w której zarejestrowano ostatni tick w przód (np. Session Live). */
+  lastAdvanceSessionId?: string;
 }
 
 /** A clock entity — all clock-specific fields live in `data` */

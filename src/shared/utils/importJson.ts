@@ -12,6 +12,8 @@ import {
 } from '@shared/utils/validation';
 import { BACKUP_FORMAT_VERSION, type BackupPayload } from './backupContract';
 import { extractImageId } from '@shared/db/assets';
+import { normalizeImportedEntityLifecycle } from '@shared/types/entityLifecycle';
+import type { Entity } from '@shared/types/entity';
 
 export interface ImportResult {
   ok: boolean;
@@ -268,6 +270,10 @@ export async function importJson(
     };
   });
 
+  const lifecycleNormalized = sanitizedForStore.map((e) =>
+    normalizeImportedEntityLifecycle(e as Entity),
+  );
+
   await db.transaction(
     'rw',
     [db.entities, db.relations, db.assets, db.generatorPacks, db.generatorRollLogs],
@@ -277,7 +283,7 @@ export async function importJson(
     await db.assets.clear();
     await db.generatorPacks.clear();
     await db.generatorRollLogs.clear();
-    await db.entities.bulkAdd(sanitizedForStore as Parameters<typeof db.entities.bulkAdd>[0]);
+    await db.entities.bulkAdd(lifecycleNormalized as Parameters<typeof db.entities.bulkAdd>[0]);
     await db.relations.bulkAdd(relations as Parameters<typeof db.relations.bulkAdd>[0]);
     if (generatorPacks.length > 0) {
       await db.generatorPacks.bulkAdd(generatorPacks as Parameters<typeof db.generatorPacks.bulkAdd>[0]);

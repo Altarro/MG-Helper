@@ -60,6 +60,7 @@ function saveState(sessionId: string, state: PersistedLiveState) {
 // Tells other parts of the app (LiveSessionIndicator) that a session is live
 
 export const LIVE_SESSION_MARKER_KEY = 'mg-live-session';
+export const LIVE_SESSION_MARKER_UPDATED_EVENT = 'mg-live-session-updated';
 
 export interface LiveSessionMarker {
   sessionId: string;
@@ -71,6 +72,9 @@ export interface LiveSessionMarker {
 export function setLiveSessionMarker(marker: LiveSessionMarker) {
   try {
     localStorage.setItem(LIVE_SESSION_MARKER_KEY, JSON.stringify(marker));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event(LIVE_SESSION_MARKER_UPDATED_EVENT));
+    }
   } catch {
     // ignore
   }
@@ -100,6 +104,9 @@ export function getLiveSessionMarker(): LiveSessionMarker | null {
 export function clearLiveSessionMarker() {
   try {
     localStorage.removeItem(LIVE_SESSION_MARKER_KEY);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event(LIVE_SESSION_MARKER_UPDATED_EVENT));
+    }
   } catch {
     // ignore
   }

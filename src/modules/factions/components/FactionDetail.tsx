@@ -14,6 +14,8 @@ import type { MgHelperDb } from '@shared/db/database';
 import { toast } from 'sonner';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { FactionFormValues } from './FactionForm';
+import { getFactionLifecycleStatus } from '@shared/utils/entityData';
+import { withLifecycleStatus } from '@shared/types/entityLifecycle';
 
 function useFactionMembers(db: MgHelperDb, factionId: string | undefined) {
   return (
@@ -60,6 +62,8 @@ export function FactionDetail() {
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [statusConfirm, setStatusConfirm] = useState<'disband' | 'restore' | null>(null);
+  const [statusSaving, setStatusSaving] = useState(false);
 
   if (faction === undefined) return <LoadingSpinner />;
   if (!faction) {
@@ -86,12 +90,15 @@ export function FactionDetail() {
         name: values.name,
         description: values.description,
         tags: values.tags,
-        data: {
-          goals: values.goals,
-          resources: values.resources,
-          imageId: nextImageId,
-          imageAlt: values.imageAlt ?? '',
-        },
+        data: withLifecycleStatus(
+          {
+            goals: values.goals,
+            resources: values.resources,
+            imageId: nextImageId,
+            imageAlt: values.imageAlt ?? '',
+          },
+          getFactionLifecycleStatus({ data: faction!.data }),
+        ) as unknown as Record<string, unknown>,
       });
       if (previousImageId && previousImageId !== nextImageId) {
         await deleteAsset(db, previousImageId).catch(() => undefined);
@@ -112,6 +119,23 @@ export function FactionDetail() {
       navigate('/factions');
     } catch {
       toast.error('Nie udało się usunąć');
+    }
+  }
+
+  async function handleConfirmStatusChange() {
+    if (!statusConfirm || statusSaving) return;
+    setStatusSaving(true);
+    try {
+      const nextStatus = statusConfirm === 'disband' ? 'completed' : 'active';
+      await updateEntity(db, faction!.id, {
+        data: withLifecycleStatus(faction!.data, nextStatus) as unknown as Record<string, unknown>,
+      });
+      toast.success(nextStatus === 'completed' ? 'Frakcja oznaczona jako rozbita' : 'Frakcja przywrócona');
+      setStatusConfirm(null);
+    } catch {
+      toast.error('Nie udało się zapisać statusu');
+    } finally {
+      setStatusSaving(false);
     }
   }
 
@@ -137,11 +161,30 @@ export function FactionDetail() {
               <Flag className="h-5 w-5 shrink-0" />
             </div>
           )}
-          <h1 className="text-surface-900 min-w-0 text-3xl font-semibold tracking-[-0.03em]">
-            {faction.name}
-          </h1>
+          <div className="flex min-w-0 flex-col gap-2">
+            <h1 className="text-surface-900 min-w-0 text-3xl font-semibold tracking-[-0.03em]">
+              {faction.name}
+            </h1>
+            {getFactionLifecycleStatus({ data: faction.data }) === 'completed' && (
+              <span className="app-pill-muted w-fit rounded-full px-3 py-1 text-xs font-semibold tracking-wide uppercase">
+                Rozbita
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex flex-wrap gap-2 lg:justify-end">
+          {!isEditing && (
+            <button
+              type="button"
+              onClick={() =>
+                setStatusConfirm(getFactionLifecycleStatus({ data: faction.data }) === 'completed' ? 'restore' : 'disband')}
+              className="app-button-secondary inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
+            >
+              {getFactionLifecycleStatus({ data: faction.data }) === 'completed'
+                ? 'Przywróć frakcję'
+                : 'Oznacz jako rozbitą'}
+            </button>
+          )}
           <button
             onClick={() => setIsEditing(!isEditing)}
             className="app-button-secondary inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
@@ -306,6 +349,20 @@ export function FactionDetail() {
         description={`Czy na pewno chcesz usunąć frakcję „${faction.name}"?`}
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}
+      />
+
+      <ConfirmDialog
+        open={statusConfirm !== null}
+        title={statusConfirm === 'disband' ? 'Oznaczyć jako rozbitą?' : 'Przywrócić frakcję?'}
+        description={
+          statusConfirm === 'disband'
+            ? `Frakcja „${faction.name}" zostanie oznaczona jako rozbita (fabularnie zakończona). Encja pozostanie w kampanii — możesz to cofnąć później.`
+            : `Przywrócisz frakcję „${faction.name}" do stanu aktywnego (nie rozbita).`
+        }
+        confirmLabel={statusConfirm === 'disband' ? 'Oznacz jako rozbitą' : 'Przywróć'}
+        destructive={false}
+        onConfirm={() => void handleConfirmStatusChange()}
+        onCancel={() => !statusSaving && setStatusConfirm(null)}
       />
     </div>
   );

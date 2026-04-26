@@ -1,4 +1,7 @@
-import type { AttentionTier, BackstageSnapshot, ThreatRadarResult } from '../types';
+import type { AttentionTier, BackstageSnapshot, ClockTickHint, ThreatRadarResult } from '../types';
+import type { RadarArchetype, Threat } from '@modules/fronts/types';
+import { getThreatRadarArchetype } from '@modules/fronts/types';
+import { THREAT_RADAR_DEFAULT_WEIGHTS, type ThreatRadarArchetypeWeights } from './threatRadarArchetypes';
 
 const EPS = 1e-6;
 
@@ -31,24 +34,42 @@ function heatToBaseTier(heat: number): AttentionTier {
   return 4;
 }
 
+function computeClockTickHint(
+  clockRows: { filled: number; segments: number; isActive: boolean; isCompleted: boolean }[],
+  clockCritical: boolean,
+): ClockTickHint {
+  if (clockCritical) return 'critical';
+  for (const c of clockRows) {
+    if (!c.isActive || c.isCompleted || c.segments <= 0) continue;
+    const r = c.filled / c.segments;
+    if (r >= 0.52 && r < 0.85) return 'soon';
+  }
+  return 'none';
+}
+
 function buildCue(params: {
   tier: AttentionTier;
   clockCritical: boolean;
   narrativeGap: boolean;
-  absence: number;
+  sinceClockSessions: number;
   debt: number;
   presence: number;
-  sessionsSinceLabel: string;
+  hasClockTickAnchor: boolean;
+  sessionsSinceFootprintLabel: string;
 }): string {
-  const { clockCritical, narrativeGap, absence, debt, presence, sessionsSinceLabel } = params;
+  const { clockCritical, narrativeGap, sinceClockSessions, debt, presence, hasClockTickAnchor, sessionsSinceFootprintLabel } =
+    params;
   if (clockCritical) {
     return 'Zegar jest blisko pełna — zdecyduj, co robi zagrożenie, zanim segment się domknie.';
   }
   if (narrativeGap) {
     return 'W ostatniej sesji był powiązany wątek, a wskazówki wciąż wiszą — dobry moment na delikatne pchnięcie fabuły.';
   }
-  if (absence >= 0.72 && presence < 0.42) {
-    return `Dawno nie było na stole (${sessionsSinceLabel}) — wróć do sceny albo świadomie zdejmij napięcie.`;
+  if (hasClockTickAnchor && sinceClockSessions >= 0.72 && presence < 0.42) {
+    return `Dawno nie było śladu na stole od ostatniego ticku zegara (${sessionsSinceFootprintLabel}) — wróć do sceny albo świadomie zdejmij napięcie.`;
+  }
+  if (!hasClockTickAnchor && presence < 0.35) {
+    return `Mało śladu na ostatnich sesjach (${sessionsSinceFootprintLabel}) — rozważ powrót albo świadome odłożenie.`;
   }
   if (debt >= 0.68) {
     return 'Napięcie narracyjne rośnie — sprawdź wątki i wskazówki powiązane z tym zagrożeniem.';
@@ -62,66 +83,109 @@ function buildCue(params: {
   return 'Na razie bez pilnych sygnałów z radaru.';
 }
 
+type ClockRow = {
+  filled: number;
+  segments: number;
+  isActive: boolean;
+  isCompleted: boolean;
+  lastAdvanceSessionId?: string;
+  lastAdvanceAt?: string;
+};
+
+function archetypeHeat(params: {
+  archetype: RadarArchetype;
+  weights: Partial<Record<RadarArchetype, ThreatRadarArchetypeWeights>>;
+  footprintAbsence: number;
+  sinceClock: number;
+  threadOpen: number;
+  clueDebt: number;
+  clockFill: number;
+}): number {
+  const w = params.weights[params.archetype] ?? params.weights.mystery ?? THREAT_RADAR_DEFAULT_WEIGHTS.mystery;
+  return clamp01(
+    w.footprintAbsence * params.footprintAbsence +
+      w.sinceClock * params.sinceClock +
+      w.threadOpen * params.threadOpen +
+      w.clueDebt * params.clueDebt +
+      w.clockFill * params.clockFill,
+  );
+}
+
 export function computeThreatRadarRow(
   snap: BackstageSnapshot,
-  threatId: string,
-  threatName: string,
+  threat: Threat,
+  weights: Partial<Record<RadarArchetype, ThreatRadarArchetypeWeights>> = THREAT_RADAR_DEFAULT_WEIGHTS,
 ): ThreatRadarResult {
+  const threatId = threat.id;
+  const threatName = threat.name;
+  const radarArchetype = getThreatRadarArchetype(threat.data);
+
   const sessionsOrdered = [...snap.sessions].sort((a, b) => (a.data.number ?? 0) - (b.data.number ?? 0));
   const sessionIds = sessionsOrdered.map((s) => s.id);
   const lastIdx = sessionIds.length - 1;
   const lastSessionId = lastIdx >= 0 ? sessionIds[lastIdx] : undefined;
 
-  const appears = snap.threatSessionIds.get(threatId) ?? new Set<string>();
+  const footprint = snap.threatFootprintSessionIds.get(threatId) ?? new Set<string>();
+  const windowN = Math.min(6, Math.max(1, sessionIds.length));
+  let footprintHits = 0;
+  for (let i = Math.max(0, lastIdx - windowN + 1); i <= lastIdx; i++) {
+    if (footprint.has(sessionIds[i]!)) footprintHits++;
+  }
+  const footprintPresence = sessionIds.length <= 0 ? 0 : footprintHits / windowN;
 
-  let lastAppearanceIdx = -1;
+  let lastFootprintIdx = -1;
   for (let i = 0; i <= lastIdx; i++) {
-    if (appears.has(sessionIds[i]!)) lastAppearanceIdx = i;
+    if (footprint.has(sessionIds[i]!)) lastFootprintIdx = i;
   }
+  const sessionsSinceFootprint =
+    lastFootprintIdx < 0 ? sessionIds.length : Math.max(0, lastIdx - lastFootprintIdx);
 
-  const sessionsSinceLast =
-    lastAppearanceIdx < 0 ? sessionIds.length : Math.max(0, lastIdx - lastAppearanceIdx);
-  const absenceRaw =
-    sessionIds.length <= 0 ? 0 : Math.min(1, sessionsSinceLast / Math.max(1, sessionIds.length));
-
-  let streak = 0;
-  for (let i = lastIdx; i >= 0; i--) {
-    if (appears.has(sessionIds[i]!)) break;
-    streak++;
+  const clockRows = snap.threatClocks.get(threatId) ?? [];
+  let tickSessionIdx = -1;
+  for (const c of clockRows as ClockRow[]) {
+    const sid = c.lastAdvanceSessionId;
+    if (!sid) continue;
+    const idx = sessionIds.indexOf(sid);
+    if (idx >= 0) tickSessionIdx = Math.max(tickSessionIdx, idx);
   }
-  const streakCap = Math.max(1, Math.min(6, sessionIds.length || 1));
-  const streakAbsence = Math.min(1, streak / streakCap);
+  const hasClockTickAnchor = tickSessionIdx >= 0;
+  const sessionsSinceTick =
+    !hasClockTickAnchor || lastIdx < 0
+      ? sessionsSinceFootprint
+      : Math.max(0, lastIdx - tickSessionIdx);
+  const sinceClockSessions =
+    sessionIds.length <= 0 ? 0 : Math.min(1, sessionsSinceTick / Math.max(1, sessionIds.length));
 
   const clueRows = snap.threatClues.get(threatId) ?? [];
   const clueTotal = clueRows.length;
   const discovered = clueRows.filter((c) => c.discovered).length;
-  const clueDebt = clueTotal === 0 ? 0.28 : clamp01((clueTotal - discovered) / clueTotal);
+  const cluesUndiscoveredRatio = clueTotal === 0 ? 0.28 : clamp01((clueTotal - discovered) / clueTotal);
 
   const linkedThreadIds = snap.threatThreadIds.get(threatId) ?? [];
-  let active = 0;
+  let completedT = 0;
   let totalT = 0;
   for (const tid of linkedThreadIds) {
     const th = snap.threads.find((t) => t.id === tid);
     if (!th) continue;
     totalT++;
-    if (th.data.status !== 'completed') active++;
+    if (th.data.status === 'completed') completedT++;
   }
-  const threadActive = totalT === 0 ? 0.22 : clamp01(active / totalT);
+  const threadsResolvedRatio = totalT === 0 ? 0.5 : clamp01(completedT / totalT);
+  const threadOpenRatio = totalT === 0 ? 0.22 : clamp01(1 - threadsResolvedRatio);
 
-  const clockRows = snap.threatClocks.get(threatId) ?? [];
   let clockFill = 0;
   for (const c of clockRows) {
     if (!c.isActive || c.isCompleted || c.segments <= 0) continue;
     clockFill = Math.max(clockFill, clamp01(c.filled / c.segments));
   }
 
-  const x1 = fuzzScalar01(absenceRaw).crisp;
-  const x2 = fuzzScalar01(clueDebt).crisp;
-  const x3 = fuzzScalar01(threadActive).crisp;
-  const x4 = fuzzScalar01(clockFill).crisp;
-  const x5 = fuzzScalar01(streakAbsence).crisp;
+  const fpFuzz = fuzzScalar01(footprintPresence).crisp;
+  const scFuzz = fuzzScalar01(sinceClockSessions).crisp;
+  const clueFuzz = fuzzScalar01(cluesUndiscoveredRatio).crisp;
+  const thrOpenFuzz = fuzzScalar01(threadOpenRatio).crisp;
+  const clkFuzz = fuzzScalar01(clockFill).crisp;
 
-  const presence = clamp01(0.55 * (1 - x1) + 0.25 * (1 - x5) + 0.2 * x4);
+  const footprintAbsence = clamp01(1 - fpFuzz);
 
   let narrativeGap = false;
   if (lastSessionId && clueTotal > 0 && discovered < clueTotal) {
@@ -134,41 +198,60 @@ export function computeThreatRadarRow(
     }
   }
 
-  const debt = clamp01(0.48 * x2 + 0.35 * x3 + (narrativeGap ? 0.22 : 0));
+  const debt = clamp01(0.5 * thrOpenFuzz + 0.5 * clueFuzz + (narrativeGap ? 0.12 : 0));
 
   const clockCritical = clockRows.some((c) => {
     if (!c.isActive || c.isCompleted || c.segments <= 0) return false;
     return c.filled / c.segments >= 0.85;
   });
 
-  const heat = clamp01(0.52 * debt + 0.48 * (1 - presence) + (clockCritical ? 0.1 : 0));
+  let heat = archetypeHeat({
+    archetype: radarArchetype,
+    weights,
+    footprintAbsence,
+    sinceClock: scFuzz,
+    threadOpen: thrOpenFuzz,
+    clueDebt: clueFuzz,
+    clockFill: clkFuzz,
+  });
+  heat = clamp01(heat + (clockCritical ? 0.1 : 0) + (narrativeGap ? 0.06 : 0));
 
   const base = heatToBaseTier(heat);
   let floorT: AttentionTier = 0;
   if (clockCritical) floorT = 3;
-  else if (narrativeGap && clueDebt > 0.38) floorT = 2;
+  else if (narrativeGap && cluesUndiscoveredRatio > 0.38) floorT = 2;
 
   const merged = Math.min(4, Math.max(base, floorT)) as AttentionTier;
 
-  const sessionsSinceLabel =
-    lastAppearanceIdx < 0
-      ? 'nigdy nie powiązane z sesją'
-      : `${sessionsSinceLast} ${sessionsSinceLast === 1 ? 'sesja' : 'sesji'} od ostatniej sceny`;
+  const sessionsSinceFootprintLabel =
+    lastFootprintIdx < 0
+      ? 'brak śladu na sesjach'
+      : `${sessionsSinceFootprint} ${sessionsSinceFootprint === 1 ? 'sesja' : 'sesji'} od ostatniego śladu`;
 
   const cue = buildCue({
     tier: merged,
     clockCritical,
     narrativeGap,
-    absence: absenceRaw,
+    sinceClockSessions,
     debt,
-    presence,
-    sessionsSinceLabel,
+    presence: footprintPresence,
+    hasClockTickAnchor,
+    sessionsSinceFootprintLabel,
   });
+
+  const clockTickHint = computeClockTickHint(clockRows, clockCritical);
+  const clockTickCue =
+    clockTickHint === 'soon'
+      ? 'Zegar rośnie — jeśli pasuje do stołu, możesz dosunąć segment sam w module zegarów (apka tylko sugeruje, nie zapisuje).'
+      : undefined;
+
+  const spotlightScore = clamp01(heat + (narrativeGap ? 0.06 : 0) + (clockCritical ? 0.05 : 0));
 
   return {
     threatId,
     name: threatName,
-    presence,
+    radarArchetype,
+    presence: footprintPresence,
     debt,
     heat,
     tier: merged,
@@ -176,17 +259,46 @@ export function computeThreatRadarRow(
     clockCritical,
     narrativeGap,
     scalars: {
-      absence: absenceRaw,
-      clueDebt,
-      threadActive,
+      footprintPresence,
+      sinceClockSessions,
+      threadsResolvedRatio,
+      cluesUndiscoveredRatio,
       clockFill,
-      streakAbsence,
     },
+    spotlightScore,
+    spotlightRank: 0,
+    isSpotlightSuggestion: false,
+    clockTickHint,
+    clockTickCue,
   };
 }
 
-export function computeAllThreatRadarRows(snap: BackstageSnapshot): ThreatRadarResult[] {
-  const rows = snap.activeThreats.map((t) => computeThreatRadarRow(snap, t.id, t.name));
+const MIN_SPOTLIGHT = 0.12;
+
+export function computeAllThreatRadarRows(
+  snap: BackstageSnapshot,
+  weights: Partial<Record<RadarArchetype, ThreatRadarArchetypeWeights>> = THREAT_RADAR_DEFAULT_WEIGHTS,
+): ThreatRadarResult[] {
+  const baseRows = snap.activeThreats.map((t) => computeThreatRadarRow(snap, t, weights));
+  const ranked = [...baseRows].sort((a, b) => {
+    if (b.spotlightScore !== a.spotlightScore) return b.spotlightScore - a.spotlightScore;
+    if (b.heat !== a.heat) return b.heat - a.heat;
+    return a.name.localeCompare(b.name, 'pl');
+  });
+  const topScore = ranked[0]?.spotlightScore ?? 0;
+  const rankById = new Map<string, number>();
+  ranked.forEach((r, i) => rankById.set(r.threatId, i + 1));
+
+  const rows = baseRows.map((row) => {
+    const spotlightRank = rankById.get(row.threatId) ?? 1;
+    const isSpotlightSuggestion =
+      spotlightRank === 1 && row.spotlightScore >= MIN_SPOTLIGHT && topScore >= MIN_SPOTLIGHT;
+    const spotlightCue = isSpotlightSuggestion
+      ? 'Sugestia „na stole teraz”: daj temu zagrożeniu wyraźny beat w nadchodzącej sesji (ruch, scena, ewentualnie segment zegara) — tylko Ty zapisujesz zmiany w kampanii.'
+      : undefined;
+    return { ...row, spotlightRank, isSpotlightSuggestion, spotlightCue };
+  });
+
   rows.sort((a, b) => {
     if (b.tier !== a.tier) return b.tier - a.tier;
     if (b.heat !== a.heat) return b.heat - a.heat;

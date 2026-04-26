@@ -2,6 +2,7 @@ import { unzipSync, strFromU8 } from 'fflate';
 import DOMPurify from 'dompurify';
 import type { MgHelperDb } from '@shared/db/database';
 import type { Asset, Entity, Relation } from '@shared/types';
+import { normalizeImportedEntityLifecycle } from '@shared/types/entityLifecycle';
 import {
   findContainsParentConflict,
   getRelationIntegrityKey,
@@ -304,6 +305,8 @@ export async function importFull(
     });
   }
 
+  const entitiesForStore = sanitizedEntities.map((e) => normalizeImportedEntityLifecycle(e as Entity));
+
   await db.transaction(
     'rw',
     [db.entities, db.relations, db.assets, db.generatorPacks, db.generatorRollLogs],
@@ -313,7 +316,7 @@ export async function importFull(
     await db.assets.clear();
     await db.generatorPacks.clear();
     await db.generatorRollLogs.clear();
-    await db.entities.bulkAdd(sanitizedEntities as unknown as Entity[]);
+    await db.entities.bulkAdd(entitiesForStore as unknown as Entity[]);
     await db.relations.bulkAdd(relations as unknown as Relation[]);
     if (generatorPacks.length > 0) {
       await db.generatorPacks.bulkAdd(generatorPacks);
@@ -328,7 +331,7 @@ export async function importFull(
 
   return {
     ok: true,
-    entityCount: sanitizedEntities.length,
+    entityCount: entitiesForStore.length,
     relationCount: relations.length,
     assetCount: newAssets.length,
     orphanedImageRefs,

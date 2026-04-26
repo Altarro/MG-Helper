@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { Flag } from 'lucide-react';
 import type { Faction } from '../types';
 import { useAssetUrl } from '@shared/hooks/useAssetUrl';
+import { getFactionLifecycleStatus } from '@shared/utils/entityData';
 
 interface FactionCardProps {
   faction: Faction;
@@ -13,7 +14,9 @@ export const FactionCard = memo(function FactionCard({ faction }: FactionCardPro
   return (
     <Link
       to={`/factions/${faction.id}`}
-      className="app-card flex flex-col gap-3 rounded-[1.35rem] p-5 transition-all hover:-translate-y-0.5"
+      className={`app-card flex flex-col gap-3 rounded-[1.35rem] p-5 transition-all hover:-translate-y-0.5 ${
+        getFactionLifecycleStatus({ data: faction.data }) === 'completed' ? 'opacity-75' : ''
+      }`}
     >
       <div className="flex items-center gap-2.5 min-w-0">
         {thumbUrl ? (
@@ -27,7 +30,16 @@ export const FactionCard = memo(function FactionCard({ faction }: FactionCardPro
             <Flag className="h-4 w-4 text-primary-700" />
           </div>
         )}
-        <h3 className="truncate text-[1.02rem] font-semibold tracking-[-0.02em] text-surface-900">{faction.name}</h3>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <h3 className="truncate text-[1.02rem] font-semibold tracking-[-0.02em] text-surface-900">
+            {faction.name}
+          </h3>
+          {getFactionLifecycleStatus({ data: faction.data }) === 'completed' && (
+            <span className="app-pill-muted shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase">
+              Rozbita
+            </span>
+          )}
+        </div>
       </div>
       {faction.data.goals.length > 0 && (
         <p className="line-clamp-2 text-sm leading-6 text-surface-700">

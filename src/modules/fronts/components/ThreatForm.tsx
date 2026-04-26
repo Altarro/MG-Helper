@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -6,24 +6,32 @@ import { Plus, X, Clock } from 'lucide-react';
 import { TagInput } from '@shared/components/TagInput';
 import { RichTextEditor } from '@shared/components/RichTextEditor';
 import { useEntitiesByType } from '@shared/hooks/useEntitiesByType';
+import { useCampaign } from '@shared/db/CampaignContext';
+import { getActiveCatalogOptions, getCatalogLabelByValue } from '@modules/settings/campaignCatalogSettings';
 import {
   THREAT_DEATH_REASON_PRESETS,
   THREAT_STATUSES,
   THREAT_STATUS_LABELS,
   THREAT_TYPES,
-  THREAT_TYPE_LABELS,
   THREAT_TYPE_PRESETS,
+  THREAT_COMPLETION_OUTCOMES,
+  THREAT_COMPLETION_OUTCOME_LABELS,
+  DEFAULT_RADAR_ARCHETYPE,
 } from '../types';
+import type { RadarArchetype, ThreatCompletionOutcome } from '../types';
+import { getAllRadarArchetypes, getRadarArchetypeLabel } from '@modules/backstage/radarSettings';
 import { CLOCK_SEGMENTS } from '@modules/clocks/types';
 import type { ClockSegments } from '@modules/clocks/types';
 
 const threatFormSchema = z.object({
   name: z.string().min(1, 'Nazwa jest wymagana').max(200),
-  threatType: z.enum(THREAT_TYPES),
+  threatType: z.string().min(1),
+  radarArchetype: z.string().min(1).default(DEFAULT_RADAR_ARCHETYPE),
   status: z.enum(THREAT_STATUSES).default('active'),
   impulse: z.string().max(400),
   trigger: z.string().max(500).default(''),
-  reasonOfDead: z.string().max(1000).default(''),
+  completionReason: z.string().max(1000).default(''),
+  completionOutcome: z.enum(THREAT_COMPLETION_OUTCOMES).optional(),
   inheritanceNotes: z.string().max(4000).default(''),
   forkThreatId: z.string().default(''),
   moves: z.array(z.object({ value: z.string() })),
@@ -39,11 +47,13 @@ type ThreatFormRaw = z.infer<typeof threatFormSchema>;
 
 export interface ThreatFormValues {
   name: string;
-  threatType: (typeof THREAT_TYPES)[number];
+  threatType: import('../types').ThreatType;
+  radarArchetype: RadarArchetype;
   status: (typeof THREAT_STATUSES)[number];
   impulse: string;
   trigger: string;
-  reasonOfDead: string;
+  completionReason: string;
+  completionOutcome?: ThreatCompletionOutcome;
   inheritanceNotes: string;
   forkThreatId?: string;
   moves: string[];
@@ -69,9 +79,11 @@ export function ThreatForm({
   onCancel,
   currentThreatId,
 }: ThreatFormProps) {
+  const { campaignId } = useCampaign();
   const [showClock, setShowClock] = useState(!!defaultValues?.clock);
   const allThreats = useEntitiesByType('threat');
   const forkThreatCandidates = allThreats.filter((threat) => threat.id !== currentThreatId);
+  const radarArchetypes = getAllRadarArchetypes(campaignId);
 
   const {
     register,
@@ -86,10 +98,12 @@ export function ThreatForm({
     defaultValues: {
       name: defaultValues?.name ?? '',
       threatType: defaultValues?.threatType ?? 'ambitious_organization',
+      radarArchetype: defaultValues?.radarArchetype ?? DEFAULT_RADAR_ARCHETYPE,
       status: defaultValues?.status ?? 'active',
       impulse: defaultValues?.impulse ?? '',
       trigger: defaultValues?.trigger ?? '',
-      reasonOfDead: defaultValues?.reasonOfDead ?? '',
+      completionReason: defaultValues?.completionReason ?? '',
+      completionOutcome: defaultValues?.completionOutcome,
       inheritanceNotes: defaultValues?.inheritanceNotes ?? '',
       forkThreatId: defaultValues?.forkThreatId ?? '',
       moves: (defaultValues?.moves ?? []).map((v) => ({ value: v })),
@@ -101,11 +115,36 @@ export function ThreatForm({
   });
 
   const { fields, append, remove, replace } = useFieldArray({ control, name: 'moves' });
-  const selectedThreatType = watch('threatType');
-  const selectedPreset = THREAT_TYPE_PRESETS[selectedThreatType];
+  const selectedThreatTypeValue = watch('threatType');
+  const threatTypeOptionsBase = getActiveCatalogOptions(campaignId, 'threatType');
+  const threatTypeOptions = threatTypeOptionsBase.some((x) => x.id === selectedThreatTypeValue)
+    ? threatTypeOptionsBase
+    : [
+        ...threatTypeOptionsBase,
+        {
+          id: selectedThreatTypeValue,
+          label: getCatalogLabelByValue('threatType', selectedThreatTypeValue, campaignId),
+        },
+      ];
+  const selectedThreatType = selectedThreatTypeValue;
+  const selectedStatus = watch('status');
+  const selectedPreset =
+    (THREAT_TYPES as readonly string[]).includes(selectedThreatType)
+      ? THREAT_TYPE_PRESETS[selectedThreatType as keyof typeof THREAT_TYPE_PRESETS]
+      : undefined;
+
+  useEffect(() => {
+    if (selectedStatus !== 'completed') return;
+    const current = getValues('completionOutcome');
+    if (current === undefined) {
+      setValue('completionOutcome', 'resolved_early', { shouldDirty: false, shouldValidate: true });
+    }
+  }, [selectedStatus, getValues, setValue]);
 
   function applyThreatTypePreset() {
-    const preset = THREAT_TYPE_PRESETS[getValues('threatType')];
+    const selected = getValues('threatType');
+    if (!(THREAT_TYPES as readonly string[]).includes(selected)) return;
+    const preset = THREAT_TYPE_PRESETS[selected as keyof typeof THREAT_TYPE_PRESETS];
     if (!preset) return;
 
     if (!getValues('impulse').trim()) {
@@ -125,8 +164,14 @@ export function ThreatForm({
   function handleValidSubmit(raw: ThreatFormRaw) {
     return onSubmit({
       ...raw,
+      threatType: raw.threatType as import('../types').ThreatType,
+      radarArchetype: (raw.radarArchetype || DEFAULT_RADAR_ARCHETYPE) as RadarArchetype,
       trigger: raw.trigger.trim(),
-      reasonOfDead: raw.reasonOfDead.trim(),
+      completionReason: raw.completionReason.trim(),
+      completionOutcome:
+        raw.status === 'completed'
+          ? raw.completionOutcome ?? 'resolved_early'
+          : undefined,
       inheritanceNotes: raw.inheritanceNotes.trim(),
       forkThreatId: raw.forkThreatId || undefined,
       moves: raw.moves.map((m) => m.value).filter(Boolean),
@@ -164,8 +209,8 @@ export function ThreatForm({
             {...register('threatType')}
             className="app-input rounded-2xl px-3.5 py-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           >
-            {THREAT_TYPES.map((t) => (
-              <option key={t} value={t}>{THREAT_TYPE_LABELS[t]}</option>
+            {threatTypeOptions.map((t) => (
+              <option key={t.id} value={t.id}>{t.label}</option>
             ))}
           </select>
           <div className="mt-1 flex items-center justify-between gap-2">
@@ -197,6 +242,53 @@ export function ThreatForm({
           </select>
         </div>
       </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="threat-radar-archetype" className="text-sm font-medium text-surface-800">
+          Archetyp radaru (Za kulisami)
+        </label>
+        <select
+          id="threat-radar-archetype"
+          {...register('radarArchetype')}
+          className="app-input rounded-2xl px-3.5 py-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+        >
+          {radarArchetypes.map((a) => (
+            <option key={a} value={a}>{getRadarArchetypeLabel(a, campaignId)}</option>
+          ))}
+        </select>
+        <p className="text-xs leading-relaxed text-surface-600">
+          Osobno od rodzaju PBTA: steruje wagami podpowiedzi radaru. Obecność na stole liczy też wątki i wskazówki
+          powiązane z zagrożeniem; NPC — gdy ma relację „powiązany z” z tym zagrożeniem.
+        </p>
+      </div>
+
+      {selectedStatus === 'completed' && (
+        <div className="flex flex-col gap-2 rounded-[1.1rem] border border-[rgba(86,93,94,0.12)] bg-[rgba(223,225,218,0.35)] p-3">
+          <p className="text-surface-800 text-xs font-semibold tracking-wide uppercase">
+            Sposób zakończenia
+          </p>
+          <p className="text-surface-600 text-xs leading-relaxed">
+            <strong className="text-surface-800">Rozwiązane</strong> — bez domknięcia zegara.{' '}
+            <strong className="text-surface-800">Ukończone</strong> — domknięcie ostatniego segmentu zegara.
+          </p>
+          <div className="flex flex-col gap-2">
+            {THREAT_COMPLETION_OUTCOMES.map((outcome) => (
+              <label
+                key={outcome}
+                className="flex cursor-pointer items-start gap-2 rounded-lg px-1 py-0.5 hover:bg-[rgba(223,225,218,0.6)]"
+              >
+                <input
+                  type="radio"
+                  value={outcome}
+                  className="mt-0.5"
+                  {...register('completionOutcome')}
+                />
+                <span className="text-surface-800 text-sm">{THREAT_COMPLETION_OUTCOME_LABELS[outcome]}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="threat-impulse" className="text-sm font-medium text-surface-800">
@@ -244,12 +336,12 @@ export function ThreatForm({
 
       <div className="flex flex-col gap-2">
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="threat-reason-of-dead" className="text-sm font-medium text-surface-800">
+          <label htmlFor="threat-completion-reason" className="text-sm font-medium text-surface-800">
             Powód wygaszenia / śmierci
           </label>
           <textarea
-            id="threat-reason-of-dead"
-            {...register('reasonOfDead')}
+            id="threat-completion-reason"
+            {...register('completionReason')}
             rows={3}
             className="app-input rounded-2xl px-3.5 py-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
             placeholder="Opcjonalnie: co sprawiło, że to zagrożenie zniknęło albo utraciło znaczenie?"
@@ -260,7 +352,7 @@ export function ThreatForm({
             <button
               key={preset}
               type="button"
-              onClick={() => setValue('reasonOfDead', preset, { shouldDirty: true, shouldValidate: true })}
+              onClick={() => setValue('completionReason', preset, { shouldDirty: true, shouldValidate: true })}
               className="app-pill-muted rounded-full px-3 py-1.5 text-xs transition-colors"
             >
               {preset}

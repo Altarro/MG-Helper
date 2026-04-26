@@ -26,6 +26,8 @@ import { REQUIRED_AI_KEYWORDS } from '@modules/generator/releaseContract';
 import { getGeneratorTelemetryInsights } from '@modules/generator/telemetry';
 import type { GeneratorPack, GeneratorTable } from '@modules/generator/contracts';
 import { GeneratorSettingsPanel } from './components/GeneratorSettingsPanel';
+import { ThreatRadarSettingsPanel } from './components/ThreatRadarSettingsPanel';
+import { CampaignSettingsPanel } from './components/CampaignSettingsPanel';
 import { toast } from 'sonner';
 
 type ImportResultView =
@@ -34,7 +36,7 @@ type ImportResultView =
 
 export function SettingsPage() {
   const { db, campaignId } = useCampaign();
-  const [activeTab, setActiveTab] = useState<'system' | 'generator'>('system');
+  const [activeTab, setActiveTab] = useState<'system' | 'campaign' | 'generator' | 'threat_radar'>('system');
   const jsonInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
@@ -254,6 +256,17 @@ export function SettingsPage() {
         </button>
         <button
           type="button"
+          onClick={() => setActiveTab('campaign')}
+          className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${
+            activeTab === 'campaign'
+              ? 'app-pill'
+              : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+          }`}
+        >
+          Ustawienia kampanii
+        </button>
+        <button
+          type="button"
           onClick={() => setActiveTab('generator')}
           className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${
             activeTab === 'generator'
@@ -262,6 +275,17 @@ export function SettingsPage() {
           }`}
         >
           Ustawienia generatora
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('threat_radar')}
+          className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${
+            activeTab === 'threat_radar'
+              ? 'app-pill'
+              : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+          }`}
+        >
+          Ustawienia radaru zagrożeń
         </button>
       </div>
 
@@ -578,6 +602,14 @@ export function SettingsPage() {
             )}
           </div>
         </section>
+      )}
+
+      {activeTab === 'campaign' && (
+        <CampaignSettingsPanel campaignId={campaignId} />
+      )}
+
+      {activeTab === 'threat_radar' && (
+        <ThreatRadarSettingsPanel campaignId={campaignId} />
       )}
     </div>
   );

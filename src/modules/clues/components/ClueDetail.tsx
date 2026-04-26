@@ -14,16 +14,16 @@ import { useRelatedEntities } from '@shared/hooks/useRelatedEntities';
 import { NotesList } from '@modules/notes/components/NotesList';
 import { deleteEntity, updateEntity } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
+import { getCatalogLabelByValue } from '@modules/settings/campaignCatalogSettings';
 import { toast } from 'sonner';
 import { CLUE_STRENGTH_LABELS, getClueStrengthLabel } from '@shared/domain/storyContracts';
-import { CLUE_TYPE_LABELS } from '../types';
 import type { ClueFormValues } from './ClueForm';
 
 export function ClueDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { db } = useCampaign();
+  const { db, campaignId } = useCampaign();
   const { clue } = useClueById(id);
   const clueTargets = useRelatedEntities(id, {
     relationTypes: ['clues_for'],
@@ -144,7 +144,7 @@ export function ClueDetail() {
             <div className="mt-3 flex flex-wrap gap-2">
               {clue.data.clueTypes.map((type) => (
                 <span key={type} className="inline-flex rounded-full border border-cyan-200/80 bg-cyan-100/75 px-3 py-1 text-xs font-semibold text-cyan-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.28)]">
-                  {CLUE_TYPE_LABELS[type]}
+                  {getCatalogLabelByValue('clueType', type, campaignId)}
                 </span>
               ))}
               <span

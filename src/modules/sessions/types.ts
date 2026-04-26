@@ -23,7 +23,7 @@ export function isSession(entity: Entity): entity is Session {
 
 // Timeline events — stored as entities with type 'event'
 export interface SessionEventData {
-  kind?: 'session_timeline' | 'npc_location_history';
+  kind?: 'session_timeline' | 'npc_location_history' | 'session_signal';
   timestamp: string; // ISO datetime when the event was recorded
   text: string;      // free-form event text
   npcId?: string;
@@ -31,6 +31,21 @@ export interface SessionEventData {
   locationName?: string;
   sessionId?: string;
   sessionName?: string;
+  signalType?:
+    | 'entity_added_to_session'
+    | 'entity_removed_from_session'
+    | 'thread_created_in_session'
+    | 'threat_status_changed'
+    | 'entity_died_in_session'
+    | 'threat_clock_started'
+    | 'entity_updated_in_session'
+    | 'clock_ticked'
+    | 'clue_discovered'
+    | 'clue_hidden';
+  entityType?: string;
+  entityId?: string;
+  entityName?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export type SessionEvent = Entity & { type: 'event'; data: SessionEventData };

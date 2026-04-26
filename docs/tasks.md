@@ -11,6 +11,7 @@ Legenda statusów: [ ] do zrobienia, [~] w trakcie, [x] ukończone.
 - [ ] 20.3 Potwierdzić spójność wersji wydania w miejscach będących źródłem prawdy.
 - [ ] 20.4 Wykonać finalny pełny pass jakości: pnpm typecheck, pnpm lint, pnpm test, pnpm build.
 - [ ] 20.5 Oznaczyć wydanie tagiem v0.1.0-alpha po akceptacji.
+- [ ] 20.6 Przed finalnym release: posprzątać resztki lifecycle — ujednolicić nazewnictwo w UI i komponentach (np. lokalne `isDead` / `isDestroyed` w kartach vs `status` `active` | `completed`), ostatni `rg` pod kątem przestarzałych pól i komentarzy.
 
 ## Stałe obszary jakości (poza pojedynczym release)
 

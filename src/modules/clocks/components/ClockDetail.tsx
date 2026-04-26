@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { ArrowLeft, Clock3, Minus, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { withClockAdvanceMeta } from '../clockAdvance';
 import { useClockById } from '../hooks/useClockById';
 import { ClockVisual } from './ClockVisual';
 import { ClockForm } from './ClockForm';
@@ -73,7 +74,7 @@ export function ClockDetail() {
     try {
       const clampedFilled = Math.max(0, Math.min(newFilled, segments));
       await updateEntity(db, currentClock.id, {
-        data: { ...currentClock.data, filled: clampedFilled },
+        data: withClockAdvanceMeta(currentClock.data, clampedFilled) as unknown as Record<string, unknown>,
       });
 
       if (clampedFilled >= segments && filled < segments) {

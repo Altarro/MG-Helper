@@ -28,7 +28,14 @@ import { useRelatedEntities } from '@shared/hooks/useRelatedEntities';
 import { useThreatDetailPath } from '@shared/hooks/useThreatDetailPath';
 import { CLOCK_SEGMENTS, isClock } from '@modules/clocks/types';
 import { toast } from 'sonner';
-import { THREAT_TYPE_LABELS, THREAT_DEATH_REASON_PRESETS } from '../types';
+import {
+  THREAT_TYPE_LABELS,
+  THREAT_DEATH_REASON_PRESETS,
+  THREAT_COMPLETION_OUTCOME_LABELS,
+  inferThreatCompletionOutcomeFromClock,
+  getThreatRadarArchetype,
+} from '../types';
+import type { ThreatCompletionOutcome } from '../types';
 import { getThreatStatus, getClockData } from '@shared/utils/entityData';
 import { normalizeThreatLifecycle } from '@shared/utils/threatLifecycle';
 import { buildDerivedThreatDefaults, getCompletedClockLabels } from '../utils/derivedThreat';
@@ -48,6 +55,8 @@ export function ThreatDetail() {
   const [toggleSaving, setToggleSaving] = useState(false);
   const [toggleReason, setToggleReason] = useState('');
   const [toggleReasonError, setToggleReasonError] = useState('');
+  const [toggleCompletionOutcome, setToggleCompletionOutcome] =
+    useState<ThreatCompletionOutcome>('resolved_early');
   const [confirmReactivate, setConfirmReactivate] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showThreadPicker, setShowThreadPicker] = useState(false);
@@ -117,6 +126,7 @@ export function ThreatDetail() {
     if (threatStatus === 'completed') {
       setConfirmReactivate(true);
     } else {
+      setToggleCompletionOutcome(inferThreatCompletionOutcomeFromClock(linkedClock ?? undefined));
       setToggleReason('');
       setToggleReasonError('');
       setToggleModalOpen(true);
@@ -137,6 +147,7 @@ export function ThreatDetail() {
         data: {
           ...currentThreat.data,
           ...normalizeThreatLifecycle('completed', trimmed),
+          completionOutcome: toggleCompletionOutcome,
         },
       });
 
@@ -165,6 +176,7 @@ export function ThreatDetail() {
         data: {
           ...currentThreat.data,
           ...normalizeThreatLifecycle('active', ''),
+          completionOutcome: undefined,
         },
       });
 
@@ -188,7 +200,7 @@ export function ThreatDetail() {
   async function handleUpdate(values: ThreatFormValues) {
     setSaving(true);
     try {
-      const lifecycle = normalizeThreatLifecycle(values.status, values.reasonOfDead);
+      const lifecycle = normalizeThreatLifecycle(values.status, values.completionReason);
       await updateEntity(db, threatId, {
         name: values.name,
         description: values.description,
@@ -196,12 +208,19 @@ export function ThreatDetail() {
         data: {
           ...currentThreat.data,
           threatType: values.threatType,
+          radarArchetype: values.radarArchetype,
           impulse: values.impulse,
           moves: values.moves,
           trigger: values.trigger,
           inheritanceNotes: values.inheritanceNotes,
           forkThreatId: values.forkThreatId,
           ...lifecycle,
+          ...(values.status === 'completed'
+            ? {
+                completionOutcome:
+                  values.completionOutcome ?? currentThreat.data.completionOutcome,
+              }
+            : { completionOutcome: undefined }),
         },
       });
 
@@ -243,7 +262,7 @@ export function ThreatDetail() {
   async function handleCreateDerivedThreat(values: ThreatFormValues) {
     setDerivedSaving(true);
     try {
-      const lifecycle = normalizeThreatLifecycle(values.status, values.reasonOfDead);
+      const lifecycle = normalizeThreatLifecycle(values.status, values.completionReason);
       const entity = await addEntity(db, {
         type: 'threat',
         name: values.name,
@@ -251,12 +270,16 @@ export function ThreatDetail() {
         tags: values.tags,
         data: {
           threatType: values.threatType,
+          radarArchetype: values.radarArchetype,
           impulse: values.impulse,
           moves: values.moves,
           trigger: values.trigger,
           inheritanceNotes: values.inheritanceNotes,
           forkThreatId: currentThreat.id,
           ...lifecycle,
+          ...(values.status === 'completed' && values.completionOutcome
+            ? { completionOutcome: values.completionOutcome }
+            : {}),
         },
       });
 
@@ -417,7 +440,7 @@ export function ThreatDetail() {
             <h1 className="text-surface-900 text-3xl font-semibold tracking-[-0.03em]">
               {currentThreat.name}
             </h1>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="app-danger-pill inline-flex rounded-full px-3 py-1 text-xs font-semibold">
                 {THREAT_TYPE_LABELS[currentThreat.data.threatType]}
               </span>
@@ -430,6 +453,16 @@ export function ThreatDetail() {
               >
                 {threatStatus === 'completed' ? 'Zakończone' : 'Aktywne'}
               </span>
+              {threatStatus === 'completed' && currentThreat.data.completionOutcome && (
+                <span className="inline-flex rounded-full border border-amber-200/80 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900">
+                  {THREAT_COMPLETION_OUTCOME_LABELS[currentThreat.data.completionOutcome]}
+                </span>
+              )}
+              {threatStatus === 'completed' && !currentThreat.data.completionOutcome && (
+                <span className="text-surface-500 text-xs font-medium">
+                  Sposób zakończenia niezapisany (starszy wpis)
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -477,10 +510,11 @@ export function ThreatDetail() {
             defaultValues={{
               name: currentThreat.name,
               threatType: currentThreat.data.threatType,
+              radarArchetype: getThreatRadarArchetype(currentThreat.data),
               status: threatStatus,
               impulse: currentThreat.data.impulse,
               trigger: currentThreat.data.trigger ?? '',
-              reasonOfDead: currentThreat.data.reasonOfDead ?? '',
+              completionReason: currentThreat.data.completionReason ?? currentThreat.data.reasonOfDead ?? '',
               inheritanceNotes:
                 typeof currentThreat.data.inheritanceNotes === 'string'
                   ? currentThreat.data.inheritanceNotes
@@ -492,6 +526,11 @@ export function ThreatDetail() {
               clock: linkedClock
                 ? { name: linkedClock.name, segments: linkedClock.data.segments }
                 : null,
+              completionOutcome:
+                currentThreat.data.completionOutcome ??
+                (threatStatus === 'completed'
+                  ? inferThreatCompletionOutcomeFromClock(linkedClock ?? undefined)
+                  : undefined),
             }}
             onSubmit={handleUpdate}
             isSaving={saving}
@@ -539,7 +578,10 @@ export function ThreatDetail() {
             </div>
           </DetailSection>
 
-          {(currentThreat.data.trigger || forkSourceThreat || currentThreat.data.reasonOfDead) && (
+          {(currentThreat.data.trigger
+            || forkSourceThreat
+            || currentThreat.data.completionReason
+            || currentThreat.data.reasonOfDead) && (
             <DetailSection
               title="Historia i tykanie"
               description="Trigger, pochodzenie i stan wygaszenia zagrożenia."
@@ -575,13 +617,13 @@ export function ThreatDetail() {
                   </div>
                 )}
 
-                {currentThreat.data.reasonOfDead && (
+                {(currentThreat.data.completionReason ?? currentThreat.data.reasonOfDead) && (
                   <div className="app-danger-card rounded-[1.5rem] p-6 lg:col-span-2">
                     <h2 className="text-surface-500 mb-2 text-xs font-semibold tracking-wide uppercase">
                       Powód wygaszenia / śmierci
                     </h2>
                     <p className="text-surface-700 text-sm whitespace-pre-wrap">
-                      {currentThreat.data.reasonOfDead}
+                      {currentThreat.data.completionReason ?? currentThreat.data.reasonOfDead}
                     </p>
                   </div>
                 )}
@@ -776,6 +818,39 @@ export function ThreatDetail() {
             className="app-input text-surface-800 mt-3 w-full rounded-[1.2rem] px-4 py-3 text-sm"
           />
           {toggleReasonError && <p className="mt-2 text-xs text-red-600">{toggleReasonError}</p>}
+
+          <div className="mt-4 rounded-[1.1rem] border border-[rgba(86,93,94,0.14)] bg-[rgba(223,225,218,0.45)] p-3">
+            <p className="text-surface-800 text-xs font-semibold tracking-wide uppercase">
+              Jak zakończyło się zagrożenie?
+            </p>
+            <p className="text-surface-600 mt-1 text-xs leading-relaxed">
+              <strong className="text-surface-800">Rozwiązane</strong> — padło lub zamknięte fabularnie przy niepełnym
+              zegarze. <strong className="text-surface-800">Ukończone</strong> — kanoniczne domknięcie zegara
+              (ostatni segment).
+            </p>
+            <div className="mt-3 flex flex-col gap-2.5">
+              {(
+                [
+                  ['resolved_early', THREAT_COMPLETION_OUTCOME_LABELS.resolved_early],
+                  ['completed_by_clock', THREAT_COMPLETION_OUTCOME_LABELS.completed_by_clock],
+                ] as const
+              ).map(([value, label]) => (
+                <label
+                  key={value}
+                  className="flex cursor-pointer items-start gap-2 rounded-lg border border-transparent px-1 py-0.5 hover:border-[rgba(86,93,94,0.12)]"
+                >
+                  <input
+                    type="radio"
+                    name="threat-completion-outcome"
+                    className="mt-0.5"
+                    checked={toggleCompletionOutcome === value}
+                    onChange={() => setToggleCompletionOutcome(value)}
+                  />
+                  <span className="text-surface-800 text-sm">{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
 
           <div className="mt-3 flex flex-wrap gap-2">
             {THREAT_DEATH_REASON_PRESETS.map((preset) => (

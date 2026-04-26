@@ -5,7 +5,7 @@ import { useCampaign } from '@shared/db/CampaignContext';
 import { Modal } from '@shared/components/Modal';
 import { ensureSessionDraftLocation } from '../utils/draftScene';
 import { toast } from 'sonner';
-import { isPlayerNpc } from '@shared/utils/entityData';
+import { getNpcLifecycleStatus, isPlayerNpc } from '@shared/utils/entityData';
 import type { Entity } from '@shared/types';
 import { ensureEntitiesAppearInSession, setNpcCurrentLocation } from '../utils/liveSessionCommands';
 
@@ -102,17 +102,36 @@ export function NpcCampaignPickerModal({ sessionId, locationId, onClose }: NpcCa
               const checked = selected.has(npc.id);
               return (
                 <li key={npc.id}>
-                  <label className={`flex cursor-pointer items-center gap-3 px-3 py-2 transition-colors ${checked ? 'bg-primary-50' : 'hover:bg-surface-50'}`}>
+                  <label
+                    className={`flex cursor-pointer items-center gap-3 px-3 py-2 transition-colors ${
+                      checked ? 'bg-primary-50' : 'hover:bg-surface-50'
+                    }`}
+                  >
                     <input
                       type="checkbox"
                       checked={checked}
                       onChange={() => toggle(npc.id)}
-                      className="h-4 w-4 rounded border-surface-300 accent-primary-600"
+                      className="h-4 w-4 shrink-0 rounded border-surface-300 accent-primary-600"
                     />
-                    <span className="text-sm text-surface-800">{npc.name}</span>
-                    {isPlayerNpc(npc) && (
-                      <span className="ml-auto rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700">Gracz</span>
-                    )}
+                    <span
+                      className={`min-w-0 flex-1 truncate text-sm text-surface-800 ${
+                        getNpcLifecycleStatus({ data: npc.data }) === 'completed' ? 'opacity-80' : ''
+                      }`}
+                    >
+                      {npc.name}
+                    </span>
+                    <span className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                      {getNpcLifecycleStatus({ data: npc.data }) === 'completed' && (
+                        <span className="rounded-full border border-danger-200 bg-danger-50 px-2 py-0.5 text-[10px] font-semibold text-danger-800">
+                          Nie żyje
+                        </span>
+                      )}
+                      {isPlayerNpc(npc) && (
+                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+                          Gracz
+                        </span>
+                      )}
+                    </span>
                   </label>
                 </li>
               );

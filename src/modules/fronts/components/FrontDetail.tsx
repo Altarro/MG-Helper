@@ -33,7 +33,12 @@ import { useRelatedEntities } from '@shared/hooks/useRelatedEntities';
 import { useThreatDetailPath } from '@shared/hooks/useThreatDetailPath';
 import { isClock } from '@modules/clocks/types';
 import { toast } from 'sonner';
-import { FRONT_CATEGORY_LABELS, THREAT_TYPE_LABELS } from '../types';
+import {
+  FRONT_CATEGORY_LABELS,
+  THREAT_TYPE_LABELS,
+  inferThreatCompletionOutcomeFromClock,
+  getThreatRadarArchetype,
+} from '../types';
 import { getThreatStatus } from '@shared/utils/entityData';
 import { normalizeThreatLifecycle } from '@shared/utils/threatLifecycle';
 import type { FrontFormValues } from './FrontForm';
@@ -87,7 +92,7 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
   async function handleUpdate(values: ThreatFormValues) {
     setSaving(true);
     try {
-      const lifecycle = normalizeThreatLifecycle(values.status, values.reasonOfDead);
+      const lifecycle = normalizeThreatLifecycle(values.status, values.completionReason);
 
       await updateEntity(db, threatId, {
         name: values.name,
@@ -96,12 +101,21 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
         data: {
           ...threat!.data,
           threatType: values.threatType,
+          radarArchetype: values.radarArchetype,
           impulse: values.impulse,
           moves: values.moves,
           trigger: values.trigger,
           inheritanceNotes: values.inheritanceNotes,
           forkThreatId: values.forkThreatId,
           ...lifecycle,
+          ...(lifecycle.status === 'completed'
+            ? {
+                completionOutcome:
+                  values.completionOutcome ??
+                  threat!.data.completionOutcome ??
+                  inferThreatCompletionOutcomeFromClock(linkedClock ?? undefined),
+              }
+            : { completionOutcome: undefined }),
         },
       });
 
@@ -183,10 +197,16 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
               defaultValues={{
                 name: threat.name,
                 threatType: threat.data.threatType,
+                radarArchetype: getThreatRadarArchetype(threat.data),
                 status: getThreatStatus(threat),
                 impulse: threat.data.impulse,
                 trigger: threat.data.trigger ?? '',
-                reasonOfDead: threat.data.reasonOfDead ?? '',
+                completionReason: threat.data.completionReason ?? threat.data.reasonOfDead ?? '',
+                completionOutcome:
+                  threat.data.completionOutcome ??
+                  (getThreatStatus(threat) === 'completed'
+                    ? inferThreatCompletionOutcomeFromClock(linkedClock ?? undefined)
+                    : undefined),
                 inheritanceNotes:
                   typeof threat.data.inheritanceNotes === 'string'
                     ? threat.data.inheritanceNotes
@@ -270,13 +290,13 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
                 </div>
               )}
 
-              {threat.data.reasonOfDead && (
+              {(threat.data.completionReason ?? threat.data.reasonOfDead) && (
                 <div className="app-danger-card rounded-[1.2rem] px-4 py-3">
                   <h3 className="text-surface-500 mb-1 text-xs font-semibold tracking-wide uppercase">
                     Powód wygaszenia / śmierci
                   </h3>
                   <p className="text-surface-700 text-sm whitespace-pre-wrap">
-                    {threat.data.reasonOfDead}
+                    {threat.data.completionReason ?? threat.data.reasonOfDead}
                   </p>
                 </div>
               )}
@@ -471,7 +491,9 @@ export function FrontDetail() {
 
       return (
         threatEntity.name.toLowerCase().includes(normalizedQuery) ||
-        THREAT_TYPE_LABELS[threatEntity.data.threatType].toLowerCase().includes(normalizedQuery) ||
+        (THREAT_TYPE_LABELS[threatEntity.data.threatType] ?? threatEntity.data.threatType)
+          .toLowerCase()
+          .includes(normalizedQuery) ||
         threatEntity.data.impulse.toLowerCase().includes(normalizedQuery) ||
         threatEntity.tags.some((tag) => tag.toLowerCase().includes(normalizedQuery))
       );
@@ -531,7 +553,7 @@ export function FrontDetail() {
   async function handleAddThreat(values: ThreatFormValues) {
     setSavingThreat(true);
     try {
-      const lifecycle = normalizeThreatLifecycle(values.status, values.reasonOfDead);
+      const lifecycle = normalizeThreatLifecycle(values.status, values.completionReason);
 
       const entity = await addEntity(db, {
         type: 'threat',
@@ -540,12 +562,16 @@ export function FrontDetail() {
         tags: values.tags,
         data: {
           threatType: values.threatType,
+          radarArchetype: values.radarArchetype,
           impulse: values.impulse,
           moves: values.moves,
           trigger: values.trigger,
           inheritanceNotes: values.inheritanceNotes,
           forkThreatId: values.forkThreatId,
           ...lifecycle,
+          ...(lifecycle.status === 'completed'
+            ? { completionOutcome: values.completionOutcome ?? 'resolved_early' }
+            : { completionOutcome: undefined }),
         },
       });
 

@@ -17,7 +17,7 @@ function makeThreat(): Threat {
       status: 'completed',
       impulse: 'Rozedrzeć port od środka',
       moves: ['Pierwszy niestabilny błysk', 'Pęknięcie soczewki'],
-      reasonOfDead: 'Bohaterowie odcięli zasilanie',
+      completionReason: 'Bohaterowie odcięli zasilanie',
     },
   };
 }
@@ -66,7 +66,7 @@ describe('derived threat helpers', () => {
 
     expect(defaults.status).toBe('active');
     expect(defaults.forkThreatId).toBe('threat-1');
-    expect(defaults.reasonOfDead).toBe('');
+    expect(defaults.completionReason).toBe('');
     expect(defaults.inheritanceNotes).toContain('Ukończone kroki zegara');
     expect(defaults.clock).toBeNull();
     expect(defaults.description).toBe('');
