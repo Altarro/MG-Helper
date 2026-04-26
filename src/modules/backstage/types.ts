@@ -1,5 +1,8 @@
 import type { Session } from '@modules/sessions/types';
 import type { Thread } from '@modules/threads/types';
+import type { Npc } from '@modules/npcs/types';
+import type { Location } from '@modules/locations/types';
+import type { Clue } from '@modules/clues/types';
 import type { Threat } from '@modules/fronts/types';
 
 export type AttentionTier = 0 | 1 | 2 | 3 | 4;
@@ -9,6 +12,13 @@ export interface BackstageSnapshot {
   sessions: Session[];
   threads: Thread[];
   threadSessionIds: Map<string, Set<string>>;
+  npcs: Npc[];
+  npcSessionIds: Map<string, Set<string>>;
+  threats: Threat[];
+  locations: Location[];
+  locationSessionIds: Map<string, Set<string>>;
+  clues: Clue[];
+  clueSessionIds: Map<string, Set<string>>;
   activeThreats: Threat[];
   /** threatId → session IDs (appears_in threat → session) */
   threatSessionIds: Map<string, Set<string>>;

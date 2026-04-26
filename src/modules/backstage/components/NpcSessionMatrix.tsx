@@ -1,17 +1,17 @@
 import { Fragment } from 'react';
 import { Link } from 'react-router';
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays, User } from 'lucide-react';
 import { EmptyState } from '@shared/components/EmptyState';
 import type { Session } from '@modules/sessions/types';
-import type { Thread } from '@modules/threads/types';
+import type { Npc } from '@modules/npcs/types';
 
-export interface ThreadSessionMatrixProps {
+export interface NpcSessionMatrixProps {
   sessions: Session[];
-  threads: Thread[];
-  threadSessionIds: Map<string, Set<string>>;
+  npcs: Npc[];
+  npcSessionIds: Map<string, Set<string>>;
 }
 
-export function ThreadSessionMatrix({ sessions, threads, threadSessionIds }: ThreadSessionMatrixProps) {
+export function NpcSessionMatrix({ sessions, npcs, npcSessionIds }: NpcSessionMatrixProps) {
   if (sessions.length === 0) {
     return (
       <EmptyState
@@ -22,39 +22,39 @@ export function ThreadSessionMatrix({ sessions, threads, threadSessionIds }: Thr
     );
   }
 
-  const sessionIdsWithThreads = new Set<string>();
-  for (const sessionSet of threadSessionIds.values()) {
-    for (const sid of sessionSet) sessionIdsWithThreads.add(sid);
+  const sessionIdsWithNpcs = new Set<string>();
+  for (const sessionSet of npcSessionIds.values()) {
+    for (const sid of sessionSet) sessionIdsWithNpcs.add(sid);
   }
-  const orphanSessions = sessions.filter((s) => !sessionIdsWithThreads.has(s.id));
+  const orphanSessions = sessions.filter((s) => !sessionIdsWithNpcs.has(s.id));
 
   const colCount = sessions.length;
   const gridCols = `200px repeat(${colCount}, minmax(60px, 1fr))`;
 
-  if (threads.length === 0) {
+  if (npcs.length === 0) {
     return (
       <EmptyState
-        icon={<CalendarDays className="h-8 w-8" />}
-        title="Brak wątków"
-        description="Utwórz wątki fabularne i powiąż je z sesjami, aby zobaczyć macierz."
+        icon={<User className="h-8 w-8" />}
+        title="Brak postaci"
+        description="Dodaj NPC i przypnij ich do sesji (w sesji na żywo lub z detalu), aby zobaczyć macierz."
       />
     );
   }
 
   return (
-    <div className="flex flex-col gap-3" data-testid="backstage-thread-matrix">
+    <div className="flex flex-col gap-3" data-testid="backstage-npc-matrix">
       <div className="overflow-x-auto rounded-xl border border-surface-200 bg-white shadow-sm">
         <div
           className="grid min-w-max"
           style={{ gridTemplateColumns: gridCols }}
           role="table"
-          aria-label="Wątki × Sesje"
+          aria-label="NPC × Sesje"
         >
           <div
             className="sticky left-0 z-10 flex items-center justify-center bg-surface-50 border-b border-r border-surface-200 px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-surface-500"
             role="columnheader"
           >
-            Wątek
+            Postać
           </div>
           {sessions.map((session) => (
             <Link
@@ -71,45 +71,32 @@ export function ThreadSessionMatrix({ sessions, threads, threadSessionIds }: Thr
             </Link>
           ))}
 
-          {threads.map((thread) => {
-            const sessionsForThread = threadSessionIds.get(thread.id) ?? new Set();
+          {npcs.map((npc) => {
+            const sessionsForNpc = npcSessionIds.get(npc.id) ?? new Set();
             return (
-              <Fragment key={thread.id}>
+              <Fragment key={npc.id}>
                 <Link
-                  to={`/threads/${thread.id}`}
+                  to={`/npcs/${npc.id}`}
                   className="sticky left-0 z-10 flex items-center gap-2 border-b border-r border-surface-200 bg-white px-3 py-2 hover:bg-surface-50 transition-colors"
                   role="rowheader"
-                  title={thread.name}
+                  title={npc.name}
                 >
-                  <span
-                    className="h-3 w-3 rounded-full shrink-0"
-                    style={{ backgroundColor: thread.data.color }}
-                    aria-hidden="true"
+                  <User
+                    className={`h-3.5 w-3.5 shrink-0 ${npc.data?.isPC === true ? 'text-warning-600' : 'text-surface-400'}`}
+                    aria-hidden
                   />
-                  <span className="truncate text-sm font-medium text-surface-800 max-w-[140px]">
-                    {thread.name}
-                  </span>
-                  {thread.data.status === 'completed' && (
-                    <span className="ml-auto shrink-0 text-[10px] text-surface-400">✓</span>
-                  )}
+                  <span className="truncate text-sm font-medium text-surface-800 max-w-[140px]">{npc.name}</span>
                 </Link>
                 {sessions.map((session) => {
-                  const active = sessionsForThread.has(session.id);
+                  const active = sessionsForNpc.has(session.id);
                   return (
                     <div
-                      key={`cell-${thread.id}-${session.id}`}
+                      key={`npc-cell-${npc.id}-${session.id}`}
                       className="border-b border-r border-surface-200 px-1 py-2"
                       role="cell"
-                      aria-label={
-                        active ? `${thread.name} — sesja ${session.data.number}` : undefined
-                      }
+                      aria-label={active ? `${npc.name} — sesja ${session.data.number}` : undefined}
                     >
-                      {active && (
-                        <div
-                          className="h-full min-h-[20px] rounded"
-                          style={{ backgroundColor: thread.data.color, opacity: 0.75 }}
-                        />
-                      )}
+                      {active && <div className="h-full min-h-[20px] rounded bg-primary-400/55" />}
                     </div>
                   );
                 })}
@@ -123,13 +110,13 @@ export function ThreadSessionMatrix({ sessions, threads, threadSessionIds }: Thr
                 className="sticky left-0 z-10 flex items-center border-r border-surface-200 bg-white px-3 py-2"
                 role="rowheader"
               >
-                <span className="text-xs italic text-surface-400">Bez wątku</span>
+                <span className="text-xs italic text-surface-400">Bez postaci</span>
               </div>
               {sessions.map((session) => {
                 const isOrphan = orphanSessions.some((s) => s.id === session.id);
                 return (
                   <div
-                    key={`orphan-${session.id}`}
+                    key={`npc-orphan-${session.id}`}
                     className="border-r border-surface-200 px-1 py-2"
                     role="cell"
                   >
@@ -141,7 +128,6 @@ export function ThreadSessionMatrix({ sessions, threads, threadSessionIds }: Thr
           )}
         </div>
       </div>
-
     </div>
   );
 }

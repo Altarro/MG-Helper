@@ -29,6 +29,10 @@ describe('useBackstage', () => {
     expect(result.current!.sessions).toHaveLength(0);
     expect(result.current!.threads).toHaveLength(0);
     expect(result.current!.threadSessionIds.size).toBe(0);
+    expect(result.current!.npcSessionIds.size).toBe(0);
+    expect(result.current!.threatSessionIds.size).toBe(0);
+    expect(result.current!.locationSessionIds.size).toBe(0);
+    expect(result.current!.clueSessionIds.size).toBe(0);
     expect(result.current!.threatRows).toHaveLength(0);
   });
 
@@ -145,5 +149,37 @@ describe('useBackstage', () => {
 
     const names = result.current!.threads.map((t) => t.name);
     expect(names).toEqual(['Alpha', 'Mu', 'Zeta']);
+  });
+
+  it('correctly maps NPCs to sessions via npcSessionIds', async () => {
+    const npc = await addEntity(db, {
+      type: 'npc',
+      name: 'Kowal',
+      description: '',
+      tags: [],
+      data: { instinct: '', motivation: '', appearance: '' },
+    });
+    const s1 = await addEntity(db, {
+      type: 'session',
+      name: 'S1',
+      description: '',
+      tags: [],
+      data: { number: 1, date: '2026-01-01', summary: '' },
+    });
+    const s2 = await addEntity(db, {
+      type: 'session',
+      name: 'S2',
+      description: '',
+      tags: [],
+      data: { number: 2, date: '2026-02-01', summary: '' },
+    });
+    await addRelation(db, { type: 'appears_in', sourceId: npc.id, targetId: s2.id });
+
+    const { result } = renderHook(() => useBackstage(), { wrapper });
+    await waitFor(() => expect(result.current?.npcs.length).toBe(1));
+
+    const sessionIds = result.current!.npcSessionIds.get(npc.id)!;
+    expect(sessionIds.has(s2.id)).toBe(true);
+    expect(sessionIds.has(s1.id)).toBe(false);
   });
 });
