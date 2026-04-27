@@ -1,12 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router';
-import { UserPlus, Plus, X, MapPin, MapPinOff, ChevronRight } from 'lucide-react';
+import { UserPlus, Plus, X, MapPin, MapPinOff, ChevronRight, Skull } from 'lucide-react';
 import { useCampaign } from '@shared/db/CampaignContext';
 import {
   addEntity,
   addRelation,
   deleteRelation,
+  updateEntity,
 } from '@shared/db/operations';
+import { Modal } from '@shared/components/Modal';
+import { withLifecycleStatus } from '@shared/types/entityLifecycle';
+import { recordEntityMutationInSession, recordSessionSignal } from '../utils/sessionSignals';
 import { ensureSessionDraftLocation } from '../utils/draftScene';
 import { NpcCampaignPickerModal } from './NpcCampaignPickerModal';
 import { toast } from 'sonner';
@@ -18,14 +22,23 @@ import {
   removeEntityFromSession,
   setNpcCurrentLocation,
 } from '../utils/liveSessionCommands';
+import type { Npc } from '@modules/npcs/types';
 
 interface SessionNpcPanelProps {
   sessionId: string;
   currentLocationId: string | null;
   onRequestNameScene?: () => void;
+  onLifecycleSnapshotsCaptured?: (snapshots: Array<{ entityId: string; prevData: Record<string, unknown> }>) => void;
 }
 
-export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameScene: _onRequestNameScene }: SessionNpcPanelProps) {
+const NPC_DEATH_REASON_PRESETS = ['Zginął w walce', 'Poświęcenie fabularne', 'Śmierć poza kadrem'] as const;
+
+export function SessionNpcPanel({
+  sessionId,
+  currentLocationId,
+  onRequestNameScene: _onRequestNameScene,
+  onLifecycleSnapshotsCaptured,
+}: SessionNpcPanelProps) {
   const { db } = useCampaign();
   const { npcs, locationRelIds, draftRelIds } = useSessionNpcPanelData(sessionId, currentLocationId);
   const locationNpcs = useContainedNpcs(currentLocationId);
@@ -77,6 +90,8 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
   const [name, setName] = useState('');
   const [isPC, setIsPC] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [killModalNpc, setKillModalNpc] = useState<Npc | null>(null);
+  const [killReason, setKillReason] = useState('');
 
   async function handleQuickAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -129,6 +144,72 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
       toast.success(toastRemoveEntitySuccess('npc', npcName));
     } catch {
       toast.error(toastRemoveEntityError('npc'));
+    }
+  }
+
+  async function applyKillNpc() {
+    if (!killModalNpc) return;
+    const reason = killReason.trim();
+    if (!reason) {
+      toast.error('Powód jest wymagany.');
+      return;
+    }
+    const snapshots: Array<{ entityId: string; prevData: Record<string, unknown> }> = [];
+    try {
+      snapshots.push({ entityId: killModalNpc.id, prevData: { ...killModalNpc.data } });
+      const nextData = withLifecycleStatus(killModalNpc.data, 'completed');
+      await updateEntity(db, killModalNpc.id, {
+        data: {
+          ...nextData,
+          lifecycleReason: reason,
+        } as unknown as Record<string, unknown>,
+      });
+      await recordEntityMutationInSession(db, {
+        sessionId,
+        entityType: 'npc',
+        entityId: killModalNpc.id,
+        entityName: killModalNpc.name,
+        changedFields: ['status', 'lifecycleReason'],
+        source: 'session-live/npc-panel',
+        extra: { status: 'completed', reason },
+      });
+      await recordSessionSignal(db, {
+        sessionId,
+        signalType: 'entity_died_in_session',
+        entityType: 'npc',
+        entityId: killModalNpc.id,
+        entityName: killModalNpc.name,
+        metadata: { source: 'manual', reason },
+      });
+      onLifecycleSnapshotsCaptured?.(snapshots);
+      toast.success('Postać oznaczona jako nie żyje.');
+      setKillModalNpc(null);
+      setKillReason('');
+    } catch {
+      toast.error('Nie udało się zapisać zmiany.');
+    }
+  }
+
+  async function handleReviveNpc(npc: Npc) {
+    const snapshots: Array<{ entityId: string; prevData: Record<string, unknown> }> = [];
+    try {
+      snapshots.push({ entityId: npc.id, prevData: { ...npc.data } });
+      await updateEntity(db, npc.id, {
+        data: withLifecycleStatus(npc.data, 'active') as unknown as Record<string, unknown>,
+      });
+      await recordEntityMutationInSession(db, {
+        sessionId,
+        entityType: 'npc',
+        entityId: npc.id,
+        entityName: npc.name,
+        changedFields: ['status'],
+        source: 'session-live/npc-panel/revive',
+        extra: { status: 'active', isPC: npc.data.isPC === true },
+      });
+      onLifecycleSnapshotsCaptured?.(snapshots);
+      toast.success('Postać przywrócona do żywych.');
+    } catch {
+      toast.error('Nie udało się przywrócić postaci.');
     }
   }
 
@@ -318,10 +399,46 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
                           {isPlayerNpc(npc) && (
                             <span className="shrink-0 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">Gracz</span>
                           )}
-                          {getNpcLifecycleStatus({ data: npc.data }) === 'completed' && (
-                            <span className="shrink-0 rounded-full border border-danger-200 bg-danger-50 px-1.5 py-0.5 text-[10px] font-semibold text-danger-800">
-                              Nie żyje
-                            </span>
+                          {getNpcLifecycleStatus({ data: npc.data }) === 'completed' ? (
+                            <button
+                              type="button"
+                              title="Nie żyje — kliknij, aby przywrócić do żywych"
+                              aria-label={`Przywróć do żywych: ${npc.name}`}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                void handleReviveNpc(npc);
+                              }}
+                              className="group/skulldead relative inline-flex shrink-0 rounded-md p-1 outline-none transition-colors hover:bg-[rgba(223,225,218,0.95)] focus-visible:ring-2 focus-visible:ring-primary-500/35"
+                            >
+                              <span className="sr-only">Nie żyje — przywróć do żywych</span>
+                              <Skull
+                                className="relative z-0 h-4 w-4 text-amber-600 transition-opacity [filter:drop-shadow(0_0_7px_rgba(218,165,32,0.88))] group-hover/skulldead:opacity-25 group-focus-visible/skulldead:opacity-25"
+                                aria-hidden
+                              />
+                              <span
+                                className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center opacity-0 transition-opacity group-hover/skulldead:opacity-100 group-focus-visible/skulldead:opacity-100"
+                                aria-hidden
+                              >
+                                <Skull className="h-4 w-4 text-surface-600" />
+                                <span className="absolute left-1/2 top-1/2 h-[2px] w-[130%] -translate-x-1/2 -translate-y-1/2 rotate-[-48deg] rounded-full bg-surface-800/85" />
+                              </span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              title="Oznacz jako nie żyje"
+                              aria-label={`Oznacz jako nie żyje: ${npc.name}`}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                setKillModalNpc(npc);
+                                setKillReason('');
+                              }}
+                              className="shrink-0 rounded-md p-1 text-surface-400 outline-none opacity-75 transition-colors hover:bg-danger-50 hover:text-danger-700 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-primary-500/35"
+                            >
+                              <Skull className="h-4 w-4" aria-hidden />
+                            </button>
                           )}
                           {autoAddedIds.has(npc.id) && (
                             <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Dodano do sesji</span>
@@ -349,6 +466,62 @@ export function SessionNpcPanel({ sessionId, currentLocationId, onRequestNameSce
 
       {pickerOpen && (
         <NpcCampaignPickerModal sessionId={sessionId} locationId={currentLocationId} onClose={() => setPickerOpen(false)} />
+      )}
+
+      {killModalNpc && (
+        <Modal
+          title="Powód śmierci postaci"
+          size="md"
+          onClose={() => {
+            setKillModalNpc(null);
+            setKillReason('');
+          }}
+        >
+          <div className="space-y-3">
+            <p className="text-sm text-surface-700">
+              Postać: <span className="font-semibold">{killModalNpc.name}</span>
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {NPC_DEATH_REASON_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setKillReason(preset)}
+                  className="rounded-full border border-[rgba(86,93,94,0.14)] px-2.5 py-1 text-xs text-surface-700"
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={killReason}
+              onChange={(event) => setKillReason(event.target.value)}
+              rows={4}
+              placeholder="Podaj powód (wymagane)..."
+              className="app-input w-full rounded-xl px-3 py-2 text-sm"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setKillModalNpc(null);
+                  setKillReason('');
+                }}
+                className="app-button-secondary rounded-xl px-3 py-2 text-sm"
+              >
+                Anuluj
+              </button>
+              <button
+                type="button"
+                onClick={() => void applyKillNpc()}
+                disabled={!killReason.trim()}
+                className="app-button-primary rounded-xl px-3 py-2 text-sm disabled:opacity-40"
+              >
+                Zapisz: nie żyje
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

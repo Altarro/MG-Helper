@@ -14,20 +14,24 @@ import { Clock } from 'lucide-react';
 import type { ClockFormValues } from './ClockForm';
 import type { Clock as ClockType } from '../types';
 
-type Filter = 'all' | 'active' | 'completed';
+type StatusFilter = 'all' | 'active' | 'completed';
+type KindFilter = 'all' | 'session' | 'free' | 'threat';
 
 export function ClockList() {
   const clocks = useClocks();
   const navigate = useNavigate();
   const { db } = useCampaign();
-  const [filter, setFilter] = useState<Filter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [kindFilter, setKindFilter] = useState<KindFilter>('all');
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toDelete, setToDelete] = useState<ClockType | null>(null);
 
   const filtered = clocks?.filter((c) => {
-    if (filter === 'active') return c.data.filled < c.data.segments && c.data.isActive !== false;
-    if (filter === 'completed') return c.data.filled >= c.data.segments;
+    const kind = c.data.kind ?? 'free';
+    if (kindFilter !== 'all' && kind !== kindFilter) return false;
+    if (statusFilter === 'active') return c.data.filled < c.data.segments && c.data.isActive !== false;
+    if (statusFilter === 'completed') return c.data.filled >= c.data.segments;
     return true;
   });
 
@@ -39,7 +43,7 @@ export function ClockList() {
         name: values.name,
         description: values.description,
         tags: values.tags,
-        data: { segments: values.segments, filled: 0, tickLabels: [], isActive: true },
+        data: { kind: 'free', segments: values.segments, filled: 0, tickLabels: [], isActive: true },
       });
       toast.success(`Zegar "${values.name}" utworzony`);
       setShowForm(false);
@@ -62,10 +66,16 @@ export function ClockList() {
     }
   }
 
-  const FILTERS: { id: Filter; label: string }[] = [
+  const STATUS_FILTERS: { id: StatusFilter; label: string }[] = [
     { id: 'all', label: 'Wszystkie' },
     { id: 'active', label: 'Aktywne' },
     { id: 'completed', label: 'Ukończone' },
+  ];
+  const KIND_FILTERS: { id: KindFilter; label: string }[] = [
+    { id: 'all', label: 'Wszystkie typy' },
+    { id: 'session', label: 'Sesyjne' },
+    { id: 'free', label: 'Wolne' },
+    { id: 'threat', label: 'Zagrożeń' },
   ];
 
   return (
@@ -91,12 +101,24 @@ export function ClockList() {
         </div>
 
         <div className="mt-6 flex flex-wrap gap-2.5">
-          {FILTERS.map((f) => (
+          {STATUS_FILTERS.map((f) => (
             <button
               key={f.id}
               type="button"
-              onClick={() => setFilter(f.id)}
-              className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${filter === f.id ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'}`}
+              onClick={() => setStatusFilter(f.id)}
+              className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${statusFilter === f.id ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'}`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2.5">
+          {KIND_FILTERS.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => setKindFilter(f.id)}
+              className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${kindFilter === f.id ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'}`}
             >
               {f.label}
             </button>
@@ -124,8 +146,16 @@ export function ClockList() {
           <EmptyState
             icon={<Clock className="h-8 w-8 text-primary-300" />}
             title="Brak zegarów"
-            description={filter === 'all' ? 'Utwórz pierwszy zegar klikając „Nowy zegar”.' : `Brak ${filter === 'active' ? 'aktywnych' : 'ukończonych'} zegarów.`}
-            action={filter === 'all' ? <button type="button" onClick={() => setShowForm(true)} className="app-button-primary rounded-2xl px-4 py-3 text-sm font-medium">Nowy zegar</button> : undefined}
+            description={
+              statusFilter === 'all' && kindFilter === 'all'
+                ? 'Utwórz pierwszy zegar klikając „Nowy zegar”.'
+                : 'Brak zegarów dla wybranych filtrów.'
+            }
+            action={
+              statusFilter === 'all' && kindFilter === 'all'
+                ? <button type="button" onClick={() => setShowForm(true)} className="app-button-primary rounded-2xl px-4 py-3 text-sm font-medium">Nowy zegar</button>
+                : undefined
+            }
           />
         </div>
       )}

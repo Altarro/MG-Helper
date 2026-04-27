@@ -59,6 +59,9 @@ export interface LocationData extends Record<string, unknown> {
   isDraft?: boolean;
   /** Stan fabularny (`completed` = zniszczona; encja zostaje w kampanii). */
   status?: LifecycleStatus;
+  lifecycleReason?: string;
+  survivedParentDestruction?: boolean;
+  destroyedByParentId?: string | null;
   imageId?: string | null; // reference to Asset (cover blob)
   imageAlt?: string;
 }

@@ -39,6 +39,7 @@ export interface ItemData {
   properties: string[]; // e.g. ["sharp", "magical", "heavy"]
   /** Stan fabularny (`completed` = zniszczony/zgubiony; encja zostaje w kampanii). */
   status?: LifecycleStatus;
+  lifecycleReason?: string;
   imageId?: string | null; // reference to Asset (cover blob)
   imageAlt?: string;
 }

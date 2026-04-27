@@ -38,6 +38,7 @@ export function QuickNotePanel({
           content: trimmed,
           sessionId,
           createdAt: nowISO(),
+          cleanupDecision: 'pending',
         },
       });
 

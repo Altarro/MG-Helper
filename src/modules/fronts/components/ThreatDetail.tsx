@@ -241,6 +241,7 @@ export function ThreatDetail() {
           description: '',
           tags: [],
           data: {
+            kind: 'threat',
             segments: values.clock.segments,
             filled: 0,
             tickLabels: [],
@@ -298,6 +299,7 @@ export function ThreatDetail() {
           description: '',
           tags: [],
           data: {
+            kind: 'threat',
             segments: values.clock.segments,
             filled: 0,
             tickLabels: [],
@@ -343,6 +345,7 @@ export function ThreatDetail() {
         description: '',
         tags: [],
         data: {
+          kind: 'threat',
           segments: quickClockSegments as 4 | 6 | 8 | 10 | 12,
           filled: 0,
           tickLabels: [],

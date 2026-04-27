@@ -135,6 +135,7 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
           description: '',
           tags: [],
           data: {
+            kind: 'threat',
             segments: values.clock.segments,
             filled: 0,
             tickLabels: [],
@@ -584,6 +585,7 @@ export function FrontDetail() {
           description: '',
           tags: [],
           data: {
+            kind: 'threat',
             segments: values.clock.segments,
             filled: 0,
             tickLabels: [],

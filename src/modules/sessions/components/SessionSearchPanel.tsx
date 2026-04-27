@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Link } from 'react-router';
-import { Search, MapPin, MapPinOff, Eye } from 'lucide-react';
+import { Search, MapPin, MapPinOff, Eye, Skull, OctagonAlert, Undo2 } from 'lucide-react';
 import { useCampaign } from '@shared/db/CampaignContext';
 import type { Entity } from '@shared/types/entity';
 import {
@@ -16,13 +16,29 @@ import { ThreatPreviewModal } from './ThreatPreviewModal';
 import { EntityPreviewModal } from './EntityPreviewModal';
 import { getDraftLocationId, ensureSessionDraftLocation } from '../utils/draftScene';
 import { ensureEntityAppearsInSession, setNpcCurrentLocation } from '../utils/liveSessionCommands';
+import { updateEntity } from '@shared/db/operations';
 import { toast } from 'sonner';
+import { withLifecycleStatus } from '@shared/types/entityLifecycle';
+import { recordEntityMutationInSession, recordSessionSignal } from '../utils/sessionSignals';
+import { getItemLifecycleStatus, getLocationLifecycleStatus, getNpcLifecycleStatus } from '@shared/utils/entityData';
+import { Modal } from '@shared/components/Modal';
+import type { LocationData } from '@modules/locations/types';
 
 interface SessionSearchPanelProps {
   sessionId: string;
+  onLifecycleSnapshotsCaptured?: (snapshots: Array<{ entityId: string; prevData: Record<string, unknown> }>) => void;
+  onUndoLastLifecycleChange?: () => void;
+  canUndoLifecycle?: boolean;
 }
 
-export function SessionSearchPanel({ sessionId }: SessionSearchPanelProps) {
+type LifecycleQuickAction = 'npc_dead' | 'location_destroyed' | 'item_lost_or_destroyed' | 'location_survived';
+
+export function SessionSearchPanel({
+  sessionId,
+  onLifecycleSnapshotsCaptured,
+  onUndoLastLifecycleChange,
+  canUndoLifecycle = false,
+}: SessionSearchPanelProps) {
   const { db } = useCampaign();
   const [scope, setScope] = useState<'session' | 'campaign'>('session');
   const [query, setQuery] = useState('');
@@ -32,6 +48,11 @@ export function SessionSearchPanel({ sessionId }: SessionSearchPanelProps) {
     id: string;
   } | null>(null);
   const { currentLocationId, openCardIds, openCard, closeCard } = useLiveSessionState(sessionId);
+  const [quickActionTarget, setQuickActionTarget] = useState<{
+    entity: Entity;
+    action: LifecycleQuickAction;
+  } | null>(null);
+  const [quickActionReason, setQuickActionReason] = useState('');
   const openCardSet = useMemo(() => new Set(openCardIds), [openCardIds]);
   const sceneLocationId = currentLocationId ?? getDraftLocationId(sessionId);
 
@@ -97,14 +118,190 @@ export function SessionSearchPanel({ sessionId }: SessionSearchPanelProps) {
     [sourceEntities, normalized, typeFilter],
   );
 
+  const lifecycleReasonPresets: Record<LifecycleQuickAction, string[]> = {
+    npc_dead: ['Zginął w walce', 'Poświęcenie fabularne', 'Śmierć poza kadrem'],
+    location_destroyed: ['Spalona/zbombardowana', 'Runęła po katastrofie', 'Pochłonięta przez zagrożenie'],
+    item_lost_or_destroyed: ['Zgubiony w trakcie sceny', 'Zniszczony w konflikcie', 'Oddany/utracony fabularnie'],
+    location_survived: ['Ocalona decyzją MG', 'Wyjątek od propagacji', 'Ewakuacja i zabezpieczenie'],
+  };
+
+  async function collectDescendantLocations(parentId: string): Promise<Entity[]> {
+    const descendants: Entity[] = [];
+    const queue: string[] = [parentId];
+    const visited = new Set<string>([parentId]);
+    while (queue.length > 0) {
+      const current = queue.shift();
+      if (!current) continue;
+      const childRelations = await db.relations
+        .where('sourceId')
+        .equals(current)
+        .filter((relation) => relation.type === 'contains')
+        .toArray();
+      const childIds = childRelations.map((relation) => relation.targetId).filter((id) => !visited.has(id));
+      childIds.forEach((id) => visited.add(id));
+      if (childIds.length === 0) continue;
+      const children = await db.entities.where('id').anyOf(childIds).toArray();
+      const childLocations = children.filter((entity) => entity.type === 'location');
+      descendants.push(...childLocations);
+      childLocations.forEach((child) => queue.push(child.id));
+    }
+    return descendants;
+  }
+
+  async function applyLifecycleQuickAction() {
+    if (!quickActionTarget) return;
+    const reason = quickActionReason.trim();
+    if (!reason) {
+      toast.error('Powód jest wymagany.');
+      return;
+    }
+    const target = quickActionTarget.entity;
+    const snapshots: Array<{ entityId: string; prevData: Record<string, unknown> }> = [];
+    try {
+      if (quickActionTarget.action === 'npc_dead' && target.type === 'npc') {
+        snapshots.push({ entityId: target.id, prevData: { ...target.data } });
+        const nextData = withLifecycleStatus(target.data, 'completed');
+        await updateEntity(db, target.id, {
+          data: {
+            ...nextData,
+            lifecycleReason: reason,
+          } as unknown as Record<string, unknown>,
+        });
+        await recordEntityMutationInSession(db, {
+          sessionId,
+          entityType: 'npc',
+          entityId: target.id,
+          entityName: target.name,
+          changedFields: ['status', 'lifecycleReason'],
+          source: 'session-live/quick-action',
+          extra: { status: 'completed', reason },
+        });
+        await recordSessionSignal(db, {
+          sessionId,
+          signalType: 'entity_died_in_session',
+          entityType: 'npc',
+          entityId: target.id,
+          entityName: target.name,
+          metadata: { source: 'manual', reason },
+        });
+      }
+
+      if (quickActionTarget.action === 'item_lost_or_destroyed' && target.type === 'item') {
+        snapshots.push({ entityId: target.id, prevData: { ...target.data } });
+        const nextData = withLifecycleStatus(target.data, 'completed');
+        await updateEntity(db, target.id, {
+          data: {
+            ...nextData,
+            lifecycleReason: reason,
+          } as unknown as Record<string, unknown>,
+        });
+        await recordEntityMutationInSession(db, {
+          sessionId,
+          entityType: 'item',
+          entityId: target.id,
+          entityName: target.name,
+          changedFields: ['status', 'lifecycleReason'],
+          source: 'session-live/quick-action',
+          extra: { status: 'completed', reason },
+        });
+      }
+
+      if (quickActionTarget.action === 'location_survived' && target.type === 'location') {
+        snapshots.push({ entityId: target.id, prevData: { ...target.data } });
+        await updateEntity(db, target.id, {
+          data: {
+            ...(withLifecycleStatus(target.data, 'active') as unknown as Record<string, unknown>),
+            survivedParentDestruction: true,
+            lifecycleReason: reason,
+          },
+        });
+        await recordEntityMutationInSession(db, {
+          sessionId,
+          entityType: 'location',
+          entityId: target.id,
+          entityName: target.name,
+          changedFields: ['status', 'survivedParentDestruction', 'lifecycleReason'],
+          source: 'session-live/quick-action',
+          extra: { status: 'active', survivedParentDestruction: true, reason },
+        });
+      }
+
+      if (quickActionTarget.action === 'location_destroyed' && target.type === 'location') {
+        snapshots.push({ entityId: target.id, prevData: { ...target.data } });
+        const targetData = withLifecycleStatus(target.data, 'completed') as LocationData & { status: 'completed' };
+        await updateEntity(db, target.id, {
+          data: {
+            ...targetData,
+            lifecycleReason: reason,
+            destroyedByParentId: null,
+          } as unknown as Record<string, unknown>,
+        });
+        await recordEntityMutationInSession(db, {
+          sessionId,
+          entityType: 'location',
+          entityId: target.id,
+          entityName: target.name,
+          changedFields: ['status', 'lifecycleReason'],
+          source: 'session-live/quick-action',
+          extra: { status: 'completed', reason },
+        });
+
+        const descendants = await collectDescendantLocations(target.id);
+        for (const child of descendants) {
+          const childData = child.data as LocationData;
+          if (childData.survivedParentDestruction === true) continue;
+          snapshots.push({ entityId: child.id, prevData: { ...child.data } });
+          const nextChildData = withLifecycleStatus(child.data, 'completed') as LocationData & {
+            status: 'completed';
+          };
+          await updateEntity(db, child.id, {
+            data: {
+              ...nextChildData,
+              destroyedByParentId: target.id,
+              lifecycleReason: reason,
+            } as unknown as Record<string, unknown>,
+          });
+          await recordEntityMutationInSession(db, {
+            sessionId,
+            entityType: 'location',
+            entityId: child.id,
+            entityName: child.name,
+            changedFields: ['status', 'destroyedByParentId', 'lifecycleReason'],
+            source: 'session-live/quick-action/location-propagation',
+            extra: { status: 'completed', destroyedByParentId: target.id, reason },
+          });
+        }
+      }
+
+      onLifecycleSnapshotsCaptured?.(snapshots);
+      toast.success('Zapisano zmianę lifecycle.');
+      setQuickActionTarget(null);
+      setQuickActionReason('');
+    } catch {
+      toast.error('Nie udało się zapisać zmiany lifecycle.');
+    }
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <div className="rounded-[1.45rem] border border-[rgba(86,93,94,0.12)] bg-[rgba(223,225,218,0.64)] p-3">
         <div className="mb-2 flex items-center justify-between gap-2">
           <p className="text-surface-500 text-xs font-semibold tracking-[0.18em] uppercase">Wyszukaj</p>
-          <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700 ring-1 ring-primary-200 ring-inset">
-            {filtered.length}
-          </span>
+          <div className="flex items-center gap-2">
+            {onUndoLastLifecycleChange && (
+              <button
+                type="button"
+                onClick={onUndoLastLifecycleChange}
+                disabled={!canUndoLifecycle}
+                className="rounded-full border border-[rgba(86,93,94,0.14)] bg-white/80 px-2 py-0.5 text-[10px] font-semibold text-surface-700 disabled:opacity-40"
+              >
+                <span className="inline-flex items-center gap-1"><Undo2 className="h-3 w-3" /> Cofnij lifecycle</span>
+              </button>
+            )}
+            <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] font-semibold text-primary-700 ring-1 ring-primary-200 ring-inset">
+              {filtered.length}
+            </span>
+          </div>
         </div>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <button
@@ -268,6 +465,64 @@ export function SessionSearchPanel({ sessionId }: SessionSearchPanelProps) {
                           </span>
                         </button>
                       )}
+                      {entity.type === 'npc' && getNpcLifecycleStatus(entity) !== 'completed' && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setQuickActionTarget({ entity, action: 'npc_dead' });
+                            setQuickActionReason('');
+                          }}
+                          className="rounded-xl border border-danger-200 bg-danger-50 px-2 py-1 text-[10px] font-semibold text-danger-800"
+                        >
+                          <span className="inline-flex items-center gap-1"><Skull className="h-3 w-3" /> Nie żyje</span>
+                        </button>
+                      )}
+                      {entity.type === 'location' && getLocationLifecycleStatus(entity) !== 'completed' && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setQuickActionTarget({ entity, action: 'location_destroyed' });
+                            setQuickActionReason('');
+                          }}
+                          className="rounded-xl border border-danger-200 bg-danger-50 px-2 py-1 text-[10px] font-semibold text-danger-800"
+                        >
+                          <span className="inline-flex items-center gap-1"><OctagonAlert className="h-3 w-3" /> Zniszczona</span>
+                        </button>
+                      )}
+                      {entity.type === 'location' &&
+                        getLocationLifecycleStatus(entity) === 'completed' &&
+                        (entity.data as LocationData).destroyedByParentId && (
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              setQuickActionTarget({ entity, action: 'location_survived' });
+                              setQuickActionReason('');
+                            }}
+                            className="rounded-xl border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-800"
+                          >
+                            Ocal jako wyjątek
+                          </button>
+                        )}
+                      {entity.type === 'item' && getItemLifecycleStatus(entity) !== 'completed' && (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setQuickActionTarget({ entity, action: 'item_lost_or_destroyed' });
+                            setQuickActionReason('');
+                          }}
+                          className="rounded-xl border border-danger-200 bg-danger-50 px-2 py-1 text-[10px] font-semibold text-danger-800"
+                        >
+                          Zgubiony / zniszczony
+                        </button>
+                      )}
                       {canPreview && (
                         <button
                           type="button"
@@ -356,6 +611,62 @@ export function SessionSearchPanel({ sessionId }: SessionSearchPanelProps) {
             onClose={() => setPreview(null)}
           />
         )}
+
+      {quickActionTarget && (
+        <Modal
+          title="Powód zmiany lifecycle"
+          size="md"
+          onClose={() => {
+            setQuickActionTarget(null);
+            setQuickActionReason('');
+          }}
+        >
+          <div className="space-y-3">
+            <p className="text-sm text-surface-700">
+              Encja: <span className="font-semibold">{quickActionTarget.entity.name}</span>
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {lifecycleReasonPresets[quickActionTarget.action].map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setQuickActionReason(preset)}
+                  className="rounded-full border border-[rgba(86,93,94,0.14)] px-2.5 py-1 text-xs text-surface-700"
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={quickActionReason}
+              onChange={(event) => setQuickActionReason(event.target.value)}
+              rows={4}
+              placeholder="Podaj powód (wymagane)..."
+              className="app-input w-full rounded-xl px-3 py-2 text-sm"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setQuickActionTarget(null);
+                  setQuickActionReason('');
+                }}
+                className="app-button-secondary rounded-xl px-3 py-2 text-sm"
+              >
+                Anuluj
+              </button>
+              <button
+                type="button"
+                onClick={() => void applyLifecycleQuickAction()}
+                disabled={!quickActionReason.trim()}
+                className="app-button-primary rounded-xl px-3 py-2 text-sm disabled:opacity-40"
+              >
+                Zapisz zmianę
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

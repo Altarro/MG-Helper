@@ -5,7 +5,7 @@ import { isSession } from '../types';
 import type { Session } from '../types';
 
 export function useSessionById(id: string | undefined): {
-  session: Session | undefined;
+  session: Session | null | undefined;
   relations: ReturnType<typeof useRelations>;
 } {
   const { db } = useCampaign();
@@ -13,7 +13,7 @@ export function useSessionById(id: string | undefined): {
     async () => {
       if (!id) return undefined;
       const e = await db.entities.get(id);
-      return e && isSession(e) ? e : undefined;
+      return e && isSession(e) ? e : null;
     },
     [db, id],
   );

@@ -1,16 +1,47 @@
 import { useState, useEffect } from 'react';
 import { Zap, Pause, Play } from 'lucide-react';
 import { useNavigate } from 'react-router';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { useCampaign } from '@shared/db/CampaignContext';
+import { toast } from 'sonner';
+import { getSessionLifecycleStatus, type SessionData } from '@modules/sessions/types';
 import {
   getLiveSessionMarker,
   setLiveSessionMarker,
+  clearLiveSessionMarker,
   type LiveSessionMarker,
   LIVE_SESSION_MARKER_UPDATED_EVENT,
 } from '@modules/sessions/hooks/useLiveSessionState';
+import type { Entity } from '@shared/types/entity';
+
+type LiveMarkerTarget =
+  | { kind: 'idle' }
+  | { kind: 'missing' }
+  | { kind: 'found'; entity: Entity };
 
 export function LiveSessionIndicator() {
   const navigate = useNavigate();
+  const { db, campaignId } = useCampaign();
   const [marker, setMarker] = useState<LiveSessionMarker | null>(() => getLiveSessionMarker());
+  const blockingCleanupSession = useLiveQuery(async () => {
+    if (!marker) return undefined;
+    const all = await db.entities.where('type').equals('session').toArray();
+    return all.find(
+      (entity) =>
+        entity.id !== marker.sessionId &&
+        getSessionLifecycleStatus(entity.data as unknown as SessionData) === 'cleanup_pending',
+    );
+  }, [db, marker]);
+  /** Rozróżnienie „ładowanie” vs „brak encji”: samo `undefined` z get() jest niejednoznaczne dla useLiveQuery. */
+  const liveMarkerTarget = useLiveQuery(
+    async (): Promise<LiveMarkerTarget> => {
+      if (!marker) return { kind: 'idle' };
+      const entity = await db.entities.get(marker.sessionId);
+      if (!entity) return { kind: 'missing' };
+      return { kind: 'found', entity };
+    },
+    [db, marker],
+  );
 
   useEffect(() => {
     function sync() {
@@ -28,6 +59,32 @@ export function LiveSessionIndicator() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!marker) return;
+    if (marker.campaignId != null && marker.campaignId !== '' && marker.campaignId !== campaignId) {
+      clearLiveSessionMarker();
+      setMarker(null);
+    }
+  }, [campaignId, marker]);
+
+  useEffect(() => {
+    if (!marker) return;
+    if (liveMarkerTarget === undefined) return;
+    if (liveMarkerTarget.kind === 'idle') return;
+    if (liveMarkerTarget.kind === 'missing') {
+      clearLiveSessionMarker();
+      setMarker(null);
+      return;
+    }
+    const entity = liveMarkerTarget.entity;
+    const isValidSession =
+      entity?.type === 'session' &&
+      getSessionLifecycleStatus(entity.data as unknown as SessionData) === 'live';
+    if (isValidSession) return;
+    clearLiveSessionMarker();
+    setMarker(null);
+  }, [liveMarkerTarget, marker]);
+
   if (!marker) return null;
 
   function handleTogglePause() {
@@ -39,6 +96,16 @@ export function LiveSessionIndicator() {
 
   function handleNavigate() {
     if (!marker) return;
+    if (blockingCleanupSession) {
+      const blockedTitle =
+        blockingCleanupSession.name ||
+        `Sesja ${(blockingCleanupSession.data as { number?: number }).number ?? '?'}`;
+      toast.error(
+        `Dokończ najpierw sprzątanie: ${blockedTitle}. Start nowej sesji na żywo jest zablokowany.`,
+      );
+      void navigate(`/sessions/${blockingCleanupSession.id}/cleanup`);
+      return;
+    }
     navigate(`/sessions/${marker.sessionId}/live`);
   }
 

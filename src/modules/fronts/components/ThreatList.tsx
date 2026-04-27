@@ -135,6 +135,7 @@ export function ThreatList() {
           description: '',
           tags: [],
           data: {
+            kind: 'threat',
             segments: values.clock.segments,
             filled: 0,
             tickLabels: [],

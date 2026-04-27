@@ -11,6 +11,7 @@ export interface NpcData {
   playerName?: string;
   /** Stan fabularny (`completed` = nie żyje; encja zostaje w kampanii). */
   status?: LifecycleStatus;
+  lifecycleReason?: string;
   imageId?: string | null; // reference to Asset (portrait blob)
   imageAlt?: string;
 }

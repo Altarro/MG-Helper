@@ -95,12 +95,15 @@ export const threatSchema = baseEntitySchema.extend({
 
 export const clockSchema = baseEntitySchema.extend({
   data: z.object({
+    kind: z.enum(['session', 'free', 'threat']).default('free'),
     segments: z.union([
       z.literal(4), z.literal(6), z.literal(8), z.literal(10), z.literal(12),
     ]).default(6),
     filled: z.number().int().min(0).default(0),
     tickLabels: z.array(z.string().max(300)).max(12).default([]),
     isActive: z.boolean().default(true),
+    sessionClockEndMode: z.enum(['manual_stopped', 'completed']).optional(),
+    sessionClockEndedAt: z.string().min(1).optional(),
     lastAdvanceSessionId: z.string().min(1).optional(),
     lastAdvanceAt: z.string().min(1).optional(),
   }).default({}),

@@ -38,6 +38,7 @@ import { LocationPickerModal } from './LocationPickerModal';
 import type { SessionFormValues } from './SessionForm';
 import type { Entity } from '@shared/types/entity';
 import { removeEntityFromSession } from '../utils/liveSessionCommands';
+import { getSessionLifecycleStatus, type SessionData } from '../types';
 
 function useSessionAppearances(db: MgHelperDb, sessionId: string | undefined) {
   return (
@@ -306,6 +307,15 @@ export function SessionDetail() {
   const [threadPickerOpen, setThreadPickerOpen] = useState(false);
   const [cluePickerOpen, setCluePickerOpen] = useState(false);
   const [threatPickerOpen, setThreatPickerOpen] = useState(false);
+  const [confirmReportOverwrite, setConfirmReportOverwrite] = useState(false);
+  const blockingCleanupSession = useLiveQuery(async () => {
+    const all = await db.entities.where('type').equals('session').toArray();
+    return all.find(
+      (entity) =>
+        entity.id !== id &&
+        getSessionLifecycleStatus(entity.data as unknown as SessionData) === 'cleanup_pending',
+    );
+  }, [db, id]);
 
   if (session === undefined) return <LoadingSpinner />;
 
@@ -334,11 +344,16 @@ export function SessionDetail() {
   }
 
   const title = session.name || `Sesja ${session.data.number}`;
+  const reportStatusLabel =
+    (session.data as unknown as SessionData).reportAvailable === true
+      ? 'Raport dostępny'
+      : 'Brak raportu (po ponownym uruchomieniu sesji)';
   const formattedDate = session.data.date
     ? format(parseISO(session.data.date), 'd MMMM yyyy', { locale: pl })
     : '';
 
   async function handleUpdate(values: SessionFormValues) {
+    if (!session) return;
     setSaving(true);
     try {
       await updateEntity(db, session!.id, {
@@ -346,6 +361,7 @@ export function SessionDetail() {
         description: values.description,
         tags: values.tags,
         data: {
+          ...(session.data as unknown as SessionData),
           number: values.number,
           date: values.date,
           summary: values.summary,
@@ -401,6 +417,41 @@ export function SessionDetail() {
     }
   }
 
+  async function startLiveNow() {
+    if (!session) return;
+    await updateEntity(db, session.id, {
+      data: {
+        ...(session.data as unknown as SessionData),
+        reportAvailable: false,
+        reportGeneratedAt: undefined,
+        liveRunStartedAt: new Date().toISOString(),
+        liveRunEndedAt: undefined,
+        spotlightSummary: undefined,
+      },
+    });
+    void navigate(`/sessions/${session.id}/live`);
+  }
+
+  function handleStartLive() {
+    if (!session) return;
+    if (blockingCleanupSession) {
+      const blockedTitle =
+        blockingCleanupSession.name ||
+        `Sesja ${(blockingCleanupSession.data as { number?: number }).number ?? '?'}`;
+      toast.error(
+        `Dokończ najpierw sprzątanie: ${blockedTitle}. Start nowej sesji na żywo jest zablokowany.`,
+      );
+      void navigate(`/sessions/${blockingCleanupSession.id}/cleanup`);
+      return;
+    }
+    const data = session.data as unknown as SessionData;
+    if (data.reportAvailable) {
+      setConfirmReportOverwrite(true);
+      return;
+    }
+    void startLiveNow();
+  }
+
   async function handleLocationSelect(locationId: string | null) {
     if (!locationId) return;
     await addEntitiesToSession([locationId]);
@@ -440,6 +491,11 @@ export function SessionDetail() {
                 {formattedDate && (
                   <p className="text-surface-600 mt-2 text-sm leading-7">{formattedDate}</p>
                 )}
+                <p className="mt-2">
+                  <span className="rounded-full border border-[rgba(86,93,94,0.14)] bg-[rgba(223,225,218,0.75)] px-2.5 py-1 text-xs text-surface-700">
+                    {reportStatusLabel}
+                  </span>
+                </p>
               </div>
             </div>
           </div>
@@ -453,7 +509,11 @@ export function SessionDetail() {
               Raport
             </Link>
             <Link
-              to={`/sessions/${session.id}/live`}
+              to="#"
+              onClick={(event) => {
+                event.preventDefault();
+                handleStartLive();
+              }}
               className="app-accent inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-transform hover:-translate-y-0.5"
             >
               <Zap className="h-4 w-4" />
@@ -713,6 +773,20 @@ export function SessionDetail() {
           onClose={() => setThreatPickerOpen(false)}
         />
       )}
+
+      <ConfirmDialog
+        open={confirmReportOverwrite}
+        title="Uruchomić sesję ponownie?"
+        description="Raport tej sesji zostanie nadpisany przy nowym przebiegu."
+        confirmLabel="Tak, uruchom ponownie"
+        cancelLabel="Anuluj"
+        destructive={false}
+        onConfirm={() => {
+          setConfirmReportOverwrite(false);
+          void startLiveNow();
+        }}
+        onCancel={() => setConfirmReportOverwrite(false)}
+      />
     </div>
   );
 }

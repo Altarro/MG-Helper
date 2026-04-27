@@ -4,9 +4,42 @@ export interface SessionData {
   number: number;   // session number (e.g. 1, 2, ...)
   date: string;     // ISO date string "YYYY-MM-DD"
   summary: string;  // short plain-text summary
+  status?: SessionLifecycleStatus;
+  reportAvailable?: boolean;
+  reportGeneratedAt?: string;
+  liveRunStartedAt?: string;
+  liveRunEndedAt?: string;
+  spotlightSummary?: {
+    capturedAt: string;
+    mgTotalActiveSec: number;
+    mgWaitSec: number;
+    players: Array<{
+      id: string;
+      name: string;
+      playerName?: string;
+      totalActiveSec: number;
+      waitSec: number;
+    }>;
+  };
   plannedDurationMin?: number;
   scenes?: SessionScene[];
   sortOrder?: number;
+}
+
+export const SESSION_LIFECYCLE_STATUSES = [
+  'live',
+  'cleanup_pending',
+  'cleanup_completed',
+] as const;
+
+export type SessionLifecycleStatus = (typeof SESSION_LIFECYCLE_STATUSES)[number];
+
+export function getSessionLifecycleStatus(data: SessionData): SessionLifecycleStatus {
+  const status = data.status;
+  if (status === 'live' || status === 'cleanup_pending' || status === 'cleanup_completed') {
+    return status;
+  }
+  return 'cleanup_completed';
 }
 
 export interface SessionScene {

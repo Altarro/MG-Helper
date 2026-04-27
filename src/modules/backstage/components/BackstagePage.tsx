@@ -44,6 +44,14 @@ export function BackstagePage() {
     clueSessionIds,
     threatRows,
   } = data;
+  const topThreatActions = threatRows
+    .filter((row) => row.tier >= 3 || row.isSpotlightSuggestion)
+    .slice(0, 3)
+    .map((row) => ({
+      id: row.threatId,
+      label: `Przejdź do: ${row.name}`,
+      href: `/threats/${row.threatId}`,
+    }));
 
   function scrollToMatrixSection(sectionId: string) {
     const el = document.getElementById(sectionId);
@@ -69,7 +77,12 @@ export function BackstagePage() {
         </p>
       </header>
 
-      <BackstageSummaryPanel />
+      <BackstageSummaryPanel
+        actions={[
+          ...topThreatActions,
+          { id: 'backstage-graph', label: 'Otwórz graf relacji', href: '/graph' },
+        ]}
+      />
       <BackstageHintsPanel />
 
       <div

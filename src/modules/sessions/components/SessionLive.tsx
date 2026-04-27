@@ -12,9 +12,11 @@ import {
   setLiveSessionMarker,
   clearLiveSessionMarker,
   clearLiveSessionState,
+  getLiveSessionMarker,
 } from '../hooks/useLiveSessionState';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
+import { Modal } from '@shared/components/Modal';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { SceneCenter } from './SceneCenter';
 import type { SceneCenterHandle } from './SceneCenter';
@@ -30,9 +32,10 @@ import { SessionCluesPanel } from './SessionCluesPanel';
 import { SessionInspirationsPanel } from './SessionInspirationsPanel';
 import { QuickNotePanel } from '@modules/notes/components/QuickNotePanel';
 import { useCurrentSceneNpcIds } from '../hooks/useLiveSessionQueries';
-import { useSessionSignals } from '../hooks/useSessionSignals';
 import { toast } from 'sonner';
 import { ensureEntityAppearsInSession, moveNpcToLocation } from '../utils/liveSessionCommands';
+import { addEntity, addRelation, updateEntity } from '@shared/db/operations';
+import { getSessionLifecycleStatus, type SessionData } from '../types';
 
 const DEFAULT_SPOTLIGHT: SpotlightState = {
   mgActive: false,
@@ -42,6 +45,11 @@ const DEFAULT_SPOTLIGHT: SpotlightState = {
   isPaused: false,
   sessionStarted: false,
 };
+
+function timerNowSec(timer: { elapsed: number; startedAt: string | null }): number {
+  if (!timer.startedAt) return timer.elapsed;
+  return timer.elapsed + Math.max(0, Math.floor((Date.now() - Date.parse(timer.startedAt)) / 1000));
+}
 
 const RAIL_SECTIONS = [
   ['threats', 'Zagrożenia'],
@@ -78,25 +86,70 @@ export function SessionLive() {
   const [locationPickerOpen, setLocationPickerOpen] = useState(false);
   const [railHovered, setRailHovered] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [sessionClockModalOpen, setSessionClockModalOpen] = useState(false);
+  const [sessionClockName, setSessionClockName] = useState('');
+  const [sessionClockSegments, setSessionClockSegments] = useState<4 | 6>(4);
+  const [sessionClockSaving, setSessionClockSaving] = useState(false);
+  const [lifecycleUndoStack, setLifecycleUndoStack] = useState<
+    Array<Array<{ entityId: string; prevData: Record<string, unknown> }>>
+  >([]);
   const panelScrollRef = useRef<HTMLDivElement | null>(null);
   const panelDragRef = useRef<{ startY: number; scrollTop: number } | null>(null);
   const railButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const sessionIdForHooks = session?.id ?? id ?? '';
 
   const sceneNpcIds = useCurrentSceneNpcIds(sessionIdForHooks, currentLocationId);
-  const { deadDuringSession } = useSessionSignals(session?.id ?? id);
   const sceneThreadIds =
     useLiveQuery(async () => {
       if (openCardIds.length === 0) return [] as string[];
       const entities = await db.entities.where('id').anyOf(openCardIds).toArray();
       return entities.filter((entity) => entity.type === 'thread').map((entity) => entity.id);
     }, [db, openCardIds]) ?? [];
+  const blockingCleanupSession = useLiveQuery(async () => {
+    const all = await db.entities.where('type').equals('session').toArray();
+    return all.find(
+      (entity) =>
+        entity.id !== (session?.id ?? id) &&
+        getSessionLifecycleStatus(entity.data as unknown as SessionData) === 'cleanup_pending',
+    );
+  }, [db, id, session?.id]);
 
   useEffect(() => {
     if (!session || !id) return;
     const title = session.name || `Sesja ${session.data.number}`;
     setLiveSessionMarker({ sessionId: id, sessionName: title, isPaused: false, campaignId });
   }, [campaignId, id, session]);
+
+  useEffect(() => {
+    if (session !== null || !id) return;
+    const marker = getLiveSessionMarker();
+    if (marker?.sessionId !== id) return;
+    clearLiveSessionMarker();
+    clearLiveSessionState(id);
+  }, [session, id]);
+
+  useEffect(() => {
+    if (!session || !id) return;
+    if (blockingCleanupSession) {
+      const blockedTitle =
+        blockingCleanupSession.name ||
+        `Sesja ${(blockingCleanupSession.data as { number?: number }).number ?? '?'}`;
+      toast.error(
+        `Dokończ najpierw sprzątanie: ${blockedTitle}. Start nowej sesji na żywo jest zablokowany.`,
+      );
+      void navigate(`/sessions/${blockingCleanupSession.id}/cleanup`);
+      return;
+    }
+
+    if (getSessionLifecycleStatus(session.data as SessionData) !== 'live') {
+      void updateEntity(db, session.id, {
+        data: {
+          ...session.data,
+          status: 'live',
+        },
+      });
+    }
+  }, [blockingCleanupSession, db, id, navigate, session]);
 
   useEffect(() => {
     function handleEscape(event: KeyboardEvent) {
@@ -147,10 +200,79 @@ export function SessionLive() {
   }
 
   async function handleEndSession() {
-    if (!id) return;
+    if (!id || !session) return;
+    const spotlightSnapshot = spotlightState ?? DEFAULT_SPOTLIGHT;
+    await updateEntity(db, session.id, {
+      data: {
+        ...session.data,
+        status: 'cleanup_pending',
+        liveRunEndedAt: new Date().toISOString(),
+        spotlightSummary: {
+          capturedAt: new Date().toISOString(),
+          mgTotalActiveSec: timerNowSec(spotlightSnapshot.mgTotalActiveTimer),
+          mgWaitSec: timerNowSec(spotlightSnapshot.mgTimer),
+          players: spotlightSnapshot.players.map((player) => ({
+            id: player.id,
+            name: player.name,
+            playerName: player.playerName,
+            totalActiveSec: timerNowSec(player.totalActiveTimer),
+            waitSec: timerNowSec(player.waitTimer),
+          })),
+        },
+      },
+    });
     clearLiveSessionMarker();
     clearLiveSessionState(id);
     navigate(`/sessions/${id}/cleanup`);
+  }
+
+  async function handleUndoLifecycleChange() {
+    const snapshotBatch = lifecycleUndoStack[lifecycleUndoStack.length - 1];
+    if (!snapshotBatch || snapshotBatch.length === 0) return;
+    try {
+      for (let i = snapshotBatch.length - 1; i >= 0; i -= 1) {
+        const snapshot = snapshotBatch[i];
+        if (!snapshot) continue;
+        await updateEntity(db, snapshot.entityId, {
+          data: snapshot.prevData,
+        });
+      }
+      setLifecycleUndoStack((prev) => prev.slice(0, -1));
+      toast.success('Cofnięto ostatnią zmianę lifecycle.');
+    } catch {
+      toast.error('Nie udało się cofnąć zmiany lifecycle.');
+    }
+  }
+
+  async function handleCreateSessionClock() {
+    if (!session || !id) return;
+    const trimmed = sessionClockName.trim();
+    if (!trimmed) return;
+    setSessionClockSaving(true);
+    try {
+      const clock = await addEntity(db, {
+        type: 'clock',
+        name: trimmed,
+        description: '',
+        tags: ['sesyjny'],
+        data: {
+          kind: 'session',
+          segments: sessionClockSegments,
+          filled: 0,
+          tickLabels: [],
+          isActive: true,
+        },
+      });
+      await addRelation(db, { type: 'appears_in', sourceId: clock.id, targetId: id });
+      toast.success(`Dodano zegar sesyjny: ${trimmed}`);
+      setSessionClockModalOpen(false);
+      setSessionClockName('');
+      setSessionClockSegments(4);
+    } catch {
+      toast.error('Nie udało się dodać zegara sesyjnego.');
+    } finally {
+      setSessionClockSaving(false);
+    }
   }
 
   const handlePanelPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
@@ -230,6 +352,10 @@ export function SessionLive() {
           sessionId={sessionId}
           currentLocationId={currentLocationId}
           onRequestNameScene={() => sceneCenterRef.current?.openNameScene()}
+          onLifecycleSnapshotsCaptured={(snapshots) => {
+            if (snapshots.length === 0) return;
+            setLifecycleUndoStack((prev) => [...prev, snapshots]);
+          }}
         />
       );
     }
@@ -247,7 +373,17 @@ export function SessionLive() {
     if (section === 'inspirations') {
       return <SessionInspirationsPanel sessionId={sessionId} currentLocationId={currentLocationId} />;
     }
-    return <SessionSearchPanel sessionId={sessionId} />;
+    return (
+      <SessionSearchPanel
+        sessionId={sessionId}
+        canUndoLifecycle={lifecycleUndoStack.length > 0}
+        onUndoLastLifecycleChange={() => void handleUndoLifecycleChange()}
+        onLifecycleSnapshotsCaptured={(snapshots) => {
+          if (snapshots.length === 0) return;
+          setLifecycleUndoStack((prev) => [...prev, snapshots]);
+        }}
+      />
+    );
   }
 
   function closeRightPanel() {
@@ -284,6 +420,13 @@ export function SessionLive() {
           </div>
           <button
             type="button"
+            onClick={() => setSessionClockModalOpen(true)}
+            className="inline-flex items-center gap-2 rounded-2xl border border-[rgba(33,71,102,0.24)] bg-[rgba(111,146,164,0.1)] px-4 py-3 text-sm font-semibold text-primary-800 transition-colors hover:bg-[rgba(111,146,164,0.16)]"
+          >
+            + Zegar sesyjny
+          </button>
+          <button
+            type="button"
             onClick={() => setConfirmEnd(true)}
             className="inline-flex items-center gap-2 rounded-2xl border border-[rgba(176,108,103,0.32)] bg-[rgba(176,108,103,0.08)] px-4 py-3 text-sm font-semibold text-danger-700 transition-colors hover:bg-[rgba(176,108,103,0.14)]"
           >
@@ -310,22 +453,6 @@ export function SessionLive() {
               className="app-panel min-h-0 flex-[1.12] overflow-y-auto rounded-[1.65rem] p-3"
               style={{ scrollbarWidth: 'none' }}
             >
-              <div className="mb-3 rounded-2xl border border-[rgba(176,108,103,0.18)] bg-[rgba(176,108,103,0.08)] px-3 py-2">
-                <p className="text-[11px] font-semibold tracking-[0.14em] text-danger-700 uppercase">
-                  Umarło w tej sesji (placeholder)
-                </p>
-                {deadDuringSession.length === 0 ? (
-                  <p className="mt-1 text-xs text-surface-600">Brak odnotowanych wpisów.</p>
-                ) : (
-                  <ul className="mt-1 space-y-1">
-                    {deadDuringSession.slice(-4).reverse().map((item) => (
-                      <li key={`${item.entityId}-${item.timestamp}`} className="text-xs text-surface-700">
-                        {item.entityName}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
               <SessionNowPlayingPanel
                 scenes={Array.isArray(session.data.scenes) ? session.data.scenes : []}
                 plannedDurationMin={session.data.plannedDurationMin}
@@ -516,6 +643,59 @@ export function SessionLive() {
         onConfirm={() => void handleEndSession()}
         onCancel={() => setConfirmEnd(false)}
       />
+      {sessionClockModalOpen && (
+        <Modal title="Nowy zegar sesyjny" onClose={() => setSessionClockModalOpen(false)} size="md">
+          <div className="space-y-3">
+            <p className="text-sm text-surface-600">
+              Zegar sesyjny działa tylko w bieżącej sesji live (wariant 4 lub 6 segmentów).
+            </p>
+            <div className="space-y-1">
+              <label htmlFor="session-clock-name" className="text-sm font-medium text-surface-700">
+                Nazwa zegara
+              </label>
+              <input
+                id="session-clock-name"
+                value={sessionClockName}
+                onChange={(event) => setSessionClockName(event.target.value)}
+                placeholder="Np. Pościg przez dzielnicę portową"
+                className="app-input w-full rounded-xl px-3 py-2 text-sm"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="session-clock-segments" className="text-sm font-medium text-surface-700">
+                Segmenty
+              </label>
+              <select
+                id="session-clock-segments"
+                value={sessionClockSegments}
+                onChange={(event) => setSessionClockSegments(Number(event.target.value) as 4 | 6)}
+                className="app-input w-full rounded-xl px-3 py-2 text-sm"
+              >
+                <option value={4}>4</option>
+                <option value={6}>6</option>
+              </select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setSessionClockModalOpen(false)}
+                className="app-button-secondary rounded-xl px-3 py-2 text-sm"
+              >
+                Anuluj
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleCreateSessionClock()}
+                disabled={!sessionClockName.trim() || sessionClockSaving}
+                className="app-button-primary rounded-xl px-3 py-2 text-sm disabled:opacity-40"
+              >
+                {sessionClockSaving ? 'Zapisywanie...' : 'Dodaj zegar'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

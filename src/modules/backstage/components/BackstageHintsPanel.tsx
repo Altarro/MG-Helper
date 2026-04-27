@@ -12,6 +12,10 @@ export function BackstageHintsPanel() {
         Miejsce na podpowiedzi generowane przez model — jeszcze niepodłączone. Radar poniżej działa deterministycznie
         z Twojej bazy.
       </p>
+      <p className="mt-2 text-xs text-surface-500">
+        Każdy insight powinien kończyć się akcją. Jeśli sekcja nie prowadzi do decyzji, traktuj ją jako sygnał do
+        dopracowania danych źródłowych.
+      </p>
     </section>
   );
 }

@@ -16,6 +16,10 @@ export const SessionCard = memo(function SessionCard({ session }: SessionCardPro
     : '';
 
   const title = name || `Sesja ${data.number}`;
+  const reportStatusLabel =
+    data.reportAvailable === true
+      ? 'Raport dostępny'
+      : 'Brak raportu (po ponownym uruchomieniu sesji)';
 
   return (
     <Link
@@ -35,6 +39,12 @@ export const SessionCard = memo(function SessionCard({ session }: SessionCardPro
       {data.summary && (
         <p className="line-clamp-3 text-sm leading-6 text-surface-700">{data.summary}</p>
       )}
+
+      <div className="mt-1">
+        <span className="rounded-full border border-[rgba(86,93,94,0.14)] bg-[rgba(223,225,218,0.75)] px-2.5 py-1 text-[11px] text-surface-700">
+          {reportStatusLabel}
+        </span>
+      </div>
 
       {tags && tags.length > 0 && (
         <div className="mt-auto flex flex-wrap gap-2">
