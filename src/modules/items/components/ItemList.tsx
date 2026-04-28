@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Plus, Search, X, Package } from 'lucide-react';
 import { useItems } from '../hooks/useItems';
 import { ItemCard } from './ItemCard';
 import { ItemForm } from './ItemForm';
+import { FilterCountBadge } from '@shared/components/FilterCountBadge';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { EmptyState } from '@shared/components/EmptyState';
 import { addEntity } from '@shared/db/operations';
@@ -25,15 +26,41 @@ export function ItemList() {
   const [saving, setSaving] = useState(false);
 
   const lowerQuery = query.trim().toLowerCase();
-  const filtered = items?.filter((item) => {
+  const queryMatchedItems = items?.filter((item) => {
     const matchesQuery =
       !lowerQuery ||
       item.name.toLowerCase().includes(lowerQuery) ||
       item.tags.some((t) => t.toLowerCase().includes(lowerQuery));
-    const matchesType = typeFilter === 'all' || item.data.itemType === typeFilter;
-    const matchesDestroyed = !hideDestroyed || getItemLifecycleStatus({ data: item.data }) !== 'completed';
-    return matchesQuery && matchesType && matchesDestroyed;
+    return matchesQuery;
   });
+  const queryDestroyMatched = queryMatchedItems?.filter(
+    (item) =>
+      !hideDestroyed || getItemLifecycleStatus({ data: item.data }) !== 'completed',
+  );
+  const filtered = queryMatchedItems?.filter((item) => {
+    const matchesType = typeFilter === 'all' || item.data.itemType === typeFilter;
+    const matchesDestroyed =
+      !hideDestroyed || getItemLifecycleStatus({ data: item.data }) !== 'completed';
+    return matchesType && matchesDestroyed;
+  });
+
+  const typeCounts = useMemo(() => {
+    const list = queryDestroyMatched ?? [];
+    const counts: Partial<Record<ItemType | 'all', number>> = { all: list.length };
+    for (const t of ITEM_TYPES) {
+      counts[t] = list.filter((item) => item.data.itemType === t).length;
+    }
+    return counts as Record<ItemType | 'all', number>;
+  }, [queryDestroyMatched]);
+
+  const destroyedInTypeSelection = useMemo(() => {
+    const list =
+      queryMatchedItems?.filter(
+        (item) => typeFilter === 'all' || item.data.itemType === typeFilter,
+      ) ?? [];
+    return list.filter((item) => getItemLifecycleStatus({ data: item.data }) === 'completed')
+      .length;
+  }, [queryMatchedItems, typeFilter]);
 
   async function handleCreate(values: ItemFormValues) {
     setSaving(true);
@@ -106,7 +133,8 @@ export function ItemList() {
             onClick={() => setTypeFilter('all')}
             className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${typeFilter === 'all' ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'}`}
           >
-            Wszystkie
+            <span>Wszystkie</span>
+            <FilterCountBadge selected={typeFilter === 'all'} count={typeCounts.all} />
           </button>
           {ITEM_TYPES.map((t) => (
             <button
@@ -115,7 +143,8 @@ export function ItemList() {
               onClick={() => setTypeFilter(t)}
               className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${typeFilter === t ? 'app-danger-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'}`}
             >
-              {ITEM_TYPE_LABELS[t]}
+              <span>{ITEM_TYPE_LABELS[t]}</span>
+              <FilterCountBadge selected={typeFilter === t} count={typeCounts[t]} />
             </button>
           ))}
           <button
@@ -125,7 +154,8 @@ export function ItemList() {
               hideDestroyed ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
             }`}
           >
-            Ukryj zniszczone / zgubione
+            <span>Ukryj zniszczone / zgubione</span>
+            <FilterCountBadge selected={hideDestroyed} count={destroyedInTypeSelection} />
           </button>
         </div>
       </section>

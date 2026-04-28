@@ -11,21 +11,26 @@ import { ThreatForm } from './ThreatForm';
 import { ThreatCard } from './ThreatCard';
 import { ThreatGenealogySection } from './ThreatGenealogySection';
 import { ClockWidget } from '@modules/clocks/components/ClockWidget';
+import { markClockLinkedToThreat, markClockUnlinkedFromThreat } from '@modules/clocks/threatClockLink';
 import { TickProgress } from '@shared/components/TickProgress';
 import { ClueSection } from '@shared/components/ClueSection';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
+import { DetailNotFound } from '@shared/components/DetailNotFound';
 import { EmptyState } from '@shared/components/EmptyState';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { NarrativeLinksSection } from '@shared/components/NarrativeLinksSection';
 import { RelationList } from '@shared/components/RelationList';
 import { RelationPicker } from '@shared/components/RelationPicker';
 import { DetailSection } from '@shared/components/DetailSection';
+import { DetailScrollTopFab } from '@shared/components/DetailScrollTopFab';
+import { DetailTocBar } from '@shared/components/DetailTocBar';
 import { NotesList } from '@modules/notes/components/NotesList';
 import {
   addEntity,
   addRelation,
   assignBelongsTo,
   deleteEntity,
+  deleteRelation,
   updateEntity,
 } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
@@ -39,8 +44,9 @@ import {
   inferThreatCompletionOutcomeFromClock,
   getThreatRadarArchetype,
 } from '../types';
-import { getThreatStatus } from '@shared/utils/entityData';
+import { getThreatStatus, getClockData } from '@shared/utils/entityData';
 import { normalizeThreatLifecycle } from '@shared/utils/threatLifecycle';
+import { formatPolishThreatCount } from '@shared/utils/polishPlural';
 import type { FrontFormValues } from './FrontForm';
 import type { ThreatFormValues } from './ThreatForm';
 
@@ -119,16 +125,35 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
         },
       });
 
-      if (linkedClock) {
+      if (linkedClock && values.clock) {
+        const clockData = getClockData(linkedClock);
+        const seg = values.clock.segments;
+        const rawLabels = (values.clock.tickLabels ?? []).slice(0, seg);
+        const tickLabels = [...rawLabels];
+        while (tickLabels.length < seg) tickLabels.push('');
         await updateEntity(db, linkedClock.id, {
+          name: values.clock.name,
           data: {
-            ...linkedClock.data,
+            ...clockData,
+            segments: seg,
+            filled: Math.min(clockData.filled, seg),
+            tickLabels: tickLabels.map((line) => line.slice(0, 300)),
             isActive: lifecycle.status !== 'completed',
           },
         });
-      }
-
-      if (values.clock && !linkedClock) {
+      } else if (linkedClock && !values.clock) {
+        const rel = await db.relations
+          .where('sourceId')
+          .equals(threatId)
+          .filter((r) => r.type === 'tracks')
+          .first();
+        if (rel) await deleteRelation(db, rel.id);
+        await markClockUnlinkedFromThreat(db, linkedClock.id);
+      } else if (values.clock && !linkedClock) {
+        const seg = values.clock.segments;
+        const rawLabels = (values.clock.tickLabels ?? []).slice(0, seg);
+        const tickLabels = [...rawLabels];
+        while (tickLabels.length < seg) tickLabels.push('');
         const clockEntity = await addEntity(db, {
           type: 'clock',
           name: values.clock.name,
@@ -136,13 +161,14 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
           tags: [],
           data: {
             kind: 'threat',
-            segments: values.clock.segments,
+            segments: seg,
             filled: 0,
-            tickLabels: [],
+            tickLabels: tickLabels.map((line) => line.slice(0, 300)),
             isActive: lifecycle.status !== 'completed',
           },
         });
         await addRelation(db, { type: 'tracks', sourceId: threatId, targetId: clockEntity.id });
+        await markClockLinkedToThreat(db, clockEntity.id);
       }
 
       toast.success('Zagrożenie zaktualizowane');
@@ -217,7 +243,11 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
                 description: threat.description,
                 tags: threat.tags,
                 clock: linkedClock
-                  ? { name: linkedClock.name, segments: linkedClock.data.segments }
+                  ? {
+                      name: linkedClock.name,
+                      segments: linkedClock.data.segments,
+                      tickLabels: [...(linkedClock.data.tickLabels ?? [])],
+                    }
                   : null,
               }}
               onSubmit={handleUpdate}
@@ -265,11 +295,17 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
               {threat.data.trigger && (
                 <div>
                   <h3 className="text-surface-500 mb-1 text-xs font-semibold tracking-wide uppercase">
-                    Trigger tykania
+                    Zegar tyka, gdy
                   </h3>
-                  <p className="text-surface-700 text-sm whitespace-pre-wrap">
-                    {threat.data.trigger}
-                  </p>
+                  <ul className="list-inside list-disc space-y-1 text-sm text-surface-700">
+                    {threat.data.trigger
+                      .split(/\r?\n/)
+                      .map((line) => line.trim())
+                      .filter(Boolean)
+                      .map((line, index) => (
+                        <li key={`${threat.id}-trigger-${index}`}>{line}</li>
+                      ))}
+                  </ul>
                 </div>
               )}
 
@@ -501,16 +537,35 @@ export function FrontDetail() {
     });
   }, [allThreats, existingThreatQuery]);
 
+  const frontTocItems = useMemo(() => {
+    if (!front || isEditing) return [];
+    const items: { id: string; label: string }[] = [];
+    if (front.data.goal) items.push({ id: 'front-detail-kontekst', label: 'Kontekst' });
+    if (front.data.stakes.length > 0) items.push({ id: 'front-detail-stawki', label: 'Stawki' });
+    if (front.description) items.push({ id: 'front-detail-opis', label: 'Opis' });
+    if (id) items.push({ id: 'front-detail-wskazowki', label: 'Wskazówki' });
+    items.push({ id: 'front-detail-zagrozenia', label: 'Zagrożenia' });
+    if (threats && threats.length > 0) {
+      items.push({ id: 'front-detail-genealogia', label: 'Genealogia' });
+    }
+    items.push(
+      { id: 'front-detail-powiazania', label: 'Powiązania' },
+      { id: 'front-detail-notatki', label: 'Notatki MG' },
+    );
+    return items;
+  }, [front, isEditing, id, threats]);
+
   if (front === undefined) return <LoadingSpinner />;
 
   if (!front) {
     return (
-      <div className="p-6">
-        <p className="text-surface-500">Front nie znaleziony.</p>
-        <Link to="/fronts" className="text-primary-700 hover:underline">
-          ← Powrót do frontów
-        </Link>
-      </div>
+      <DetailNotFound
+        icon={Shield}
+        title="Front nie znaleziony"
+        description="Mógł zostać usunięty albo odnośnik jest nieaktualny."
+        to="/fronts"
+        linkLabel="Wróć do listy frontów"
+      />
     );
   }
 
@@ -579,6 +634,10 @@ export function FrontDetail() {
       await addRelation(db, { type: 'belongs_to', sourceId: entity.id, targetId: front!.id });
 
       if (values.clock) {
+        const seg = values.clock.segments;
+        const raw = (values.clock.tickLabels ?? []).slice(0, seg);
+        const tickLabels = [...raw];
+        while (tickLabels.length < seg) tickLabels.push('');
         const clockEntity = await addEntity(db, {
           type: 'clock',
           name: values.clock.name,
@@ -586,14 +645,15 @@ export function FrontDetail() {
           tags: [],
           data: {
             kind: 'threat',
-            segments: values.clock.segments,
+            segments: seg,
             filled: 0,
-            tickLabels: [],
+            tickLabels: tickLabels.map((line) => line.slice(0, 300)),
             isActive: lifecycle.status !== 'completed',
           },
         });
 
         await addRelation(db, { type: 'tracks', sourceId: entity.id, targetId: clockEntity.id });
+        await markClockLinkedToThreat(db, clockEntity.id);
       }
 
       toast.success(`Zagrożenie "${values.name}" dodane`);
@@ -661,9 +721,18 @@ export function FrontDetail() {
               <h1 className="text-primary-900 text-3xl font-semibold tracking-[-0.04em] lg:text-[2.2rem]">
                 {front.name}
               </h1>
-              <span className="text-surface-600 mt-2 inline-flex rounded-full border border-[rgba(86,93,94,0.14)] bg-[rgba(223,225,218,0.72)] px-3 py-1 text-sm">
-                {FRONT_CATEGORY_LABELS[front.data.category]}
-              </span>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="text-surface-600 inline-flex rounded-full border border-[rgba(86,93,94,0.14)] bg-[rgba(223,225,218,0.72)] px-3 py-1 text-sm">
+                  {FRONT_CATEGORY_LABELS[front.data.category]}
+                </span>
+                {threats !== undefined && (
+                  <span className="text-surface-500 text-sm">
+                    {threats.length === 0
+                      ? 'Brak podpiętych zagrożeń'
+                      : formatPolishThreatCount(threats.length)}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -693,6 +762,10 @@ export function FrontDetail() {
           </div>
         </div>
       </section>
+
+      {!isEditing && (
+        <DetailTocBar ariaLabel="Sekcje karty frontu" items={frontTocItems} className="shrink-0" />
+      )}
 
       {isEditing ? (
         <div className="app-panel rounded-[1.8rem] p-5 lg:p-6">
@@ -743,6 +816,7 @@ export function FrontDetail() {
 
           {front.data.goal && (
             <DetailSection
+              sectionId="front-detail-kontekst"
               title="Kontekst frontu"
               description="Główna oś kampanii i najważniejszy cel, wokół którego porządkujesz zagrożenia."
               tone="accent"
@@ -756,6 +830,7 @@ export function FrontDetail() {
 
           {front.data.stakes.length > 0 && (
             <DetailSection
+              sectionId="front-detail-stawki"
               title="Stawki"
               description="Pytania i ryzyka, które ten front stawia przed kampanią."
             >
@@ -774,6 +849,7 @@ export function FrontDetail() {
 
           {front.description && (
             <DetailSection
+              sectionId="front-detail-opis"
               title="Opis"
               description="Pełny opis frontu i jego roli w strukturze kampanii."
             >
@@ -789,6 +865,7 @@ export function FrontDetail() {
 
           {id && (
             <DetailSection
+              sectionId="front-detail-wskazowki"
               title="Wskazówki frontu"
               description="Tropy i sekrety, które prowadzą bezpośrednio do głównej osi kampanii."
             >
@@ -799,6 +876,7 @@ export function FrontDetail() {
       )}
 
       <DetailSection
+        sectionId="front-detail-zagrozenia"
         title="Zagrożenia frontu"
         description="Główne presje podpięte do tej osi kampanii."
       >
@@ -1024,7 +1102,7 @@ export function FrontDetail() {
               }
             />
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {threats.map((threat) => (
                 <ThreatCard
                   key={threat.id}
@@ -1043,6 +1121,7 @@ export function FrontDetail() {
 
       {!isEditing && threats && threats.length > 0 && (
         <DetailSection
+          sectionId="front-detail-genealogia"
           title="Genealogia zagrożeń"
           description="Łańcuch eskalacji: źródła, zagrożenia wynikające i ich dalsze konsekwencje."
         >
@@ -1061,6 +1140,7 @@ export function FrontDetail() {
       )}
 
       <DetailSection
+        sectionId="front-detail-powiazania"
         title="Powiązania świata"
         description="Relacje dodatkowe poza główną osią fabularną i przypiętymi zagrożeniami."
         action={
@@ -1081,6 +1161,7 @@ export function FrontDetail() {
       </DetailSection>
 
       <DetailSection
+        sectionId="front-detail-notatki"
         title="Notatki MG"
         description="Zaplecze robocze dla prowadzącego, oddzielone od głównej osi i jej tropów."
       >
@@ -1090,6 +1171,8 @@ export function FrontDetail() {
           emptyMessage="Brak notatek podpiętych do tego frontu."
         />
       </DetailSection>
+
+      <DetailScrollTopFab enabled={!isEditing && frontTocItems.length > 0} />
 
       <ConfirmDialog
         open={confirmDelete}

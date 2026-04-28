@@ -1,8 +1,10 @@
 import { memo } from 'react';
-import { User, MapPin, Zap, Package, CheckCircle2, Circle, type LucideIcon } from 'lucide-react';
+import { User, MapPin, Zap, Package, CheckCircle2, Circle, ChevronRight, type LucideIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { getCatalogLabelByValue } from '@modules/settings/campaignCatalogSettings';
+import { EntityTypeBadge } from '@shared/components/EntityTypeBadge';
+import { getEntityDetailPath } from '@shared/utils/entityTypeMeta';
 import type { Clue } from '../types';
 
 const CLUE_ICONS: Record<string, LucideIcon> = {
@@ -26,7 +28,7 @@ export const ClueCard = memo(function ClueCard({ clue, onClick, onToggleDiscover
 
   return (
     <article
-      className={`group flex cursor-pointer flex-col gap-3 rounded-[1.35rem] p-4 transition-all hover:-translate-y-0.5 ${
+      className={`group flex cursor-pointer flex-col gap-3 rounded-[1.35rem] p-4 transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/35 ${
         discovered ? 'bg-[linear-gradient(180deg,rgba(215,234,220,0.92)_0%,rgba(204,227,212,0.96)_100%)] border border-[rgba(95,155,125,0.22)] shadow-[0_12px_28px_rgba(18,45,66,0.08),inset_0_1px_0_rgba(255,250,240,0.18)]' : 'app-card'
       }`}
       onClick={onClick}
@@ -95,43 +97,66 @@ export const ClueRow = memo(function ClueRow({
   metaLabel?: string;
   onToggleDiscovered?: (clue: Clue) => void;
 }) {
-  const primaryType = clue.data.clueTypes[0] ?? 'event';
-  const Icon = CLUE_ICONS[primaryType] ?? Zap;
+  const { campaignId } = useCampaign();
   const discovered = clue.data.discovered;
+  const detailPath = getEntityDetailPath('clue', clue.id) ?? `/clues/${clue.id}`;
 
   return (
-    <div className={`flex items-center gap-2 rounded-xl px-3 py-2 ${discovered ? 'bg-[rgba(215,234,220,0.56)]' : 'bg-[rgba(223,225,218,0.72)]'}`}>
-      <Icon className={`h-3.5 w-3.5 shrink-0 ${discovered ? 'text-success-600' : 'text-primary-600'}`} />
+    <div
+      className={`flex min-w-0 items-stretch overflow-hidden rounded-[1.2rem] app-input-shell ${
+        discovered ? 'border-[rgba(95,155,125,0.35)] bg-[rgba(229,241,233,0.55)]' : ''
+      }`}
+    >
       <Link
-        to={`/clues/${clue.id}`}
-        className="flex-1 truncate text-xs font-medium text-surface-800 hover:text-primary-700"
-        onClick={(e) => e.stopPropagation()}
+        to={detailPath}
+        className="hover:border-primary-300 flex min-w-0 flex-1 items-center gap-3 px-4 py-3 transition-colors hover:bg-[rgba(229,231,223,0.98)]"
       >
-        {clue.name}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="truncate font-medium text-surface-800">{clue.name}</span>
+            <EntityTypeBadge type="clue" size="sm" />
+            {clue.data.clueTypes.slice(0, 2).map((type) => (
+              <span
+                key={type}
+                className="app-pill-muted rounded-full px-2 py-0.5 text-[11px] font-medium"
+              >
+                {getCatalogLabelByValue('clueType', type, campaignId)}
+              </span>
+            ))}
+            {discovered && (
+              <span className="rounded-full border border-[rgba(95,155,125,0.22)] bg-[rgba(95,155,125,0.14)] px-2 py-0.5 text-[11px] font-medium text-success-700">
+                Odkryta
+              </span>
+            )}
+            {metaLabel && (
+              <span className="app-pill-muted rounded-full px-2 py-0.5 text-[11px] font-medium">{metaLabel}</span>
+            )}
+            <span className="app-pill-muted rounded-full px-2 py-0.5 text-[11px] font-medium">Detail</span>
+          </div>
+          {clue.data.hint ? (
+            <p className="text-surface-500 mt-1 line-clamp-2 text-xs leading-5">{clue.data.hint}</p>
+          ) : null}
+        </div>
+        <ChevronRight className="h-4 w-4 shrink-0 text-surface-300" />
       </Link>
-      {metaLabel && (
-        <span className="app-pill hidden shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium sm:inline-flex">
-          {metaLabel}
-        </span>
-      )}
-      {clue.data.hint && (
-        <span className="hidden max-w-[120px] shrink-0 truncate text-xs text-surface-500 sm:block">
-          {clue.data.hint}
-        </span>
-      )}
-      {onToggleDiscovered && (
+      {onToggleDiscovered ? (
         <button
           type="button"
           onClick={(e) => {
+            e.preventDefault();
             e.stopPropagation();
             onToggleDiscovered(clue);
           }}
-          aria-label={discovered ? 'Oznacz jako nieodkrytą' : 'Odkryj'}
-          className="shrink-0 rounded p-0.5 hover:bg-[rgba(223,225,218,0.72)]"
+          aria-label={discovered ? 'Oznacz jako nieodkrytą' : 'Oznacz jako odkrytą'}
+          className="flex shrink-0 items-center justify-center self-stretch border-l border-[rgba(86,93,94,0.14)] bg-transparent px-3 transition-colors hover:bg-[rgba(229,231,223,0.65)]"
         >
-          {discovered ? <CheckCircle2 className="h-3.5 w-3.5 text-success-600" /> : <Circle className="h-3.5 w-3.5 text-surface-400" />}
+          {discovered ? (
+            <CheckCircle2 className="h-4 w-4 text-success-600" />
+          ) : (
+            <Circle className="text-surface-400 h-4 w-4" />
+          )}
         </button>
-      )}
+      ) : null}
     </div>
   );
 });

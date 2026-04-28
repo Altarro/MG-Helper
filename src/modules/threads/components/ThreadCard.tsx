@@ -27,7 +27,7 @@ export const ThreadCard = memo(function ThreadCard({ thread, onClick, className 
 
   return (
     <article
-      className={`app-card group flex cursor-pointer overflow-hidden rounded-[1.35rem] transition-all hover:-translate-y-0.5 ${className}`}
+      className={`app-card group flex cursor-pointer overflow-hidden rounded-[1.35rem] transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/35 ${className}`}
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}

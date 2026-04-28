@@ -23,13 +23,29 @@ import { getAllRadarArchetypes, getRadarArchetypeLabel } from '@modules/backstag
 import { CLOCK_SEGMENTS } from '@modules/clocks/types';
 import type { ClockSegments } from '@modules/clocks/types';
 
-const threatFormSchema = z.object({
+function parseTriggerToFieldRows(trigger?: string): { value: string }[] {
+  if (trigger == null || trigger === '') return [];
+  return trigger.split(/\r?\n/).map((line) => ({ value: line }));
+}
+
+function buildTriggerFromFieldRows(rows: { value: string }[]): string {
+  return rows.map((r) => r.value.trim()).filter(Boolean).join('\n');
+}
+
+function padClockTickLabelRows(labels: string[] | undefined, segments: number): { value: string }[] {
+  const base = [...(labels ?? [])];
+  while (base.length < segments) base.push('');
+  return base.slice(0, segments).map((value) => ({ value }));
+}
+
+const threatFormSchema = z
+  .object({
   name: z.string().min(1, 'Nazwa jest wymagana').max(200),
   threatType: z.string().min(1),
   radarArchetype: z.string().min(1).default(DEFAULT_RADAR_ARCHETYPE),
   status: z.enum(THREAT_STATUSES).default('active'),
   impulse: z.string().max(400),
-  trigger: z.string().max(500).default(''),
+  clockTickWhen: z.array(z.object({ value: z.string().max(300) })).max(25).default([]),
   completionReason: z.string().max(1000).default(''),
   completionOutcome: z.enum(THREAT_COMPLETION_OUTCOMES).optional(),
   inheritanceNotes: z.string().max(4000).default(''),
@@ -41,7 +57,18 @@ const threatFormSchema = z.object({
   clockSegments: z.coerce.number().refine(
     (v): v is ClockSegments => (CLOCK_SEGMENTS as readonly number[]).includes(v),
   ).default(6),
-});
+  clockTickLabels: z.array(z.object({ value: z.string().max(300) })).max(12).default([]),
+})
+  .superRefine((data, ctx) => {
+    const joined = buildTriggerFromFieldRows(data.clockTickWhen);
+    if (joined.length > 500) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Łączna długość warunków (po złączeniu wierszy) nie może przekraczać 500 znaków.',
+        path: ['clockTickWhen'],
+      });
+    }
+  });
 
 type ThreatFormRaw = z.infer<typeof threatFormSchema>;
 
@@ -59,7 +86,7 @@ export interface ThreatFormValues {
   moves: string[];
   description: string;
   tags: string[];
-  clock?: { name: string; segments: ClockSegments } | null;
+  clock?: { name: string; segments: ClockSegments; tickLabels?: string[] } | null;
 }
 
 interface ThreatFormProps {
@@ -101,7 +128,7 @@ export function ThreatForm({
       radarArchetype: defaultValues?.radarArchetype ?? DEFAULT_RADAR_ARCHETYPE,
       status: defaultValues?.status ?? 'active',
       impulse: defaultValues?.impulse ?? '',
-      trigger: defaultValues?.trigger ?? '',
+      clockTickWhen: parseTriggerToFieldRows(defaultValues?.trigger),
       completionReason: defaultValues?.completionReason ?? '',
       completionOutcome: defaultValues?.completionOutcome,
       inheritanceNotes: defaultValues?.inheritanceNotes ?? '',
@@ -111,11 +138,27 @@ export function ThreatForm({
       tags: defaultValues?.tags ?? [],
       clockName: defaultValues?.clock?.name ?? '',
       clockSegments: defaultValues?.clock?.segments ?? 6,
+      clockTickLabels: padClockTickLabelRows(
+        defaultValues?.clock?.tickLabels,
+        defaultValues?.clock?.segments ?? 6,
+      ),
     },
   });
 
   const { fields, append, remove, replace } = useFieldArray({ control, name: 'moves' });
+  const {
+    fields: clockTickWhenFields,
+    append: appendClockTickWhen,
+    remove: removeClockTickWhen,
+    replace: replaceClockTickWhen,
+  } = useFieldArray({ control, name: 'clockTickWhen' });
+  const {
+    fields: clockTickLabelFields,
+    replace: replaceClockTickLabels,
+  } = useFieldArray({ control, name: 'clockTickLabels' });
   const selectedThreatTypeValue = watch('threatType');
+  const watchedClockSegments = Number(watch('clockSegments'));
+  const watchedClockTickLabels = watch('clockTickLabels');
   const threatTypeOptionsBase = getActiveCatalogOptions(campaignId, 'threatType');
   const threatTypeOptions = threatTypeOptionsBase.some((x) => x.id === selectedThreatTypeValue)
     ? threatTypeOptionsBase
@@ -132,6 +175,14 @@ export function ThreatForm({
     (THREAT_TYPES as readonly string[]).includes(selectedThreatType)
       ? THREAT_TYPE_PRESETS[selectedThreatType as keyof typeof THREAT_TYPE_PRESETS]
       : undefined;
+
+  useEffect(() => {
+    if (!showClock) return;
+    if (watchedClockTickLabels.length === watchedClockSegments) return;
+    const current = watchedClockTickLabels.map((row) => ({ value: row?.value ?? '' }));
+    const next = Array.from({ length: watchedClockSegments }, (_, index) => current[index] ?? { value: '' });
+    replaceClockTickLabels(next);
+  }, [showClock, watchedClockSegments, watchedClockTickLabels, replaceClockTickLabels]);
 
   useEffect(() => {
     if (selectedStatus !== 'completed') return;
@@ -151,8 +202,15 @@ export function ThreatForm({
       setValue('impulse', preset.impulse, { shouldDirty: true, shouldValidate: true });
     }
 
-    if (!getValues('trigger').trim()) {
-      setValue('trigger', preset.trigger, { shouldDirty: true, shouldValidate: true });
+    const hasAnyTickWhen = getValues('clockTickWhen').some((row) => row.value.trim().length > 0);
+    if (!hasAnyTickWhen && preset.trigger.trim()) {
+      const parts = preset.trigger
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+      replaceClockTickWhen(
+        parts.length > 0 ? parts.map((value) => ({ value })) : [{ value: preset.trigger.trim() }],
+      );
     }
 
     const hasAnyMove = getValues('moves').some((move) => move.value.trim().length > 0);
@@ -166,7 +224,7 @@ export function ThreatForm({
       ...raw,
       threatType: raw.threatType as import('../types').ThreatType,
       radarArchetype: (raw.radarArchetype || DEFAULT_RADAR_ARCHETYPE) as RadarArchetype,
-      trigger: raw.trigger.trim(),
+      trigger: buildTriggerFromFieldRows(raw.clockTickWhen),
       completionReason: raw.completionReason.trim(),
       completionOutcome:
         raw.status === 'completed'
@@ -176,7 +234,13 @@ export function ThreatForm({
       forkThreatId: raw.forkThreatId || undefined,
       moves: raw.moves.map((m) => m.value).filter(Boolean),
       clock: showClock && raw.clockName.trim()
-        ? { name: raw.clockName.trim(), segments: raw.clockSegments }
+        ? {
+            name: raw.clockName.trim(),
+            segments: raw.clockSegments,
+            tickLabels: raw.clockTickLabels
+              .slice(0, raw.clockSegments)
+              .map((row) => row.value),
+          }
         : null,
     });
   }
@@ -262,6 +326,29 @@ export function ThreatForm({
         </p>
       </div>
 
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="threat-impulse" className="text-sm font-medium text-surface-800">
+          Impuls
+        </label>
+        <input
+          id="threat-impulse"
+          {...register('impulse')}
+          className="app-input rounded-2xl px-3.5 py-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+          placeholder="Czego to zagrożenie desperacko pragnie..."
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label className="text-sm font-medium text-surface-800">Opis / Notatki</label>
+        <Controller
+          name="description"
+          control={control}
+          render={({ field }) => (
+            <RichTextEditor value={field.value ?? ''} onChange={field.onChange} onBlur={field.onBlur} />
+          )}
+        />
+      </div>
+
       {selectedStatus === 'completed' && (
         <div className="flex flex-col gap-2 rounded-[1.1rem] border border-[rgba(86,93,94,0.12)] bg-[rgba(223,225,218,0.35)] p-3">
           <p className="text-surface-800 text-xs font-semibold tracking-wide uppercase">
@@ -290,29 +377,177 @@ export function ThreatForm({
         </div>
       )}
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="threat-impulse" className="text-sm font-medium text-surface-800">
-          Impuls
-        </label>
-        <input
-          id="threat-impulse"
-          {...register('impulse')}
-          className="app-input rounded-2xl px-3.5 py-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-          placeholder="Czego to zagrożenie desperacko pragnie..."
-        />
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium text-surface-800">Ruchy zagrożenia</label>
+          <button
+            type="button"
+            onClick={() => append({ value: '' })}
+            className="flex items-center gap-1 text-xs font-medium text-primary-700 transition-colors hover:text-primary-800"
+          >
+            <Plus className="h-3.5 w-3.5" /> Dodaj ruch
+          </button>
+        </div>
+        {fields.length === 0 && (
+          <p className="text-xs text-surface-500">Brak ruchów - dodaj, co zagrożenie może zrobić.</p>
+        )}
+        {fields.map((field, i) => (
+          <div key={field.id} className="flex gap-2">
+            <input
+              {...register(`moves.${i}.value`)}
+              className="app-input flex-1 rounded-2xl px-3.5 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              placeholder={`Ruch ${i + 1}...`}
+            />
+            <button
+              type="button"
+              onClick={() => remove(i)}
+              aria-label="Usuń ruch"
+              className="app-button-secondary rounded-2xl p-2.5 text-surface-600 transition-colors hover:text-red-700"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="threat-trigger" className="text-sm font-medium text-surface-800">
-          Trigger tykania
-        </label>
-        <textarea
-          id="threat-trigger"
-          {...register('trigger')}
-          rows={3}
-          className="app-input rounded-2xl px-3.5 py-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-          placeholder="Kiedy to zagrożenie tyka albo eskaluje?"
-        />
+      {!showClock && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <label className="text-sm font-medium text-surface-800">Zegar tyka, gdy:</label>
+            <button
+              type="button"
+              onClick={() => appendClockTickWhen({ value: '' })}
+              className="flex shrink-0 items-center gap-1 text-xs font-medium text-primary-700 transition-colors hover:text-primary-800"
+            >
+              <Plus className="h-3.5 w-3.5" /> Dodaj warunek
+            </button>
+          </div>
+          {errors.clockTickWhen?.message && (
+            <p role="alert" className="text-xs text-red-600">{errors.clockTickWhen.message}</p>
+          )}
+          {clockTickWhenFields.length === 0 && (
+            <p className="text-xs text-surface-500">
+              Opcjonalnie: kiedy zegar tego zagrożenia się przesuwa. Dodaj jeden warunek na wiersz.
+            </p>
+          )}
+          {clockTickWhenFields.map((field, i) => (
+            <div key={field.id} className="flex gap-2">
+              <input
+                {...register(`clockTickWhen.${i}.value`)}
+                className="app-input flex-1 rounded-2xl px-3.5 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                placeholder={`Warunek ${i + 1}…`}
+              />
+              <button
+                type="button"
+                onClick={() => removeClockTickWhen(i)}
+                aria-label="Usuń warunek tykania"
+                className="app-button-secondary rounded-2xl p-2.5 text-surface-600 transition-colors hover:text-red-700"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="app-panel rounded-[1.45rem] p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-surface-500" />
+            <span className="text-sm font-medium text-surface-800">Powiązany zegar</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowClock((v) => !v)}
+            className="text-xs font-medium text-primary-700 transition-colors hover:text-primary-800"
+          >
+            {showClock ? 'Usuń zegar' : '+ Dodaj zegar'}
+          </button>
+        </div>
+        {showClock && (
+          <div className="mt-3 flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="threat-clock-name" className="text-xs font-medium text-surface-600">Nazwa zegara</label>
+              <input
+                id="threat-clock-name"
+                {...register('clockName')}
+                className="app-input rounded-2xl px-3.5 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                placeholder="Np. Odliczanie do ataku..."
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="threat-clock-segments" className="text-xs font-medium text-surface-600">Segmenty</label>
+              <select
+                id="threat-clock-segments"
+                {...register('clockSegments')}
+                className="app-input rounded-2xl px-3.5 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              >
+                {CLOCK_SEGMENTS.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <h3 className="text-surface-800 text-sm font-semibold">Kolejne tyknięcia zegara</h3>
+              <p className="text-surface-500 text-xs">
+                Krótkie opisy etapów — te same pola co w module Zegary.
+              </p>
+              <div className="flex flex-col gap-3">
+                {clockTickLabelFields.map((field, index) => (
+                  <div key={field.id} className="flex items-start gap-3">
+                    <span className="app-pill mt-2 rounded-full px-2.5 py-1 text-[11px] font-semibold">
+                      {index + 1}
+                    </span>
+                    <input
+                      {...register(`clockTickLabels.${index}.value`)}
+                      className="app-input text-surface-800 focus:border-primary-500 w-full rounded-[1.1rem] px-4 py-3 text-sm focus:outline-none"
+                      placeholder={`Co dzieje się po tyknięciu ${index + 1}?`}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-col gap-2 border-t border-[rgba(86,93,94,0.12)] pt-5">
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium text-surface-800">Zegar tyka, gdy:</label>
+                <button
+                  type="button"
+                  onClick={() => appendClockTickWhen({ value: '' })}
+                  className="flex shrink-0 items-center gap-1 text-xs font-medium text-primary-700 transition-colors hover:text-primary-800"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Dodaj warunek
+                </button>
+              </div>
+              {errors.clockTickWhen?.message && (
+                <p role="alert" className="text-xs text-red-600">{errors.clockTickWhen.message}</p>
+              )}
+              {clockTickWhenFields.length === 0 && (
+                <p className="text-xs text-surface-500">
+                  Wspólne pole z kartą zegara: kiedy przesuwa się segment.
+                </p>
+              )}
+              {clockTickWhenFields.map((field, i) => (
+                <div key={field.id} className="flex gap-2">
+                  <input
+                    {...register(`clockTickWhen.${i}.value`)}
+                    className="app-input flex-1 rounded-2xl px-3.5 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                    placeholder={`Warunek ${i + 1}…`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeClockTickWhen(i)}
+                    aria-label="Usuń warunek tykania"
+                    className="app-button-secondary rounded-2xl p-2.5 text-surface-600 transition-colors hover:text-red-700"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -375,91 +610,6 @@ export function ThreatForm({
         <p className="text-xs leading-6 text-surface-600">
           To osobne pole na konsekwencje i ciąg dalszy po poprzednim zagrożeniu, niezależnie od zwykłego opisu.
         </p>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-surface-800">Ruchy zagrożenia</label>
-          <button
-            type="button"
-            onClick={() => append({ value: '' })}
-            className="flex items-center gap-1 text-xs font-medium text-primary-700 transition-colors hover:text-primary-800"
-          >
-            <Plus className="h-3.5 w-3.5" /> Dodaj ruch
-          </button>
-        </div>
-        {fields.length === 0 && (
-          <p className="text-xs text-surface-500">Brak ruchów - dodaj, co zagrożenie może zrobić.</p>
-        )}
-        {fields.map((field, i) => (
-          <div key={field.id} className="flex gap-2">
-            <input
-              {...register(`moves.${i}.value`)}
-              className="app-input flex-1 rounded-2xl px-3.5 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-              placeholder={`Ruch ${i + 1}...`}
-            />
-            <button
-              type="button"
-              onClick={() => remove(i)}
-              aria-label="Usuń ruch"
-              className="app-button-secondary rounded-2xl p-2.5 text-surface-600 transition-colors hover:text-red-700"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        ))}
-      </div>
-
-      <div className="app-panel rounded-[1.45rem] p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-surface-500" />
-            <span className="text-sm font-medium text-surface-800">Powiązany zegar</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowClock((v) => !v)}
-            className="text-xs font-medium text-primary-700 transition-colors hover:text-primary-800"
-          >
-            {showClock ? 'Usuń zegar' : '+ Dodaj zegar'}
-          </button>
-        </div>
-        {showClock && (
-          <div className="mt-3 flex flex-col gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="threat-clock-name" className="text-xs font-medium text-surface-600">Nazwa zegara</label>
-              <input
-                id="threat-clock-name"
-                {...register('clockName')}
-                className="app-input rounded-2xl px-3.5 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-                placeholder="Np. Odliczanie do ataku..."
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="threat-clock-segments" className="text-xs font-medium text-surface-600">Segmenty</label>
-              <select
-                id="threat-clock-segments"
-                {...register('clockSegments')}
-                className="app-input rounded-2xl px-3.5 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-              >
-                {CLOCK_SEGMENTS.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-surface-800">Opis / Notatki</label>
-        <Controller
-          name="description"
-          control={control}
-          render={({ field }) => (
-            <RichTextEditor value={field.value ?? ''} onChange={field.onChange} onBlur={field.onBlur} />
-          )}
-        />
       </div>
 
       <div className="flex flex-col gap-1.5">

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
 import {
   ArrowLeft,
@@ -22,6 +22,9 @@ import { format, parseISO } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { useSessionById } from '../hooks/useSessionById';
 import { SessionForm } from './SessionForm';
+import { DetailNotFound } from '@shared/components/DetailNotFound';
+import { DetailScrollTopFab } from '@shared/components/DetailScrollTopFab';
+import { DetailTocBar } from '@shared/components/DetailTocBar';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { useNotesBySession } from '@modules/notes/hooks/useNotesBySession';
@@ -189,12 +192,12 @@ function CampaignEntityPickerModal({
   );
 }
 
-function NotesSection({ sessionId }: { sessionId: string }) {
+function NotesSection({ sessionId, sectionId }: { sessionId: string; sectionId?: string }) {
   const notes = useNotesBySession(sessionId);
   if (!notes || notes.length === 0) return null;
 
   return (
-    <section className="app-panel rounded-[1.8rem] p-5 lg:p-6">
+    <section id={sectionId} className="app-panel rounded-[1.8rem] p-5 lg:p-6">
       <h3 className="text-surface-500 mb-4 text-sm font-semibold tracking-[0.18em] uppercase">
         Notatki z sesji
       </h3>
@@ -296,6 +299,7 @@ export function SessionDetail() {
   const navigate = useNavigate();
   const { db } = useCampaign();
   const { session } = useSessionById(id);
+  const linkedSessionNotes = useNotesBySession(id ?? '__none__');
   const appearances = useSessionAppearances(db, id);
 
   const [isEditing, setIsEditing] = useState(false);
@@ -317,16 +321,33 @@ export function SessionDetail() {
     );
   }, [db, id]);
 
+  const sessionTocItems = useMemo(() => {
+    if (!session || isEditing) return [];
+    const d = session.data as unknown as SessionData;
+    const items: { id: string; label: string }[] = [];
+    if (d.summary) items.push({ id: 'session-detail-streszczenie', label: 'Streszczenie' });
+    if (d.plannedDurationMin || (d.scenes?.length ?? 0) > 0) {
+      items.push({ id: 'session-detail-sceny', label: 'Sceny' });
+    }
+    if (session.description) items.push({ id: 'session-detail-zapisy-html', label: 'Notatki' });
+    items.push({ id: 'session-detail-encje', label: 'Obecność' });
+    if (linkedSessionNotes && linkedSessionNotes.length > 0) {
+      items.push({ id: 'session-detail-notatki-z-sesji', label: 'Notatki z sesji' });
+    }
+    return items;
+  }, [session, isEditing, linkedSessionNotes]);
+
   if (session === undefined) return <LoadingSpinner />;
 
   if (!session) {
     return (
-      <div className="p-6">
-        <p className="text-surface-500">Sesja nie znaleziona.</p>
-        <Link to="/sessions" className="text-primary-600 hover:underline">
-          ← Powrót do sesji
-        </Link>
-      </div>
+      <DetailNotFound
+        icon={BookOpen}
+        title="Sesja nie znaleziona"
+        description="Mogła zostać usunięta albo odnośnik jest nieaktualny."
+        to="/sessions"
+        linkLabel="Wróć do listy sesji"
+      />
     );
   }
 
@@ -555,6 +576,10 @@ export function SessionDetail() {
         </div>
       </section>
 
+      {!isEditing && (
+        <DetailTocBar ariaLabel="Sekcje karty sesji" items={sessionTocItems} className="shrink-0" />
+      )}
+
       {isEditing && (
         <div className="app-panel rounded-[1.8rem] p-5 lg:p-6">
           <div className="mb-4 flex items-center justify-between gap-3">
@@ -590,7 +615,7 @@ export function SessionDetail() {
       )}
 
       {!isEditing && session.data.summary && (
-        <section className="app-panel rounded-[1.8rem] p-5 lg:p-6">
+        <section id="session-detail-streszczenie" className="app-panel rounded-[1.8rem] p-5 lg:p-6">
           <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-[0.18em] uppercase">
             Streszczenie
           </h2>
@@ -599,7 +624,7 @@ export function SessionDetail() {
       )}
 
       {!isEditing && (session.data.plannedDurationMin || (session.data.scenes?.length ?? 0) > 0) && (
-        <section className="app-panel rounded-[1.8rem] p-5 lg:p-6">
+        <section id="session-detail-sceny" className="app-panel rounded-[1.8rem] p-5 lg:p-6">
           <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-[0.18em] uppercase">
             Sceny
           </h2>
@@ -624,7 +649,7 @@ export function SessionDetail() {
       )}
 
       {!isEditing && session.description && (
-        <section className="app-panel rounded-[1.8rem] p-5 lg:p-6">
+        <section id="session-detail-zapisy-html" className="app-panel rounded-[1.8rem] p-5 lg:p-6">
           <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-[0.18em] uppercase">
             Notatki
           </h2>
@@ -646,7 +671,7 @@ export function SessionDetail() {
       )}
 
       {!isEditing && (
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+        <section id="session-detail-encje" className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
           <SessionEntityColumn
             title="Postacie"
             count={appearances.npcs.length}
@@ -705,7 +730,9 @@ export function SessionDetail() {
         </section>
       )}
 
-      <NotesSection sessionId={id!} />
+      <NotesSection sessionId={id!} sectionId="session-detail-notatki-z-sesji" />
+
+      <DetailScrollTopFab enabled={!isEditing && sessionTocItems.length > 0} />
 
       <ConfirmDialog
         open={confirmDelete}

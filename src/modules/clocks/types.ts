@@ -20,6 +20,8 @@ export interface ClockData {
   lastAdvanceAt?: string;
   /** Sesja, w której zarejestrowano ostatni tick w przód (np. Session Live). */
   lastAdvanceSessionId?: string;
+  /** Dla wolnego zegara: warunki „Zegar tyka, gdy” (wiersze jak w polu trigger zagrożenia). */
+  tickWhen?: string;
 }
 
 /** A clock entity — all clock-specific fields live in `data` */

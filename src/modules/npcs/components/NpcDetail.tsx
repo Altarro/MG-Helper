@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router';
-import { ArrowLeft, MapPin, Pencil, Trash2, Plus, Skull } from 'lucide-react';
+import { ArrowLeft, MapPin, Pencil, Trash2, Plus, Skull, Users } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useNpcById } from '../hooks/useNpcById';
 import type { NpcLocationHistoryEvent } from '../types';
@@ -11,7 +11,9 @@ import { NotesList } from '@modules/notes/components/NotesList';
 import { RelationPicker } from '@shared/components/RelationPicker';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { LoadingPage } from '@shared/components/LoadingSpinner';
-import { EmptyState } from '@shared/components/EmptyState';
+import { DetailNotFound } from '@shared/components/DetailNotFound';
+import { DetailScrollTopFab } from '@shared/components/DetailScrollTopFab';
+import { DetailTocBar } from '@shared/components/DetailTocBar';
 import { ClockWidget } from '@modules/clocks/components/ClockWidget';
 import { updateEntity, deleteEntity } from '@shared/db/operations';
 import { deleteAsset } from '@shared/db/assets';
@@ -182,22 +184,31 @@ export function NpcDetail() {
       .filter(Boolean);
   }, [db, id]);
 
+  const npcTocItems = useMemo(() => {
+    if (!npc || editing) return [];
+    const items: { id: string; label: string }[] = [
+      { id: 'npc-detail-lokacja', label: 'Lokacja' },
+      { id: 'npc-detail-historia-lokacji', label: 'Historia lokacji' },
+      { id: 'npc-detail-sesje', label: 'Sesje' },
+      { id: 'npc-detail-karta', label: 'Karta postaci' },
+    ];
+    if (npc.description) items.push({ id: 'npc-detail-opis', label: 'Opis' });
+    const clocks = relatedClocks ?? [];
+    if (clocks.length > 0) items.push({ id: 'npc-detail-zegary', label: 'Zegary' });
+    items.push({ id: 'npc-detail-relacje', label: 'Relacje' });
+    return items;
+  }, [npc, editing, relatedClocks]);
+
   if (!id) return null;
   if (npc === undefined) return <LoadingPage />;
   if (npc === null) {
     return (
-      <EmptyState
-        title="Postać nie istnieje"
-        description="Nie znaleziono postaci o podanym ID."
-        action={
-          <button
-            type="button"
-            onClick={() => navigate('/npcs')}
-            className="app-button-primary rounded-full px-4 py-2 text-sm font-medium"
-          >
-            Wróć do listy Postaci
-          </button>
-        }
+      <DetailNotFound
+        icon={Users}
+        title="Postać nie znaleziona"
+        description="Mogła zostać usunięta albo odnośnik jest nieaktualny."
+        to="/npcs"
+        linkLabel="Wróć do listy postaci"
       />
     );
   }
@@ -417,7 +428,16 @@ export function NpcDetail() {
             </div>
           </div>
 
-          <section className="app-panel mb-6 rounded-[1.6rem] p-5 shadow-[0_16px_32px_rgba(18,45,66,0.08)] lg:p-6">
+          <DetailTocBar
+            ariaLabel="Sekcje karty postaci"
+            items={npcTocItems}
+            className="mb-2"
+          />
+
+          <section
+            id="npc-detail-lokacja"
+            className="app-panel mb-6 rounded-[1.6rem] p-5 shadow-[0_16px_32px_rgba(18,45,66,0.08)] lg:p-6"
+          >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h2 className="text-surface-800 text-sm font-semibold">Aktualna lokacja</h2>
@@ -462,7 +482,10 @@ export function NpcDetail() {
             </div>
           </section>
 
-          <section className="app-panel mb-6 rounded-[1.6rem] p-5 shadow-[0_16px_32px_rgba(18,45,66,0.08)] lg:p-6">
+          <section
+            id="npc-detail-historia-lokacji"
+            className="app-panel mb-6 rounded-[1.6rem] p-5 shadow-[0_16px_32px_rgba(18,45,66,0.08)] lg:p-6"
+          >
             <div className="mb-2 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-surface-800 text-sm font-semibold">Ostatnio widziany w</h2>
@@ -543,7 +566,10 @@ export function NpcDetail() {
             )}
           </section>
 
-          <section className="app-panel mb-6 rounded-[1.6rem] p-5 shadow-[0_16px_32px_rgba(18,45,66,0.08)] lg:p-6">
+          <section
+            id="npc-detail-sesje"
+            className="app-panel mb-6 rounded-[1.6rem] p-5 shadow-[0_16px_32px_rgba(18,45,66,0.08)] lg:p-6"
+          >
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="text-surface-800 text-sm font-semibold">Obecność w sesjach</h2>
               <span className="text-surface-400 text-xs">
@@ -572,7 +598,10 @@ export function NpcDetail() {
           </section>
 
           {/* NPC fields */}
-          <div className="app-panel mb-6 flex flex-col gap-3 rounded-[1.6rem] p-5 shadow-[0_16px_32px_rgba(18,45,66,0.08)] lg:p-6">
+          <div
+            id="npc-detail-karta"
+            className="app-panel mb-6 flex flex-col gap-3 rounded-[1.6rem] p-5 shadow-[0_16px_32px_rgba(18,45,66,0.08)] lg:p-6"
+          >
             {npc.data.instinct && (
               <div>
                 <p className="text-surface-400 mb-0.5 text-xs font-medium tracking-wide uppercase">
@@ -625,7 +654,10 @@ export function NpcDetail() {
 
           {/* Description */}
           {npc.description && (
-            <section className="app-panel mb-6 rounded-[1.6rem] p-5 shadow-[0_16px_32px_rgba(18,45,66,0.08)] lg:p-6">
+            <section
+              id="npc-detail-opis"
+              className="app-panel mb-6 rounded-[1.6rem] p-5 shadow-[0_16px_32px_rgba(18,45,66,0.08)] lg:p-6"
+            >
               <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
                 Opis
               </h2>
@@ -638,7 +670,7 @@ export function NpcDetail() {
 
           {/* Inline clocks */}
           {relatedClocks && relatedClocks.length > 0 && (
-            <section className="mb-6">
+            <section id="npc-detail-zegary" className="mb-6">
               <h2 className="text-surface-800 mb-3 text-sm font-semibold">Powiązane zegary</h2>
               <div className="flex flex-wrap gap-4">
                 {relatedClocks.map((clock) =>
@@ -656,7 +688,7 @@ export function NpcDetail() {
           )}
 
           {/* Relations */}
-          <section className="mb-6">
+          <section id="npc-detail-relacje" className="mb-6">
             <div className="mb-2 flex items-center justify-between">
               <h2 className="text-surface-800 text-sm font-semibold">Relacje</h2>
               <button
@@ -671,6 +703,8 @@ export function NpcDetail() {
             <NotesList entityId={npc.id} />
             <RelationList entityId={npc.id} onNavigate={handleNavigateToEntity} />
           </section>
+
+          <DetailScrollTopFab enabled={npcTocItems.length > 0} />
         </>
       )}
 

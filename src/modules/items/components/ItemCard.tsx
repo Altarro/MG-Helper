@@ -16,7 +16,7 @@ export const ItemCard = memo(function ItemCard({ item }: ItemCardProps) {
   return (
     <Link
       to={`/items/${item.id}`}
-      className={`app-card flex flex-col gap-3 rounded-[1.35rem] p-5 transition-all hover:-translate-y-0.5 ${
+      className={`app-card flex flex-col gap-3 rounded-[1.35rem] p-5 transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/35 ${
         isDestroyed ? 'opacity-90' : ''
       }`}
     >

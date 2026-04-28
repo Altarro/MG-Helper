@@ -4,11 +4,13 @@ import { useNavigate } from 'react-router';
 import { FrontCard } from './FrontCard';
 import { FrontForm } from './FrontForm';
 import { useFronts } from '../hooks/useFronts';
+import { FilterCountBadge } from '@shared/components/FilterCountBadge';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { EmptyState } from '@shared/components/EmptyState';
 import { addEntity } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
+import { formatPolishFrontCount } from '@shared/utils/polishPlural';
 import { FRONT_CATEGORIES, FRONT_CATEGORY_LABELS } from '../types';
 import type { FrontFormValues } from './FrontForm';
 
@@ -23,15 +25,28 @@ export function FrontList() {
   const [saving, setSaving] = useState(false);
 
   const lowerQuery = query.trim().toLowerCase();
-  const filtered = fronts?.filter((front) => {
+  const queryMatchedFronts = fronts?.filter((front) => {
     const matchesQuery =
       !lowerQuery ||
       front.name.toLowerCase().includes(lowerQuery) ||
       front.data.stakes.some((stake) => stake.toLowerCase().includes(lowerQuery)) ||
       front.tags.some((tag) => tag.toLowerCase().includes(lowerQuery));
-    const matchesCategory = !categoryFilter || front.data.category === categoryFilter;
-    return matchesQuery && matchesCategory;
+    return matchesQuery;
   });
+  const filtered = queryMatchedFronts?.filter(
+    (front) => !categoryFilter || front.data.category === categoryFilter,
+  );
+  const categoryCounts = useMemo(() => {
+    const list = queryMatchedFronts ?? [];
+    const byCategory = new Map<string, number>();
+    for (const cat of FRONT_CATEGORIES) {
+      byCategory.set(cat, 0);
+    }
+    for (const front of list) {
+      byCategory.set(front.data.category, (byCategory.get(front.data.category) ?? 0) + 1);
+    }
+    return { all: list.length, byCategory };
+  }, [queryMatchedFronts]);
 
   const sections = useMemo(
     () =>
@@ -121,7 +136,8 @@ export function FrontList() {
               !categoryFilter ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
             }`}
           >
-            Wszystkie
+            <span>Wszystkie</span>
+            <FilterCountBadge selected={!categoryFilter} count={categoryCounts.all} />
           </button>
           {FRONT_CATEGORIES.map((category) => (
             <button
@@ -134,7 +150,11 @@ export function FrontList() {
                   : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
               }`}
             >
-              {FRONT_CATEGORY_LABELS[category]}
+              <span>{FRONT_CATEGORY_LABELS[category]}</span>
+              <FilterCountBadge
+                selected={categoryFilter === category}
+                count={categoryCounts.byCategory.get(category) ?? 0}
+              />
             </button>
           ))}
         </div>
@@ -205,11 +225,11 @@ export function FrontList() {
                   </h2>
                 </div>
                 <span className="app-pill-muted shrink-0 rounded-full px-3 py-1 text-xs">
-                  {section.fronts.length} front.
+                  {formatPolishFrontCount(section.fronts.length)}
                 </span>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {section.fronts.map((front) => (
                   <FrontCard key={front.id} front={front} />
                 ))}

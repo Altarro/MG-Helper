@@ -25,7 +25,7 @@ export const ClockCard = memo(function ClockCard({ clock, onClick, className = '
 
   return (
     <article
-      className={`app-card group flex cursor-pointer items-center gap-4 rounded-[1.35rem] p-5 transition-all hover:-translate-y-0.5 ${dead ? 'opacity-70' : ''} ${className}`}
+      className={`app-card group flex cursor-pointer items-center gap-4 rounded-[1.35rem] p-5 transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/35 ${dead ? 'opacity-70' : ''} ${className}`}
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}

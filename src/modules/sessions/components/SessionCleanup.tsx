@@ -1,6 +1,16 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
-import { ArrowLeft, MapPin, CheckCircle2, Users, GitBranch, Trash2, Plus, AlertTriangle } from 'lucide-react';
+import {
+  ArrowLeft,
+  BookOpen,
+  MapPin,
+  CheckCircle2,
+  Users,
+  GitBranch,
+  Trash2,
+  Plus,
+  AlertTriangle,
+} from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { useSessionById } from '../hooks/useSessionById';
@@ -9,6 +19,8 @@ import { isNamedLocation } from '@modules/locations/types';
 import { ThreatForm } from '@modules/fronts/components/ThreatForm';
 import type { ThreatFormValues } from '@modules/fronts/components/ThreatForm';
 import { addEntity, addRelation, deleteEntity, getEntityById, updateEntity } from '@shared/db/operations';
+import { markClockLinkedToThreat } from '@modules/clocks/threatClockLink';
+import { DetailNotFound } from '@shared/components/DetailNotFound';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { Modal } from '@shared/components/Modal';
@@ -335,6 +347,10 @@ function CreateThreatFromThreadModal({
         },
       });
       if (values.clock) {
+        const seg = values.clock.segments;
+        const raw = (values.clock.tickLabels ?? []).slice(0, seg);
+        const tickLabels = [...raw];
+        while (tickLabels.length < seg) tickLabels.push('');
         const clock = await addEntity(db, {
           type: 'clock',
           name: values.clock.name,
@@ -342,13 +358,14 @@ function CreateThreatFromThreadModal({
           tags: [],
           data: {
             kind: 'threat',
-            segments: values.clock.segments,
+            segments: seg,
             filled: 0,
-            tickLabels: [],
+            tickLabels: tickLabels.map((line) => line.slice(0, 300)),
             isActive: lifecycle.status !== 'completed',
           },
         });
         await addRelation(db, { type: 'tracks', sourceId: threat.id, targetId: clock.id });
+        await markClockLinkedToThreat(db, clock.id);
       }
       await addRelation(db, { type: 'affects', sourceId: thread.id, targetId: threat.id });
       toast.success(`Dodano zagrożenie na bazie wątku "${thread.name}"`);
@@ -681,10 +698,13 @@ export function SessionCleanup() {
 
   if (!session) {
     return (
-      <div className="p-6">
-        <p className="text-surface-500">Sesja nie znaleziona.</p>
-        <Link to="/sessions" className="text-primary-600 hover:underline">← Powrót do sesji</Link>
-      </div>
+      <DetailNotFound
+        icon={BookOpen}
+        title="Sesja nie znaleziona"
+        description="Mogła zostać usunięta albo odnośnik jest nieaktualny."
+        to="/sessions"
+        linkLabel="Wróć do listy sesji"
+      />
     );
   }
 

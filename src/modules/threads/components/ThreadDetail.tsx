@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router';
-import { ArrowLeft, Edit2, Trash2, BookOpen } from 'lucide-react';
+import { ArrowLeft, Edit2, Trash2, BookOpen, Milestone } from 'lucide-react';
 import { useThreadById } from '../hooks/useThreadById';
 import { useThreadSessions } from '../hooks/useThreadSessions';
 import { ThreadForm } from './ThreadForm';
+import { DetailNotFound } from '@shared/components/DetailNotFound';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { RelationList } from '@shared/components/RelationList';
@@ -13,6 +14,8 @@ import { MarkdownExportButton } from '@shared/components/MarkdownExportButton';
 import { NarrativeLinksSection } from '@shared/components/NarrativeLinksSection';
 import { ClueSection } from '@shared/components/ClueSection';
 import { DetailSection } from '@shared/components/DetailSection';
+import { DetailScrollTopFab } from '@shared/components/DetailScrollTopFab';
+import { DetailTocBar } from '@shared/components/DetailTocBar';
 import { useRelatedEntities } from '@shared/hooks/useRelatedEntities';
 import { deleteEntity, updateEntity } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
@@ -69,16 +72,30 @@ export function ThreadDetail() {
   const backPath = returnToSessionLive ? `/sessions/${returnToSessionLive}/live` : '/threads';
   const backLabel = returnToSessionLive ? 'Sesja na żywo' : 'Wątki';
 
+  const threadTocItems = useMemo(() => {
+    if (!thread || isEditing) return [];
+    return [
+      { id: 'thread-detail-kontekst', label: 'Kontekst' },
+      { id: 'thread-detail-sesje', label: 'Sesje' },
+      { id: 'thread-detail-presja', label: 'Presja' },
+      { id: 'thread-detail-questline', label: 'Questline' },
+      { id: 'thread-detail-wskazowki', label: 'Wskazówki' },
+      { id: 'thread-detail-powiazania', label: 'Powiązania' },
+      { id: 'thread-detail-notatki', label: 'Notatki MG' },
+    ];
+  }, [thread, isEditing]);
+
   if (thread === undefined) return <LoadingSpinner />;
 
   if (!thread) {
     return (
-      <div className="p-6">
-        <p className="text-surface-500">Wątek nie istnieje.</p>
-        <Link to="/threads" className="text-primary-600 hover:underline">
-          ← Wróć do listy wątków
-        </Link>
-      </div>
+      <DetailNotFound
+        icon={Milestone}
+        title="Wątek nie znaleziony"
+        description="Mógł zostać usunięty albo odnośnik jest nieaktualny."
+        to="/threads"
+        linkLabel="Wróć do listy wątków"
+      />
     );
   }
 
@@ -219,7 +236,9 @@ export function ThreadDetail() {
         </div>
       ) : (
         <div className="flex flex-col gap-5">
+          <DetailTocBar ariaLabel="Sekcje karty wątku" items={threadTocItems} />
           <DetailSection
+            sectionId="thread-detail-kontekst"
             title="Kontekst wątku"
             description="Główne informacje potrzebne do pracy na sprawie przy stole."
             tone="accent"
@@ -278,6 +297,7 @@ export function ThreadDetail() {
           </DetailSection>
 
           <DetailSection
+            sectionId="thread-detail-sesje"
             title="Sesje i historia"
             description="Operacyjny ślad tego, gdzie ten wątek był obecny przy stole."
             contentClassName="flex flex-col gap-5"
@@ -321,6 +341,7 @@ export function ThreadDetail() {
           </DetailSection>
 
           <DetailSection
+            sectionId="thread-detail-presja"
             title="Presja fabularna"
             description="Główne zagrożenia, na które ten wątek wpływa albo przez które jest napedzany."
           >
@@ -334,6 +355,7 @@ export function ThreadDetail() {
           </DetailSection>
 
           <DetailSection
+            sectionId="thread-detail-questline"
             title="Questline"
             description="Relacje nadrzędne i pochodne, ktore pozwalają czytać ten wątek jako odnogę, kontynuację albo konsekwencję."
           >
@@ -404,6 +426,7 @@ export function ThreadDetail() {
           </DetailSection>
 
           <DetailSection
+            sectionId="thread-detail-wskazowki"
             title="Wskazówki wątku"
             description="Tropy, które prowadzą do tej sprawy i pomagają MG utrzymać ciąg poszlak."
           >
@@ -411,6 +434,7 @@ export function ThreadDetail() {
           </DetailSection>
 
           <DetailSection
+            sectionId="thread-detail-powiazania"
             title="Powiązania świata"
             description="Relacje dodatkowe poza głównym kontraktem fabularnym i historia sesji."
             action={null}
@@ -435,6 +459,7 @@ export function ThreadDetail() {
             </div>
           </DetailSection>
           <DetailSection
+            sectionId="thread-detail-notatki"
             title="Notatki MG"
             description="Zaplecze robocze dla prowadzącego, oddzielone od głównej narracji."
           >
@@ -444,6 +469,8 @@ export function ThreadDetail() {
               emptyMessage="Brak notatek podpietych do tego wątku."
             />
           </DetailSection>
+
+          <DetailScrollTopFab enabled={threadTocItems.length > 0} />
         </div>
       )}
 

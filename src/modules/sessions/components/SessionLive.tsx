@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ArrowLeft, Zap, StopCircle, ChevronLeft, ChevronUp } from 'lucide-react';
+import { ArrowLeft, BookOpen, Zap, StopCircle, ChevronLeft, ChevronUp } from 'lucide-react';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
 import type { NpcDragData } from '@shared/components/DraggableNpcChip';
@@ -14,6 +14,7 @@ import {
   clearLiveSessionState,
   getLiveSessionMarker,
 } from '../hooks/useLiveSessionState';
+import { DetailNotFound } from '@shared/components/DetailNotFound';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { Modal } from '@shared/components/Modal';
@@ -310,12 +311,13 @@ export function SessionLive() {
 
   if (!session) {
     return (
-      <div className="p-6">
-        <p className="text-surface-500">Sesja nie znaleziona.</p>
-        <Link to="/sessions" className="text-primary-600 hover:underline">
-          ← Powrót do sesji
-        </Link>
-      </div>
+      <DetailNotFound
+        icon={BookOpen}
+        title="Sesja nie znaleziona"
+        description="Mogła zostać usunięta albo odnośnik jest nieaktualny."
+        to="/sessions"
+        linkLabel="Wróć do listy sesji"
+      />
     );
   }
 

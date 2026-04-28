@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ArrowUp, Theater } from 'lucide-react';
+import { scrollWindowToElementId } from '@shared/utils/scrollToAnchor';
 import { useBackstage } from '../hooks/useBackstage';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ThreadSessionMatrix } from './ThreadSessionMatrix';
@@ -54,10 +55,7 @@ export function BackstagePage() {
     }));
 
   function scrollToMatrixSection(sectionId: string) {
-    const el = document.getElementById(sectionId);
-    if (!el) return;
-    const targetTop = window.scrollY + el.getBoundingClientRect().top - 10;
-    window.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
+    scrollWindowToElementId(sectionId, 10);
   }
 
   function scrollToTop() {
@@ -65,17 +63,18 @@ export function BackstagePage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6 min-h-0" data-testid="backstage-page">
-      <header className="shrink-0 space-y-2">
-        <div className="flex items-center gap-2">
-          <Theater className="h-6 w-6 text-primary-600 shrink-0" aria-hidden />
-          <h1 className="text-xl font-semibold text-surface-900">Za kulisami</h1>
+    <div className="flex min-h-0 flex-col gap-6 p-6" data-testid="backstage-page">
+      <section className="app-panel-strong shrink-0 rounded-[2rem] px-6 py-7 lg:px-8 lg:py-8">
+        <div className="text-primary-700 mb-3 inline-flex items-center gap-2 rounded-full border border-[rgba(33,71,102,0.16)] bg-[rgba(111,146,164,0.12)] px-3 py-1 text-[11px] font-semibold tracking-[0.18em] uppercase">
+          <Theater className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          Prowadzenie
         </div>
-        <p className="max-w-3xl text-sm leading-relaxed text-surface-600">
+        <h1 className="text-primary-900 text-3xl font-semibold tracking-[-0.04em] lg:text-[2.2rem]">Za kulisami</h1>
+        <p className="text-surface-700 mt-2 max-w-[62ch] text-sm leading-7 lg:text-[0.98rem]">
           Spokojna odprawa przed sesją: co wymaga decyzji narratora, a co może poczekać. Radar patrzy tylko na to, co
           już zapisałeś w kampanii — bez zgadywania spoza bazy.
         </p>
-      </header>
+      </section>
 
       <BackstageSummaryPanel
         actions={[

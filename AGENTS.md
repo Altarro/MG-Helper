@@ -12,6 +12,7 @@
 
 - Run `pnpm typecheck`.
 - Run `pnpm test:encoding`.
+- Run `pnpm spellcheck` (cspell: PL+EN, słowniki `cspell.json` / `cspell-words.txt` / `cspell-words-project.txt`). Gdy pojawią się nowe dopuszczalne tokeny, `pnpm spellcheck:collect` zaktualizuje listę projektową — potem sprawdź diff pod kątem literówek zamiast ślepego commitu.
 - If you touched threat lifecycle or cleanup behavior, also run:
   `pnpm test tests/shared/threatLifecycle.test.ts`
 

@@ -20,6 +20,7 @@ import { useSessionById } from '../hooks/useSessionById';
 import { isNamedLocation } from '@modules/locations/types';
 import { useNotesBySession } from '@modules/notes/hooks/useNotesBySession';
 import { getEntityById } from '@shared/db/operations';
+import { DetailNotFound } from '@shared/components/DetailNotFound';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { exportSessionMarkdown } from '@modules/data-io/utils/exportSessionMarkdown';
 import { toast } from 'sonner';
@@ -95,12 +96,13 @@ export function SessionReport() {
 
   if (!session) {
     return (
-      <div className="p-6">
-        <p className="text-surface-500">Sesja nie znaleziona.</p>
-        <Link to="/sessions" className="text-primary-600 hover:underline">
-          ← Powrót do sesji
-        </Link>
-      </div>
+      <DetailNotFound
+        icon={BookOpen}
+        title="Sesja nie znaleziona"
+        description="Mogła zostać usunięta albo odnośnik jest nieaktualny."
+        to="/sessions"
+        linkLabel="Wróć do listy sesji"
+      />
     );
   }
 

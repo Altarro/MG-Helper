@@ -1,24 +1,35 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { ArrowLeft, Clock3, Minus, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { withClockAdvanceMeta } from '../clockAdvance';
 import { useClockById } from '../hooks/useClockById';
 import { ClockVisual } from './ClockVisual';
-import { ClockForm } from './ClockForm';
+import { buildMultilineFromRows } from '../buildMultiline';
+import { ClockForm, type ClockFormValues } from './ClockForm';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { DetailSection } from '@shared/components/DetailSection';
-import { EmptyState } from '@shared/components/EmptyState';
+import { DetailScrollTopFab } from '@shared/components/DetailScrollTopFab';
+import { DetailTocBar } from '@shared/components/DetailTocBar';
+import { DetailNotFound } from '@shared/components/DetailNotFound';
 import { LoadingPage } from '@shared/components/LoadingSpinner';
 import { MarkdownExportButton } from '@shared/components/MarkdownExportButton';
 import { RelationList } from '@shared/components/RelationList';
 import { RelationPicker } from '@shared/components/RelationPicker';
 import { deleteEntity, updateEntity } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
+import { useThreatDetailPath } from '@shared/hooks/useThreatDetailPath';
+import { isThreat } from '@modules/fronts/types';
 import { formatDate } from '@shared/utils/date';
+import { getClockData, getThreatData } from '@shared/utils/entityData';
 import { getEntityDetailPath } from '@shared/utils/entityTypeMeta';
 import type { Entity } from '@shared/types/entity';
-import type { ClockFormValues } from './ClockForm';
+
+function parseMultilineToFormRows(text?: string): { value: string }[] {
+  if (text == null || text === '') return [];
+  return text.split(/\r?\n/).map((line) => ({ value: line }));
+}
 
 export function ClockDetail() {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +37,39 @@ export function ClockDetail() {
   const location = useLocation();
   const { db } = useCampaign();
   const { clock } = useClockById(id);
+
+  const trackingThreat = useLiveQuery(async () => {
+    if (!id) return null;
+    const entity = await db.entities.get(id);
+    if (!entity || entity.type !== 'clock') return null;
+    const kd = getClockData(entity);
+    if (kd.kind !== 'threat') return null;
+    const rel = await db.relations
+      .where('targetId')
+      .equals(id)
+      .filter((r) => r.type === 'tracks')
+      .first();
+    if (!rel) return null;
+    const src = await db.entities.get(rel.sourceId);
+    return src && isThreat(src) ? src : null;
+  }, [db, id]);
+
+  const threatDetailPath = useThreatDetailPath(trackingThreat?.id);
+
+  const threatTriggerDisplayLines = useMemo(() => {
+    if (!trackingThreat) return [];
+    return (trackingThreat.data.trigger ?? '')
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+  }, [trackingThreat]);
+
+  const freeClockTickDisplayLines = useMemo(() => {
+    return (clock?.data.tickWhen ?? '')
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+  }, [clock?.data.tickWhen]);
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -42,28 +86,42 @@ export function ClockDetail() {
   const backPath = returnToSessionLive ? `/sessions/${returnToSessionLive}/live` : '/clocks';
   const backLabel = returnToSessionLive ? 'Sesja na żywo' : 'Zegary';
 
+  const clockTocItems = useMemo(() => {
+    if (!clock || isEditing) return [];
+    const kind = getClockData(clock).kind ?? 'free';
+    const labels = clock.data.tickLabels ?? [];
+    const items: { id: string; label: string }[] = [
+      { id: 'clock-detail-sterowanie', label: 'Sterowanie' },
+    ];
+    if (kind !== 'session') {
+      if (kind === 'free' || (kind === 'threat' && trackingThreat)) {
+        items.push({ id: 'clock-detail-warunki', label: 'Zegar tyka, gdy' });
+      }
+      if (labels.length > 0) {
+        items.push({ id: 'clock-detail-tyki', label: 'Tyknięcia' });
+      }
+    }
+    items.push({ id: 'clock-detail-relacje', label: 'Relacje' });
+    return items;
+  }, [clock, isEditing, trackingThreat]);
+
   if (!id) return null;
   if (clock === undefined) return <LoadingPage />;
 
   if (!clock) {
     return (
-      <EmptyState
-        title="Zegar nie istnieje"
-        description="Nie znaleziono zegara o podanym identyfikatorze."
-        action={
-          <button
-            type="button"
-            onClick={() => navigate(backPath)}
-            className="app-button-primary rounded-2xl px-4 py-3 text-sm font-medium"
-          >
-            Wróć do listy
-          </button>
-        }
+      <DetailNotFound
+        icon={Clock3}
+        title="Zegar nie znaleziony"
+        description="Mógł zostać usunięty albo odnośnik jest nieaktualny."
+        to={backPath}
+        linkLabel={returnToSessionLive ? 'Wróć do sesji na żywo' : 'Wróć do listy zegarów'}
       />
     );
   }
 
   const currentClock = clock;
+  const clockKindResolved = getClockData(currentClock).kind ?? 'free';
   const segments = currentClock.data.segments;
   const filled = currentClock.data.filled;
   const tickLabels = currentClock.data.tickLabels ?? [];
@@ -110,20 +168,58 @@ export function ClockDetail() {
   }
 
   async function handleEdit(values: ClockFormValues) {
+    const kind = getClockData(currentClock).kind ?? 'free';
+
+    if (trackingThreat) {
+      const triggerStr = buildMultilineFromRows(values.threatTriggerWhen);
+      if (triggerStr.length > 500) {
+        toast.error('Łączna długość warunków nie może przekraczać 500 znaków.');
+        return;
+      }
+    }
+
+    if (!trackingThreat && kind === 'free') {
+      const tickWhenStr = buildMultilineFromRows(values.clockTickWhen);
+      if (tickWhenStr.length > 500) {
+        toast.error('Łączna długość warunków nie może przekraczać 500 znaków.');
+        return;
+      }
+    }
+
     setIsSaving(true);
     try {
+      const tickLabelsNext =
+        kind === 'session'
+          ? (currentClock.data.tickLabels ?? [])
+          : values.tickLabels.map((item) => item.value);
+
+      let nextClockData = {
+        ...currentClock.data,
+        segments: values.segments,
+        filled: Math.min(currentClock.data.filled, values.segments),
+        tickLabels: tickLabelsNext,
+        isActive: values.isActive,
+      };
+
+      if (trackingThreat) {
+        nextClockData = { ...nextClockData, tickWhen: undefined };
+      } else if (kind === 'free') {
+        const tickWhenStr = buildMultilineFromRows(values.clockTickWhen);
+        nextClockData = { ...nextClockData, tickWhen: tickWhenStr || undefined };
+      }
+
       await updateEntity(db, currentClock.id, {
         name: values.name,
         description: values.description,
         tags: values.tags,
-        data: {
-          ...currentClock.data,
-          segments: values.segments,
-          filled: Math.min(currentClock.data.filled, values.segments),
-          tickLabels: values.tickLabels.map((item) => item.value),
-          isActive: values.isActive,
-        },
+        data: nextClockData,
       });
+      if (trackingThreat) {
+        const triggerStr = buildMultilineFromRows(values.threatTriggerWhen);
+        await updateEntity(db, trackingThreat.id, {
+          data: { ...getThreatData(trackingThreat), trigger: triggerStr },
+        });
+      }
       toast.success('Zegar zaktualizowany');
       setIsEditing(false);
     } catch {
@@ -221,6 +317,7 @@ export function ClockDetail() {
       {isEditing ? (
         <div className="app-panel rounded-[1.75rem] p-4 shadow-[0_20px_40px_rgba(18,45,66,0.08)] lg:p-6">
           <ClockForm
+            clockKind={clockKindResolved}
             defaultValues={{
               name: currentClock.name,
               segments: currentClock.data.segments,
@@ -228,7 +325,12 @@ export function ClockDetail() {
               tags: currentClock.tags,
               tickLabels: tickLabels.map((value) => ({ value })),
               isActive,
+              threatTriggerWhen: trackingThreat
+                ? parseMultilineToFormRows(trackingThreat.data.trigger)
+                : [],
+              clockTickWhen: parseMultilineToFormRows(currentClock.data.tickWhen),
             }}
+            linkedThreatId={trackingThreat?.id}
             onSubmit={handleEdit}
             onCancel={() => setIsEditing(false)}
             isSaving={isSaving}
@@ -237,7 +339,9 @@ export function ClockDetail() {
         </div>
       ) : (
         <div className="flex flex-col gap-5">
+          <DetailTocBar ariaLabel="Sekcje karty zegara" items={clockTocItems} />
           <DetailSection
+            sectionId="clock-detail-sterowanie"
             title="Sterowanie"
             description="Najważniejsze informacje o stanie zegara i szybkie akcje do pracy przy stole."
             tone="accent"
@@ -334,8 +438,74 @@ export function ClockDetail() {
             </div>
           </DetailSection>
 
-          {tickLabels.length > 0 && (
+          {trackingThreat && getClockData(currentClock).kind === 'threat' && (
             <DetailSection
+              sectionId="clock-detail-warunki"
+              title="Zegar tyka, gdy"
+              contentClassName="flex flex-col gap-3"
+              action={
+                <Link
+                  to={threatDetailPath ?? `/threats/${trackingThreat.id}`}
+                  className="app-pill-muted inline-flex max-w-[20rem] items-center truncate rounded-full px-3 py-1.5 text-xs font-semibold text-primary-800 transition-colors hover:underline"
+                  title={trackingThreat.name}
+                >
+                  {trackingThreat.name}
+                </Link>
+              }
+            >
+              {threatTriggerDisplayLines.length === 0 ? (
+                <p className="text-surface-500 text-sm">Brak zapisanych warunków tykania.</p>
+              ) : (
+                <div className="app-panel rounded-[1.5rem] p-5 shadow-[0_12px_24px_rgba(18,45,66,0.06)] lg:p-6">
+                  <ul className="m-0 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2 xl:grid-cols-2">
+                    {threatTriggerDisplayLines.map((line, index) => (
+                      <li
+                        key={`clock-trigger-ro-${index}`}
+                        className="app-input-shell flex min-h-full min-w-0 gap-3 rounded-[1.25rem] border px-4 py-4 shadow-[0_12px_24px_rgba(18,45,66,0.04)]"
+                      >
+                        <span className="app-pill-muted inline-flex h-fit shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold tabular-nums">
+                          {index + 1}
+                        </span>
+                        <p className="text-surface-800 min-w-0 flex-1 text-sm leading-6 break-words">{line}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </DetailSection>
+          )}
+
+          {clockKindResolved === 'free' && (
+            <DetailSection
+              sectionId="clock-detail-warunki"
+              title="Zegar tyka, gdy"
+              contentClassName="flex flex-col gap-3"
+            >
+              {freeClockTickDisplayLines.length === 0 ? (
+                <p className="text-surface-500 text-sm">Brak zapisanych warunków tykania.</p>
+              ) : (
+                <div className="app-panel rounded-[1.5rem] p-5 shadow-[0_12px_24px_rgba(18,45,66,0.06)] lg:p-6">
+                  <ul className="m-0 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2 xl:grid-cols-2">
+                    {freeClockTickDisplayLines.map((line, index) => (
+                      <li
+                        key={`clock-free-tick-when-${index}`}
+                        className="app-input-shell flex min-h-full min-w-0 gap-3 rounded-[1.25rem] border px-4 py-4 shadow-[0_12px_24px_rgba(18,45,66,0.04)]"
+                      >
+                        <span className="app-pill-muted inline-flex h-fit shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold tabular-nums">
+                          {index + 1}
+                        </span>
+                        <p className="text-surface-800 min-w-0 flex-1 text-sm leading-6 break-words">{line}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </DetailSection>
+          )}
+
+          {clockKindResolved !== 'session' && tickLabels.length > 0 && (
+            <DetailSection
+              sectionId="clock-detail-tyki"
               title="Opisy tyknięć"
               description="Kolejne etapy zegara, które pomagają czytać tempo eskalacji."
               contentClassName="grid gap-3"
@@ -387,6 +557,7 @@ export function ClockDetail() {
           )}
 
           <DetailSection
+            sectionId="clock-detail-relacje"
             title="Relacje"
             description="Powiązania tego zegara z innymi elementami kampanii."
             action={
@@ -402,6 +573,8 @@ export function ClockDetail() {
           >
             <RelationList entityId={currentClock.id} onNavigate={handleNavigateToEntity} />
           </DetailSection>
+
+          <DetailScrollTopFab enabled={clockTocItems.length > 0} />
         </div>
       )}
 

@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Plus, Search, X } from 'lucide-react';
 import { useLocations } from '../hooks/useLocations';
 import { LocationCard } from './LocationCard';
 import { LocationForm } from './LocationForm';
+import { FilterCountBadge } from '@shared/components/FilterCountBadge';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { EmptyState } from '@shared/components/EmptyState';
 import { addEntity, assignContainment } from '@shared/db/operations';
@@ -27,15 +28,41 @@ export function LocationList() {
   const [saving, setSaving] = useState(false);
 
   const lowerQuery = query.trim().toLowerCase();
-  const filtered = locations?.filter((loc) => {
+  const queryMatchedLocations = locations?.filter((loc) => {
     const matchesQuery =
       !lowerQuery ||
       loc.name.toLowerCase().includes(lowerQuery) ||
       loc.tags.some((t) => t.toLowerCase().includes(lowerQuery));
-    const matchesType = typeFilter === 'all' || loc.data.locationType === typeFilter;
-    const matchesDestroyed = !hideDestroyed || getLocationLifecycleStatus({ data: loc.data }) !== 'completed';
-    return matchesQuery && matchesType && matchesDestroyed;
+    return matchesQuery;
   });
+  const queryDestroyMatched = queryMatchedLocations?.filter(
+    (loc) =>
+      !hideDestroyed || getLocationLifecycleStatus({ data: loc.data }) !== 'completed',
+  );
+  const filtered = queryMatchedLocations?.filter((loc) => {
+    const matchesType = typeFilter === 'all' || loc.data.locationType === typeFilter;
+    const matchesDestroyed =
+      !hideDestroyed || getLocationLifecycleStatus({ data: loc.data }) !== 'completed';
+    return matchesType && matchesDestroyed;
+  });
+
+  const typeCounts = useMemo(() => {
+    const list = queryDestroyMatched ?? [];
+    const counts: Partial<Record<FilterType, number>> = { all: list.length };
+    for (const type of Object.keys(LOCATION_TYPE_LABELS) as LocationType[]) {
+      counts[type] = list.filter((loc) => loc.data.locationType === type).length;
+    }
+    return counts as Record<FilterType, number>;
+  }, [queryDestroyMatched]);
+
+  const destroyedInTypeSelection = useMemo(() => {
+    const list =
+      queryMatchedLocations?.filter(
+        (loc) => typeFilter === 'all' || loc.data.locationType === typeFilter,
+      ) ?? [];
+    return list.filter((loc) => getLocationLifecycleStatus({ data: loc.data }) === 'completed')
+      .length;
+  }, [queryMatchedLocations, typeFilter]);
 
   async function handleCreate(values: LocationFormValues) {
     setSaving(true);
@@ -119,7 +146,8 @@ export function LocationList() {
             onClick={() => setTypeFilter('all')}
             className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${typeFilter === 'all' ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'}`}
           >
-            Wszystkie
+            <span>Wszystkie</span>
+            <FilterCountBadge selected={typeFilter === 'all'} count={typeCounts.all} />
           </button>
           {(Object.entries(LOCATION_TYPE_LABELS) as [LocationType, string][]).map(([type, label]) => (
             <button
@@ -128,7 +156,8 @@ export function LocationList() {
               onClick={() => setTypeFilter(typeFilter === type ? 'all' : type)}
               className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${typeFilter === type ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'}`}
             >
-              {label}
+              <span>{label}</span>
+              <FilterCountBadge selected={typeFilter === type} count={typeCounts[type] ?? 0} />
             </button>
           ))}
           <button
@@ -138,7 +167,8 @@ export function LocationList() {
               hideDestroyed ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
             }`}
           >
-            Ukryj zniszczone
+            <span>Ukryj zniszczone</span>
+            <FilterCountBadge selected={hideDestroyed} count={destroyedInTypeSelection} />
           </button>
         </div>
       </section>

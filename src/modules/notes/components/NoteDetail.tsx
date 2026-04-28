@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { ArrowLeft, Calendar, Edit2, Plus, StickyNote, Trash2 } from 'lucide-react';
 import { format, isValid, parseISO } from 'date-fns';
@@ -7,6 +7,9 @@ import { toast } from 'sonner';
 import { useNoteById } from '../hooks/useNoteById';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { DetailSection } from '@shared/components/DetailSection';
+import { DetailScrollTopFab } from '@shared/components/DetailScrollTopFab';
+import { DetailTocBar } from '@shared/components/DetailTocBar';
+import { DetailNotFound } from '@shared/components/DetailNotFound';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { MarkdownExportButton } from '@shared/components/MarkdownExportButton';
 import { RelationList } from '@shared/components/RelationList';
@@ -39,16 +42,25 @@ export function NoteDetail() {
   const backPath = returnToSessionLive ? `/sessions/${returnToSessionLive}/live` : '/notes';
   const backLabel = returnToSessionLive ? 'Sesja na żywo' : 'Notatki';
 
+  const noteTocItems = useMemo(
+    () => [
+      { id: 'note-detail-tresc', label: 'Treść' },
+      { id: 'note-detail-relacje', label: 'Relacje' },
+    ],
+    [],
+  );
+
   if (note === undefined) return <LoadingSpinner />;
 
   if (!note) {
     return (
-      <div className="flex flex-col gap-4 p-6">
-        <p className="text-surface-500">Nie znaleziono tej notatki.</p>
-        <Link to={backPath} className="text-primary-700 hover:underline">
-          Wróć do listy notatek
-        </Link>
-      </div>
+      <DetailNotFound
+        icon={StickyNote}
+        title="Notatka nie znaleziona"
+        description="Mogła zostać usunięta albo odnośnik jest nieaktualny."
+        to={backPath}
+        linkLabel={returnToSessionLive ? 'Wróć do sesji na żywo' : 'Wróć do listy notatek'}
+      />
     );
   }
 
@@ -152,7 +164,10 @@ export function NoteDetail() {
         </div>
       </div>
 
+      <DetailTocBar ariaLabel="Sekcje notatki" items={noteTocItems} />
+
       <DetailSection
+        sectionId="note-detail-tresc"
         title="Treść notatki"
         description="Szybka, robocza notatka MG z sesji albo przygotowań."
         tone="accent"
@@ -195,6 +210,7 @@ export function NoteDetail() {
       </DetailSection>
 
       <DetailSection
+        sectionId="note-detail-relacje"
         title="Relacje"
         description="Powiązania notatki z innymi fragmentami kampanii."
         action={
@@ -210,6 +226,8 @@ export function NoteDetail() {
       >
         <RelationList entityId={currentNote.id} onNavigate={handleNavigate} />
       </DetailSection>
+
+      <DetailScrollTopFab />
 
       <ConfirmDialog
         open={showDeleteConfirm}

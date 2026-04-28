@@ -21,7 +21,7 @@ export const LocationCard = React.memo(function LocationCard({ location, onClick
     <button
       type="button"
       onClick={onClick}
-      className={`app-card flex w-full flex-col gap-3 rounded-[1.35rem] p-5 text-left transition-all hover:-translate-y-0.5 ${
+      className={`app-card flex w-full flex-col gap-3 rounded-[1.35rem] p-5 text-left transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/35 ${
         isDestroyed ? 'opacity-90' : ''
       }`}
     >

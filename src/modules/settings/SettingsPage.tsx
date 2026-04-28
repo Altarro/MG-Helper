@@ -1,6 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Download, Upload, CheckCircle, AlertCircle, Loader2, Sparkles, Trash2, Archive, FolderArchive, Eraser, HardDrive } from 'lucide-react';
+import {
+  Download,
+  Upload,
+  CheckCircle,
+  AlertCircle,
+  Loader2,
+  Sparkles,
+  Trash2,
+  Archive,
+  FolderArchive,
+  Eraser,
+  HardDrive,
+  Settings,
+} from 'lucide-react';
 import { exportJson } from '@shared/utils/exportJson';
 import { importJson } from '@shared/utils/importJson';
 import { exportFull } from '@shared/utils/exportFull';
@@ -243,7 +256,17 @@ export function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <h1 className="text-xl font-bold text-surface-900">Ustawienia</h1>
+      <section className="app-panel-strong rounded-[2rem] px-6 py-7 lg:px-8 lg:py-8">
+        <div className="text-primary-700 mb-3 inline-flex items-center gap-2 rounded-full border border-[rgba(33,71,102,0.16)] bg-[rgba(111,146,164,0.12)] px-3 py-1 text-[11px] font-semibold tracking-[0.18em] uppercase">
+          <Settings className="h-3.5 w-3.5" aria-hidden />
+          Konfiguracja
+        </div>
+        <h1 className="text-primary-900 text-3xl font-semibold tracking-[-0.04em] lg:text-[2.2rem]">Ustawienia</h1>
+        <p className="text-surface-700 mt-2 max-w-[62ch] text-sm leading-7 lg:text-[0.98rem]">
+          Kopie zapasowe, import, generator tabel i radar zagrożeń — wszystko dla bieżącej kampanii, lokalnie w
+          przeglądarce.
+        </p>
+      </section>
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"

@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Plus } from 'lucide-react';
 import { useClocks } from '../hooks/useClocks';
 import { ClockCard } from './ClockCard';
+import { buildMultilineFromRows } from '../buildMultiline';
 import { ClockForm } from './ClockForm';
+import { FilterCountBadge } from '@shared/components/FilterCountBadge';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { EmptyState } from '@shared/components/EmptyState';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
@@ -17,6 +19,17 @@ import type { Clock as ClockType } from '../types';
 type StatusFilter = 'all' | 'active' | 'completed';
 type KindFilter = 'all' | 'session' | 'free' | 'threat';
 
+function clockMatchesStatus(c: ClockType, status: StatusFilter): boolean {
+  if (status === 'all') return true;
+  if (status === 'active') return c.data.filled < c.data.segments && c.data.isActive !== false;
+  return c.data.filled >= c.data.segments;
+}
+
+function clockMatchesKind(c: ClockType, kind: KindFilter): boolean {
+  const clockKind = c.data.kind ?? 'free';
+  return kind === 'all' || clockKind === kind;
+}
+
 export function ClockList() {
   const clocks = useClocks();
   const navigate = useNavigate();
@@ -27,13 +40,28 @@ export function ClockList() {
   const [saving, setSaving] = useState(false);
   const [toDelete, setToDelete] = useState<ClockType | null>(null);
 
-  const filtered = clocks?.filter((c) => {
-    const kind = c.data.kind ?? 'free';
-    if (kindFilter !== 'all' && kind !== kindFilter) return false;
-    if (statusFilter === 'active') return c.data.filled < c.data.segments && c.data.isActive !== false;
-    if (statusFilter === 'completed') return c.data.filled >= c.data.segments;
-    return true;
-  });
+  const filtered = clocks?.filter(
+    (c) => clockMatchesKind(c, kindFilter) && clockMatchesStatus(c, statusFilter),
+  );
+
+  const statusStats = useMemo(() => {
+    const list = (clocks ?? []).filter((c) => clockMatchesKind(c, kindFilter));
+    return {
+      all: list.length,
+      active: list.filter((c) => clockMatchesStatus(c, 'active')).length,
+      completed: list.filter((c) => clockMatchesStatus(c, 'completed')).length,
+    };
+  }, [clocks, kindFilter]);
+
+  const kindStats = useMemo(() => {
+    const list = (clocks ?? []).filter((c) => clockMatchesStatus(c, statusFilter));
+    return {
+      all: list.length,
+      session: list.filter((c) => clockMatchesKind(c, 'session')).length,
+      free: list.filter((c) => clockMatchesKind(c, 'free')).length,
+      threat: list.filter((c) => clockMatchesKind(c, 'threat')).length,
+    };
+  }, [clocks, statusFilter]);
 
   async function handleCreate(values: ClockFormValues) {
     setSaving(true);
@@ -43,7 +71,14 @@ export function ClockList() {
         name: values.name,
         description: values.description,
         tags: values.tags,
-        data: { kind: 'free', segments: values.segments, filled: 0, tickLabels: [], isActive: true },
+        data: {
+          kind: 'free',
+          segments: values.segments,
+          filled: 0,
+          tickLabels: [],
+          isActive: true,
+          tickWhen: buildMultilineFromRows(values.clockTickWhen) || undefined,
+        },
       });
       toast.success(`Zegar "${values.name}" utworzony`);
       setShowForm(false);
@@ -108,7 +143,17 @@ export function ClockList() {
               onClick={() => setStatusFilter(f.id)}
               className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${statusFilter === f.id ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'}`}
             >
-              {f.label}
+              <span>{f.label}</span>
+              <FilterCountBadge
+                selected={statusFilter === f.id}
+                count={
+                  f.id === 'all'
+                    ? statusStats.all
+                    : f.id === 'active'
+                      ? statusStats.active
+                      : statusStats.completed
+                }
+              />
             </button>
           ))}
         </div>
@@ -120,7 +165,19 @@ export function ClockList() {
               onClick={() => setKindFilter(f.id)}
               className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${kindFilter === f.id ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'}`}
             >
-              {f.label}
+              <span>{f.label}</span>
+              <FilterCountBadge
+                selected={kindFilter === f.id}
+                count={
+                  f.id === 'all'
+                    ? kindStats.all
+                    : f.id === 'session'
+                      ? kindStats.session
+                      : f.id === 'free'
+                        ? kindStats.free
+                        : kindStats.threat
+                }
+              />
             </button>
           ))}
         </div>

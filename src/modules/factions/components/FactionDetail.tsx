@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
 import { ArrowLeft, Edit2, Trash2, X, Flag, Users, MapPin } from 'lucide-react';
 import { useFactionById } from '../hooks/useFactionById';
 import { FactionForm } from './FactionForm';
+import { DetailNotFound } from '@shared/components/DetailNotFound';
+import { DetailScrollTopFab } from '@shared/components/DetailScrollTopFab';
+import { DetailTocBar } from '@shared/components/DetailTocBar';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { EntityDetailPortrait } from '@shared/components/EntityDetailPortrait';
@@ -65,19 +68,30 @@ export function FactionDetail() {
   const [statusConfirm, setStatusConfirm] = useState<'disband' | 'restore' | null>(null);
   const [statusSaving, setStatusSaving] = useState(false);
 
+  const factionTocItems = useMemo(() => {
+    if (!faction || isEditing) return [];
+    const items: { id: string; label: string }[] = [];
+    if (faction.data.goals.length > 0) items.push({ id: 'faction-detail-cele', label: 'Cele' });
+    if (faction.data.resources.length > 0) items.push({ id: 'faction-detail-zasoby', label: 'Zasoby' });
+    if (faction.description) items.push({ id: 'faction-detail-opis', label: 'Opis' });
+    items.push(
+      { id: 'faction-detail-members', label: 'Członkowie' },
+      { id: 'faction-detail-headquarters', label: 'Siedziby' },
+      { id: 'faction-detail-notatki', label: 'Notatki' },
+    );
+    return items;
+  }, [faction, isEditing]);
+
   if (faction === undefined) return <LoadingSpinner />;
   if (!faction) {
     return (
-      <div className="mx-auto flex max-w-5xl flex-col gap-4 p-6">
-        <p className="text-surface-500">Frakcja nie znaleziona.</p>
-        <Link
-          to="/factions"
-          className="text-surface-500 hover:text-primary-700 flex w-fit items-center gap-1.5 text-sm transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Frakcje
-        </Link>
-      </div>
+      <DetailNotFound
+        icon={Flag}
+        title="Frakcja nie znaleziona"
+        description="Mogła zostać usunięta albo odnośnik jest nieaktualny."
+        to="/factions"
+        linkLabel="Wróć do listy frakcji"
+      />
     );
   }
 
@@ -208,6 +222,10 @@ export function FactionDetail() {
         </div>
       </div>
 
+      {!isEditing && (
+        <DetailTocBar ariaLabel="Sekcje karty frakcji" items={factionTocItems} className="mb-2" />
+      )}
+
       {isEditing && (
         <div className="app-panel rounded-[1.75rem] p-4 shadow-[0_20px_40px_rgba(18,45,66,0.08)] lg:p-6">
           <FactionForm
@@ -228,7 +246,7 @@ export function FactionDetail() {
       )}
 
       {!isEditing && faction.data.goals.length > 0 && (
-        <div className="app-panel rounded-[1.6rem] p-5 lg:p-6">
+        <div id="faction-detail-cele" className="app-panel rounded-[1.6rem] p-5 lg:p-6">
           <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
             Cele
           </h2>
@@ -243,7 +261,7 @@ export function FactionDetail() {
       )}
 
       {!isEditing && faction.data.resources.length > 0 && (
-        <div className="app-panel rounded-[1.6rem] p-5 lg:p-6">
+        <div id="faction-detail-zasoby" className="app-panel rounded-[1.6rem] p-5 lg:p-6">
           <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
             Zasoby
           </h2>
@@ -258,7 +276,7 @@ export function FactionDetail() {
       )}
 
       {!isEditing && faction.description && (
-        <div className="app-panel rounded-[1.6rem] p-5 lg:p-6">
+        <div id="faction-detail-opis" className="app-panel rounded-[1.6rem] p-5 lg:p-6">
           <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
             Opis
           </h2>
@@ -281,7 +299,7 @@ export function FactionDetail() {
 
       {/* Members */}
       {!isEditing && (
-        <div className="app-panel rounded-[1.6rem] p-5 lg:p-6">
+        <div id="faction-detail-members" className="app-panel rounded-[1.6rem] p-5 lg:p-6">
           <div className="mb-3 flex items-center gap-2">
             <Users className="text-surface-400 h-4 w-4" />
             <h2 className="text-surface-700 text-sm font-semibold">Członkowie (Postacie)</h2>
@@ -312,7 +330,7 @@ export function FactionDetail() {
 
       {/* Headquarters (locations) */}
       {!isEditing && (
-        <div className="app-panel rounded-[1.6rem] p-5 lg:p-6">
+        <div id="faction-detail-headquarters" className="app-panel rounded-[1.6rem] p-5 lg:p-6">
           <div className="mb-3 flex items-center gap-2">
             <MapPin className="text-surface-400 h-4 w-4" />
             <h2 className="text-surface-700 text-sm font-semibold">Siedziby (lokacje)</h2>
@@ -341,7 +359,11 @@ export function FactionDetail() {
         </div>
       )}
 
-      <NotesList entityId={id!} />
+      <div id="faction-detail-notatki">
+        <NotesList entityId={id!} />
+      </div>
+
+      <DetailScrollTopFab enabled={!isEditing && factionTocItems.length > 0} />
 
       <ConfirmDialog
         open={confirmDelete}

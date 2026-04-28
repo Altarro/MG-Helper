@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useParams, useNavigate, useLocation } from 'react-router';
-import { ArrowLeft, Pencil, Trash2, Plus, OctagonAlert } from 'lucide-react';
+import { ArrowLeft, MapPin, Pencil, Trash2, Plus, OctagonAlert } from 'lucide-react';
 import { useLocationById } from '../hooks/useLocationById';
 import { useLocationTree } from '../hooks/useLocationTree';
 import { useContained } from '@shared/hooks/useContained';
@@ -12,7 +12,9 @@ import { NotesList } from '@modules/notes/components/NotesList';
 import { RelationPicker } from '@shared/components/RelationPicker';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { LoadingPage } from '@shared/components/LoadingSpinner';
-import { EmptyState } from '@shared/components/EmptyState';
+import { DetailNotFound } from '@shared/components/DetailNotFound';
+import { DetailScrollTopFab } from '@shared/components/DetailScrollTopFab';
+import { DetailTocBar } from '@shared/components/DetailTocBar';
 import { EntityDetailPortrait } from '@shared/components/EntityDetailPortrait';
 import { DraggableNpcChip } from '@shared/components/DraggableNpcChip';
 import { DroppableLocationZone } from '@shared/components/DroppableLocationZone';
@@ -85,22 +87,31 @@ export function LocationDetail() {
   const [addChildToId, setAddChildToId] = useState<string | null>(null);
   const [savingChild, setSavingChild] = useState(false);
 
+  const locationTocItems = useMemo(() => {
+    if (!location || editing) return [];
+    const s = location.data.senses;
+    const items: { id: string; label: string }[] = [];
+    if (s.see || s.hear || s.smell || s.feel) items.push({ id: 'location-detail-senses', label: 'Zmysły' });
+    if (location.description) items.push({ id: 'location-detail-opis', label: 'Opis' });
+    items.push({ id: 'location-detail-podlokacje', label: 'Podlokacje' });
+    const hasContained = contained.some(
+      (e) => e.type === 'npc' || e.type === 'item' || e.type === 'threat',
+    );
+    if (hasContained) items.push({ id: 'location-detail-zawartosc', label: 'Na miejscu' });
+    items.push({ id: 'location-detail-relacje', label: 'Relacje' });
+    return items;
+  }, [location, editing, contained]);
+
   if (!id) return null;
   if (location === undefined) return <LoadingPage />;
   if (location === null) {
     return (
-      <EmptyState
-        title="Lokacja nie istnieje"
-        description="Nie znaleziono lokacji o podanym ID."
-        action={
-          <button
-            type="button"
-            onClick={() => navigate('/locations')}
-            className="app-button-primary rounded-full px-4 py-2 text-sm font-medium"
-          >
-            Wróć do lokacji
-          </button>
-        }
+      <DetailNotFound
+        icon={MapPin}
+        title="Lokacja nie znaleziona"
+        description="Mogła zostać usunięta albo odnośnik jest nieaktualny."
+        to="/locations"
+        linkLabel="Wróć do listy lokacji"
       />
     );
   }
@@ -363,9 +374,18 @@ export function LocationDetail() {
             </div>
           </div>
 
+          <DetailTocBar
+            ariaLabel="Sekcje karty lokacji"
+            items={locationTocItems}
+            className="mb-2"
+          />
+
           {/* Senses */}
           {(senses.see || senses.hear || senses.smell || senses.feel) && (
-            <div className="app-panel mb-6 grid grid-cols-2 gap-4 rounded-[1.6rem] p-5 shadow-[0_16px_32px_rgba(18,45,66,0.08)] lg:p-6">
+            <div
+              id="location-detail-senses"
+              className="app-panel mb-6 grid grid-cols-2 gap-4 rounded-[1.6rem] p-5 shadow-[0_16px_32px_rgba(18,45,66,0.08)] lg:p-6"
+            >
               {senses.see && (
                 <div>
                   <p className="text-surface-400 mb-0.5 text-xs font-medium tracking-wide uppercase">
@@ -417,7 +437,10 @@ export function LocationDetail() {
 
           {/* Description */}
           {location.description && (
-            <section className="app-panel mb-6 rounded-[1.6rem] p-5 shadow-[0_16px_32px_rgba(18,45,66,0.08)] lg:p-6">
+            <section
+              id="location-detail-opis"
+              className="app-panel mb-6 rounded-[1.6rem] p-5 shadow-[0_16px_32px_rgba(18,45,66,0.08)] lg:p-6"
+            >
               <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
                 Opis
               </h2>
@@ -429,7 +452,7 @@ export function LocationDetail() {
           )}
 
           {/* Sub-location tree */}
-          <section className="mb-6">
+          <section id="location-detail-podlokacje" className="mb-6">
             <div className="mb-2 flex items-center justify-between">
               <h2 className="text-surface-800 text-sm font-semibold">Podlokacje</h2>
               <button
@@ -469,7 +492,7 @@ export function LocationDetail() {
           {(containedNpcs.length > 0 ||
             containedItems.length > 0 ||
             containedThreats.length > 0) && (
-            <section className="mb-6 flex flex-col gap-4">
+            <section id="location-detail-zawartosc" className="mb-6 flex flex-col gap-4">
               {containedNpcs.length > 0 && (
                 <DndContext onDragEnd={handleNpcDrop}>
                   <DroppableLocationZone locationId={location.id}>
@@ -538,7 +561,7 @@ export function LocationDetail() {
           )}
 
           {/* Relations */}
-          <section className="mb-6">
+          <section id="location-detail-relacje" className="mb-6">
             <div className="mb-2 flex items-center justify-between">
               <h2 className="text-surface-800 text-sm font-semibold">Relacje</h2>
               <button
@@ -553,6 +576,8 @@ export function LocationDetail() {
             <NotesList entityId={location.id} />
             <RelationList entityId={location.id} onNavigate={handleNavigateToEntity} />
           </section>
+
+          <DetailScrollTopFab enabled={locationTocItems.length > 0} />
         </>
       )}
 

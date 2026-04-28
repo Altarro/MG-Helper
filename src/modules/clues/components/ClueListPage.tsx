@@ -5,6 +5,7 @@ import { Plus, Search, Zap, X } from 'lucide-react';
 import { useClues } from '../hooks/useClues';
 import { ClueCard } from './ClueCard';
 import { ClueForm } from './ClueForm';
+import { FilterCountBadge } from '@shared/components/FilterCountBadge';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { EmptyState } from '@shared/components/EmptyState';
 import { addEntity, updateEntity } from '@shared/db/operations';
@@ -12,6 +13,7 @@ import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
 import type { Clue } from '../types';
 import type { ClueFormValues } from './ClueForm';
+import { formatPolishClueCount } from '@shared/utils/polishPlural';
 import { getEntityDetailPath, getEntityTypeLabel } from '@shared/utils/entityTypeMeta';
 import type { Entity } from '@shared/types/entity';
 
@@ -32,6 +34,13 @@ const STORY_TARGET_ORDER: Record<string, number> = {
   threat: 1,
   thread: 2,
 };
+
+function clueMatchesTabValue(clue: Clue, tabValue: FilterTab): boolean {
+  if (tabValue === 'all') return true;
+  if (tabValue === 'discovered') return clue.data.discovered;
+  if (tabValue === 'hidden') return !clue.data.discovered;
+  return clue.data.clueTypes.includes(tabValue);
+}
 
 export function ClueList() {
   const clues = useClues();
@@ -57,27 +66,32 @@ export function ClueList() {
   }, [db]);
 
   const lowerQuery = query.trim().toLowerCase();
-  const filtered = clues?.filter((clue) => {
+  const queryMatchedClues = clues?.filter((clue) => {
     const relatedTargets = (clueLinkData?.relations ?? [])
       .filter((relation) => relation.sourceId === clue.id)
       .map((relation) => clueLinkData?.targets.get(relation.targetId))
       .filter((target): target is Entity => Boolean(target));
 
-    const matchesQuery =
+    return (
       !lowerQuery ||
       clue.name.toLowerCase().includes(lowerQuery) ||
       clue.data.hint.toLowerCase().includes(lowerQuery) ||
       clue.tags.some((tag) => tag.toLowerCase().includes(lowerQuery)) ||
-      relatedTargets.some((target) => target.name.toLowerCase().includes(lowerQuery));
-
-    const matchesTab =
-      tab === 'all' ||
-      (tab === 'discovered' && clue.data.discovered) ||
-      (tab === 'hidden' && !clue.data.discovered) ||
-      (tab !== 'discovered' && tab !== 'hidden' && clue.data.clueTypes.includes(tab));
-
-    return matchesQuery && matchesTab;
+      relatedTargets.some((target) => target.name.toLowerCase().includes(lowerQuery))
+    );
   });
+  const filtered = queryMatchedClues?.filter((clue) => clueMatchesTabValue(clue, tab));
+  const tabStats = useMemo(() => {
+    const list = queryMatchedClues ?? [];
+    return (Object.keys(TAB_LABELS) as FilterTab[]).reduce(
+      (acc, tabValue) => {
+        acc[tabValue] = list.filter((c) => clueMatchesTabValue(c, tabValue)).length;
+        return acc;
+      },
+      {} as Record<FilterTab, number>,
+    );
+  }, [queryMatchedClues]);
+  const viewModeCount = filtered?.length ?? 0;
 
   const groupedSections = useMemo(() => {
     const sections = new Map<string, { target: Entity; clues: Clue[] }>();
@@ -182,7 +196,8 @@ export function ClueList() {
                   : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
               }`}
             >
-              Grupowanie
+              <span>Grupowanie</span>
+              <FilterCountBadge selected={viewMode === 'grouped'} count={viewModeCount} />
             </button>
             <button
               type="button"
@@ -193,7 +208,8 @@ export function ClueList() {
                   : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
               }`}
             >
-              Siatka
+              <span>Siatka</span>
+              <FilterCountBadge selected={viewMode === 'flat'} count={viewModeCount} />
             </button>
             <button
               type="button"
@@ -216,7 +232,8 @@ export function ClueList() {
                 tab === value ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
               }`}
             >
-              {label}
+              <span>{label}</span>
+              <FilterCountBadge selected={tab === value} count={tabStats[value]} />
             </button>
           ))}
         </div>
@@ -314,7 +331,7 @@ export function ClueList() {
                     )}
                   </div>
                   <span className="app-pill-muted shrink-0 rounded-full px-3 py-1 text-xs">
-                    {section.clues.length} wsk.
+                    {formatPolishClueCount(section.clues.length)}
                   </span>
                 </div>
 
@@ -344,7 +361,7 @@ export function ClueList() {
                   </p>
                 </div>
                 <span className="app-danger-pill shrink-0 rounded-full px-3 py-1 text-xs">
-                  {freeClues.length} szt.
+                  {formatPolishClueCount(freeClues.length)}
                 </span>
               </div>
 

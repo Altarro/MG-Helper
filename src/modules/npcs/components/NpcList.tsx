@@ -1,16 +1,46 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Plus, Search, X } from 'lucide-react';
 import { useNpcs } from '../hooks/useNpcs';
 import { NpcCard } from './NpcCard';
 import { NpcForm } from './NpcForm';
+import { FilterCountBadge } from '@shared/components/FilterCountBadge';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { EmptyState } from '@shared/components/EmptyState';
 import { addEntity } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
 import type { NpcFormValues } from './NpcForm';
+import type { Npc } from '../types';
 import { getNpcLifecycleStatus } from '@shared/utils/entityData';
+
+type NpcTab = 'all' | 'players' | 'npcs';
+
+function npcMatchesQuery(npc: Npc, lowerQuery: string): boolean {
+  if (!lowerQuery) return true;
+  return (
+    npc.name.toLowerCase().includes(lowerQuery) ||
+    npc.data?.instinct?.toLowerCase().includes(lowerQuery) ||
+    npc.data?.motivation?.toLowerCase().includes(lowerQuery) ||
+    npc.tags.some((t) => t.toLowerCase().includes(lowerQuery))
+  );
+}
+
+function npcMatchesTag(npc: Npc, activeTag: string | null): boolean {
+  return !activeTag || npc.tags.includes(activeTag);
+}
+
+function npcMatchesTab(npc: Npc, tab: NpcTab): boolean {
+  return (
+    tab === 'all' ||
+    (tab === 'players' && npc.data?.isPC === true) ||
+    (tab === 'npcs' && !npc.data?.isPC)
+  );
+}
+
+function npcMatchesHideDead(npc: Npc, hideDead: boolean): boolean {
+  return !hideDead || getNpcLifecycleStatus({ data: npc.data }) !== 'completed';
+}
 
 export function NpcList() {
   const npcs = useNpcs();
@@ -18,27 +48,59 @@ export function NpcList() {
   const { db } = useCampaign();
   const [query, setQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
-  const [tab, setTab] = useState<'all' | 'players' | 'npcs'>('all');
+  const [tab, setTab] = useState<NpcTab>('all');
   const [hideDead, setHideDead] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const lowerQuery = query.trim().toLowerCase();
-  const filtered = npcs?.filter((npc) => {
-    const matchesQuery =
-      !lowerQuery ||
-      npc.name.toLowerCase().includes(lowerQuery) ||
-      npc.data?.instinct?.toLowerCase().includes(lowerQuery) ||
-      npc.data?.motivation?.toLowerCase().includes(lowerQuery) ||
-      npc.tags.some((t) => t.toLowerCase().includes(lowerQuery));
-    const matchesTag = !activeTag || npc.tags.includes(activeTag);
-    const matchesTab =
-      tab === 'all' ||
-      (tab === 'players' && npc.data?.isPC === true) ||
-      (tab === 'npcs' && !npc.data?.isPC);
-    const matchesDead = !hideDead || getNpcLifecycleStatus({ data: npc.data }) !== 'completed';
-    return matchesQuery && matchesTag && matchesTab && matchesDead;
-  });
+  const filtered = npcs?.filter(
+    (npc) =>
+      npcMatchesQuery(npc, lowerQuery) &&
+      npcMatchesTag(npc, activeTag) &&
+      npcMatchesTab(npc, tab) &&
+      npcMatchesHideDead(npc, hideDead),
+  );
+
+  const tabStats = useMemo(() => {
+    const list = (npcs ?? []).filter(
+      (n) =>
+        npcMatchesQuery(n, lowerQuery) &&
+        npcMatchesTag(n, activeTag) &&
+        npcMatchesHideDead(n, hideDead),
+    );
+    return {
+      all: list.length,
+      players: list.filter((n) => npcMatchesTab(n, 'players')).length,
+      npcs: list.filter((n) => npcMatchesTab(n, 'npcs')).length,
+    };
+  }, [npcs, lowerQuery, activeTag, hideDead]);
+
+  const tagCounts = useMemo(() => {
+    const list = (npcs ?? []).filter(
+      (n) =>
+        npcMatchesQuery(n, lowerQuery) &&
+        npcMatchesTab(n, tab) &&
+        npcMatchesHideDead(n, hideDead),
+    );
+    const map = new Map<string, number>();
+    for (const n of list) {
+      for (const t of n.tags) {
+        map.set(t, (map.get(t) ?? 0) + 1);
+      }
+    }
+    return map;
+  }, [npcs, lowerQuery, tab, hideDead]);
+
+  const deadInTabSelection = useMemo(() => {
+    const list = (npcs ?? []).filter(
+      (n) =>
+        npcMatchesQuery(n, lowerQuery) &&
+        npcMatchesTag(n, activeTag) &&
+        npcMatchesTab(n, tab),
+    );
+    return list.filter((n) => getNpcLifecycleStatus({ data: n.data }) === 'completed').length;
+  }, [npcs, lowerQuery, activeTag, tab]);
 
   const allTags = npcs ? [...new Set(npcs.flatMap((n) => n.tags))].sort() : [];
 
@@ -111,7 +173,17 @@ export function NpcList() {
                 tab === value ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
               }`}
             >
-              {label}
+              <span>{label}</span>
+              <FilterCountBadge
+                selected={tab === value}
+                count={
+                  value === 'all'
+                    ? tabStats.all
+                    : value === 'players'
+                      ? tabStats.players
+                      : tabStats.npcs
+                }
+              />
             </button>
           ))}
           <button
@@ -121,7 +193,8 @@ export function NpcList() {
               hideDead ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
             }`}
           >
-            Ukryj nie żyjące
+            <span>Ukryj nie żyjące</span>
+            <FilterCountBadge selected={hideDead} count={deadInTabSelection} />
           </button>
         </div>
 
@@ -157,7 +230,8 @@ export function NpcList() {
                   activeTag === tag ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
                 }`}
               >
-                {tag}
+                <span>{tag}</span>
+                <FilterCountBadge selected={activeTag === tag} count={tagCounts.get(tag) ?? 0} />
               </button>
             ))}
           </div>

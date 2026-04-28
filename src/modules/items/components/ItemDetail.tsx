@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router';
 import { ArrowLeft, Edit2, Trash2, X, Package, OctagonAlert } from 'lucide-react';
 import { useItemById } from '../hooks/useItemById';
 import { ItemForm } from './ItemForm';
+import { DetailNotFound } from '@shared/components/DetailNotFound';
+import { DetailScrollTopFab } from '@shared/components/DetailScrollTopFab';
+import { DetailTocBar } from '@shared/components/DetailTocBar';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { EntityDetailPortrait } from '@shared/components/EntityDetailPortrait';
@@ -38,19 +41,25 @@ export function ItemDetail() {
   const backPath = returnToSessionLive ? `/sessions/${returnToSessionLive}/live` : '/items';
   const backLabel = returnToSessionLive ? 'Sesja na żywo' : 'Przedmioty';
 
+  const itemTocItems = useMemo(() => {
+    if (!item || isEditing) return [];
+    const items: { id: string; label: string }[] = [];
+    if (item.data.properties.length > 0) items.push({ id: 'item-detail-properties', label: 'Właściwości' });
+    if (item.description) items.push({ id: 'item-detail-opis', label: 'Opis' });
+    items.push({ id: 'item-detail-notatki', label: 'Notatki' });
+    return items;
+  }, [item, isEditing]);
+
   if (item === undefined) return <LoadingSpinner />;
   if (!item) {
     return (
-      <div className="mx-auto flex max-w-5xl flex-col gap-4 p-6">
-        <p className="text-surface-500">Przedmiot nie znaleziony.</p>
-        <Link
-          to="/items"
-          className="text-surface-500 hover:text-primary-700 flex w-fit items-center gap-1.5 text-sm transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Przedmioty
-        </Link>
-      </div>
+      <DetailNotFound
+        icon={Package}
+        title="Przedmiot nie znaleziony"
+        description="Mógł zostać usunięty albo odnośnik jest nieaktualny."
+        to="/items"
+        linkLabel="Wróć do listy przedmiotów"
+      />
     );
   }
 
@@ -212,6 +221,8 @@ export function ItemDetail() {
         </div>
       </div>
 
+      {!isEditing && <DetailTocBar ariaLabel="Sekcje karty przedmiotu" items={itemTocItems} className="mb-2" />}
+
       {isEditing && (
         <div className="app-panel rounded-[1.75rem] p-4 shadow-[0_20px_40px_rgba(18,45,66,0.08)] lg:p-6">
           <ItemForm
@@ -232,7 +243,7 @@ export function ItemDetail() {
       )}
 
       {!isEditing && item.data.properties.length > 0 && (
-        <div className="app-panel rounded-[1.6rem] p-5 lg:p-6">
+        <div id="item-detail-properties" className="app-panel rounded-[1.6rem] p-5 lg:p-6">
           <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
             Właściwości
           </h2>
@@ -247,7 +258,7 @@ export function ItemDetail() {
       )}
 
       {!isEditing && item.description && (
-        <div className="app-panel rounded-[1.6rem] p-5 lg:p-6">
+        <div id="item-detail-opis" className="app-panel rounded-[1.6rem] p-5 lg:p-6">
           <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
             Opis
           </h2>
@@ -268,7 +279,11 @@ export function ItemDetail() {
         </div>
       )}
 
-      <NotesList entityId={id!} />
+      <div id="item-detail-notatki">
+        <NotesList entityId={id!} />
+      </div>
+
+      <DetailScrollTopFab enabled={!isEditing && itemTocItems.length > 0} />
 
       <ConfirmDialog
         open={confirmDelete}

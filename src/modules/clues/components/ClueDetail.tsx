@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router';
-import { ArrowLeft, Edit2, Trash2, CheckCircle2, Circle } from 'lucide-react';
+import { ArrowLeft, Edit2, Trash2, CheckCircle2, Circle, Compass } from 'lucide-react';
 import { useClueById } from '../hooks/useClueById';
 import { ClueForm } from './ClueForm';
+import { DetailNotFound } from '@shared/components/DetailNotFound';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { RelationList } from '@shared/components/RelationList';
@@ -10,6 +11,8 @@ import { RelationPicker } from '@shared/components/RelationPicker';
 import { MarkdownExportButton } from '@shared/components/MarkdownExportButton';
 import { NarrativeLinksSection } from '@shared/components/NarrativeLinksSection';
 import { DetailSection } from '@shared/components/DetailSection';
+import { DetailScrollTopFab } from '@shared/components/DetailScrollTopFab';
+import { DetailTocBar } from '@shared/components/DetailTocBar';
 import { useRelatedEntities } from '@shared/hooks/useRelatedEntities';
 import { NotesList } from '@modules/notes/components/NotesList';
 import { deleteEntity, updateEntity } from '@shared/db/operations';
@@ -47,16 +50,27 @@ export function ClueDetail() {
   const backPath = returnToSessionLive ? `/sessions/${returnToSessionLive}/live` : '/clues';
   const backLabel = returnToSessionLive ? 'Sesja na żywo' : 'Wskazówki';
 
+  const clueTocItems = useMemo(() => {
+    if (!clue || isEditing) return [];
+    return [
+      { id: 'clue-detail-kontekst', label: 'Kontekst' },
+      { id: 'clue-detail-prowadzi', label: 'Prowadzi do' },
+      { id: 'clue-detail-powiazania', label: 'Powiązania' },
+      { id: 'clue-detail-notatki', label: 'Notatki MG' },
+    ];
+  }, [clue, isEditing]);
+
   if (clue === undefined) return <LoadingSpinner />;
 
   if (!clue) {
     return (
-      <div className="p-6">
-        <p className="text-surface-500">Wskazówka nie istnieje.</p>
-        <Link to="/clues" className="text-primary-600 hover:underline">
-          ← Wróć do listy wskazówek
-        </Link>
-      </div>
+      <DetailNotFound
+        icon={Compass}
+        title="Wskazówka nie znaleziona"
+        description="Mogła zostać usunięta albo odnośnik jest nieaktualny."
+        to="/clues"
+        linkLabel="Wróć do listy wskazówek"
+      />
     );
   }
 
@@ -194,7 +208,9 @@ export function ClueDetail() {
         </div>
       ) : (
         <div className="flex flex-col gap-5">
+          <DetailTocBar ariaLabel="Sekcje karty wskazówki" items={clueTocItems} />
           <DetailSection
+            sectionId="clue-detail-kontekst"
             title="Kontekst wskazówki"
             description="Status tropu, jego rdzeń i najkrótsza informacja, z której korzysta MG przy stole."
             tone="accent"
@@ -260,6 +276,7 @@ export function ClueDetail() {
           </DetailSection>
 
           <DetailSection
+            sectionId="clue-detail-prowadzi"
             title="Prowadzi do"
             description="Docelowe byty fabularne oraz siła tropu dla każdego kierunku."
             contentClassName="flex flex-col gap-5"
@@ -334,6 +351,7 @@ export function ClueDetail() {
           </DetailSection>
 
           <DetailSection
+            sectionId="clue-detail-powiazania"
             title="Powiązania świata"
             description="Relacje dodatkowe poza głównym kontraktem wskazówki."
             action={null}
@@ -359,6 +377,7 @@ export function ClueDetail() {
           </DetailSection>
 
           <DetailSection
+            sectionId="clue-detail-notatki"
             title="Notatki MG"
             description="Zaplecze robocze dla prowadzącego, poza czystym tropem i jego celem."
           >
@@ -368,6 +387,8 @@ export function ClueDetail() {
               emptyMessage="Brak notatek podpiętych do tej wskazówki."
             />
           </DetailSection>
+
+          <DetailScrollTopFab enabled={clueTocItems.length > 0} />
         </div>
       )}
 

@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Plus, Search, X, Flag } from 'lucide-react';
 import { useFactions } from '../hooks/useFactions';
 import { FactionCard } from './FactionCard';
 import { FactionForm } from './FactionForm';
+import { FilterCountBadge } from '@shared/components/FilterCountBadge';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { EmptyState } from '@shared/components/EmptyState';
 import { addEntity } from '@shared/db/operations';
@@ -22,14 +23,23 @@ export function FactionList() {
   const [hideDisbanded, setHideDisbanded] = useState(false);
 
   const lowerQuery = query.trim().toLowerCase();
-  const filtered = factions?.filter((f) => {
-    if (hideDisbanded && getFactionLifecycleStatus({ data: f.data }) === 'completed') return false;
-    return (
+  const queryMatchedFactions = factions?.filter(
+    (f) =>
       !lowerQuery ||
       f.name.toLowerCase().includes(lowerQuery) ||
-      f.tags.some((t) => t.toLowerCase().includes(lowerQuery))
+      f.tags.some((t) => t.toLowerCase().includes(lowerQuery)),
+  );
+  const filtered = queryMatchedFactions?.filter(
+    (f) => !hideDisbanded || getFactionLifecycleStatus({ data: f.data }) !== 'completed',
+  );
+
+  const disbandedMatchingQuery = useMemo(() => {
+    return (
+      queryMatchedFactions?.filter(
+        (f) => getFactionLifecycleStatus({ data: f.data }) === 'completed',
+      ).length ?? 0
     );
-  });
+  }, [queryMatchedFactions]);
 
   async function handleCreate(values: FactionFormValues) {
     setSaving(true);
@@ -95,7 +105,8 @@ export function FactionList() {
             onChange={(e) => setHideDisbanded(e.target.checked)}
             className="border-surface-300 accent-primary-600 h-4 w-4 rounded"
           />
-          Ukryj rozbite
+          <span>Ukryj rozbite</span>
+          <FilterCountBadge selected={hideDisbanded} count={disbandedMatchingQuery} />
         </label>
       </section>
 
