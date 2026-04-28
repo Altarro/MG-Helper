@@ -1,6 +1,8 @@
 import type { MgHelperDb } from './database';
-import { addEntity as _addEntity, addRelation as _addRelation } from '@shared/db/operations';
+import { addEntity as _addEntity, addRelation as _addRelation, updateEntity } from '@shared/db/operations';
 import type { Entity, NewEntity, NewRelation } from '@shared/types';
+import { createGeneratorDemoPacks } from '@modules/generator/demoPacks';
+import { appendGeneratorRollLog, importGeneratorPacks } from '@modules/generator/repository';
 
 type EntityMap<T extends Record<string, NewEntity>> = {
   [K in keyof T]: Entity;
@@ -33,6 +35,17 @@ async function addRelations(
  * Should only be called on user request (e.g. onboarding dialog).
  */
 export async function seedDemoData(db: MgHelperDb): Promise<void> {
+  const campaignId = getCampaignIdFromDb(db);
+  await db.transaction('rw', db.entities, db.relations, db.assets, async () => {
+    await db.entities.clear();
+    await db.relations.clear();
+    await db.assets.clear();
+  });
+  await db.transaction('rw', db.generatorPacks, db.generatorRollLogs, async () => {
+    await db.generatorPacks.where('campaignId').equals(campaignId).delete();
+    await db.generatorRollLogs.where('campaignId').equals(campaignId).delete();
+  });
+
   const addEntity = _addEntity.bind(null, db);
   const addRelation = _addRelation.bind(null, db);
 
@@ -982,6 +995,11 @@ export async function seedDemoData(db: MgHelperDb): Promise<void> {
       data: {
         threatType: 'dark_entity',
         impulse: 'Otworzyć komorę i przeprowadzić wybranych przez przemianę',
+        trigger: [
+          'Syrene domyka kolejny etap hymnu bez zakłóceń.',
+          'Zakon zdobywa nowego uczestnika rytuału lub brakujący składnik.',
+          'Komora pozostaje bezpieczna i niedostępna dla bohaterów przez całą sesję.',
+        ].join('\n'),
         moves: [
           'Porywa ludzi powiązanych z pierwszym rytuałem',
           'Wysyła wiernych do kanałów po kolejne składniki',
@@ -998,6 +1016,11 @@ export async function seedDemoData(db: MgHelperDb): Promise<void> {
       data: {
         threatType: 'environ_disaster',
         impulse: 'Przerwać kontrolę nad światłem i ściągnąć katastrofę na port',
+        trigger: [
+          'Bractwo odkłada właściwą naprawę soczewki.',
+          'Latarnia nadaje kolejny błędny sygnał podczas sztormu.',
+          'Pęknięcie rezonuje z działaniami rytualnymi pod miastem.',
+        ].join('\n'),
         moves: [
           'Oślepia załogi błędnym sygnałem',
           'Wypala znaki rytualne w kamieniu wieży',
@@ -1014,6 +1037,11 @@ export async function seedDemoData(db: MgHelperDb): Promise<void> {
       data: {
         threatType: 'corrupt_ruler',
         impulse: 'Spieniężyć władzę zanim port upadnie albo się oczyści',
+        trigger: [
+          'Rada podpisuje kontrakt bez kontroli i debaty publicznej.',
+          'Vaal neutralizuje świadka lub ukrywa kompromitujący dokument.',
+          'Kompania przejmuje kolejny obszar infrastruktury miasta.',
+        ].join('\n'),
         moves: [
           'Zamyka usta straży papierami z pieczęcią',
           'Sprzedaje strefy bezpieczeństwa prywatnym kupcom',
@@ -1030,6 +1058,11 @@ export async function seedDemoData(db: MgHelperDb): Promise<void> {
       data: {
         threatType: 'ambitious_organization',
         impulse: 'Zmonopolizować kanały i przeżycie pod miastem',
+        trigger: [
+          'Nox przejmuje nową śluzę albo punkt przeładunkowy.',
+          'Niezależny przewoźnik znika lub zostaje zastraszony.',
+          'Bohaterowie tracą inicjatywę w podziemnych trasach.',
+        ].join('\n'),
         moves: [
           'Kupuje przewoźników albo wysyła ich na dno',
           'Fałszuje mapy bocznych śluz',
@@ -1046,6 +1079,11 @@ export async function seedDemoData(db: MgHelperDb): Promise<void> {
       data: {
         threatType: 'disease_affliction',
         impulse: 'Rozprzestrzeniać skażenie szybciej niż ludzie zdążą je zrozumieć',
+        trigger: [
+          'Pojawia się nowe ognisko mgły w gęsto zaludnionej dzielnicy.',
+          'Szpital nie nadąża i pacjenci trafiają poza kontrolowany obieg.',
+          'Źródło skażenia w kanałach pozostaje nietknięte.',
+        ].join('\n'),
         moves: [
           'Zostawia biały nalot w płucach i na skórze',
           'Popycha radę ku coraz brutalniejszej kwarantannie',
@@ -1062,6 +1100,11 @@ export async function seedDemoData(db: MgHelperDb): Promise<void> {
       data: {
         threatType: 'force_of_chaos',
         impulse: 'Uderzyć brutalnie i przejąć kluczowe punkty zanim pojawi się opór',
+        trigger: [
+          'Verrick kończy przygotowania ludzi i sprzętu do szturmu.',
+          'Obrona fortu lub doków zostaje osłabiona sabotażem.',
+          'W mieście wybucha chaos odciągający straż od kluczowych punktów.',
+        ].join('\n'),
         moves: [
           'Rozstawia ludzi przy śluzach i magazynach',
           'Podrzuca broń tam, gdzie ma wybuchnąć bójka',
@@ -1204,6 +1247,113 @@ export async function seedDemoData(db: MgHelperDb): Promise<void> {
       },
     },
   } satisfies Record<string, NewEntity>, addEntity);
+
+  await Promise.all([
+    updateEntity(db, clocks.tideGate.id, {
+      data: {
+        ...clocks.tideGate.data,
+        kind: 'threat',
+        tickWhen: [
+          'Zakon kończy kolejny etap hymnu w opactwie.',
+          'Ktoś zdobywa nowe imię lub krew potrzebną do rytuału.',
+          'Bohaterowie ignorują sygnały z katakumb przez całą sesję.',
+        ].join('\n'),
+        lastAdvanceAt: '2025-03-17T20:30:00.000Z',
+        lastAdvanceSessionId: sessions.s03.id,
+      },
+    }),
+    updateEntity(db, clocks.beaconFailure.id, {
+      data: {
+        ...clocks.beaconFailure.data,
+        kind: 'threat',
+        tickWhen: [
+          'Latarnia pracuje na przeciążeniu bez naprawy soczewki.',
+          'Bractwo próbuje prowizorycznych obejść zamiast stabilizacji.',
+          'W porcie dochodzi do kolejnego błędnego sygnału świetlnego.',
+        ].join('\n'),
+        lastAdvanceAt: '2025-03-10T22:00:00.000Z',
+        lastAdvanceSessionId: sessions.s02.id,
+      },
+    }),
+    updateEntity(db, clocks.councilSale.id, {
+      data: {
+        ...clocks.councilSale.data,
+        kind: 'threat',
+        tickWhen: [
+          'Rada podpisuje nową umowę z Kompanią bez kontroli społecznej.',
+          'Vaal ucisza kolejnego świadka lub dokument znika z archiwum.',
+          'Straż dostaje rozkaz chronić interes kupców zamiast mieszkańców.',
+        ].join('\n'),
+        lastAdvanceAt: '2025-03-31T20:30:00.000Z',
+        lastAdvanceSessionId: sessions.s05.id,
+      },
+    }),
+    updateEntity(db, clocks.smugglingNet.id, {
+      data: {
+        ...clocks.smugglingNet.data,
+        kind: 'threat',
+        tickWhen: [
+          'Nox przejmuje kolejną śluzę albo trasę transportową.',
+          'Niezależny przewoźnik znika lub składa hołd Czarnym Żaglom.',
+          'Bohaterowie oddają inicjatywę w kanałach na rzecz przemytników.',
+        ].join('\n'),
+        lastAdvanceAt: '2025-04-21T21:10:00.000Z',
+        lastAdvanceSessionId: sessions.s08.id,
+      },
+    }),
+    updateEntity(db, clocks.saltPlague.id, {
+      data: {
+        ...clocks.saltPlague.data,
+        kind: 'threat',
+        tickWhen: [
+          'Pojawia się nowe ognisko choroby poza strefą kwarantanny.',
+          'Szpital traci zasoby lub personel i nie wyrabia z pacjentami.',
+          'Rada opóźnia decyzje o odcięciu źródła skażenia.',
+        ].join('\n'),
+        lastAdvanceAt: '2025-04-07T20:00:00.000Z',
+        lastAdvanceSessionId: sessions.s06.id,
+      },
+    }),
+    updateEntity(db, clocks.verrickAssault.id, {
+      data: {
+        ...clocks.verrickAssault.data,
+        kind: 'threat',
+        tickWhen: [
+          'Verrick gromadzi ludzi i ładunki przy śluzach fortu.',
+          'Obrona fortu zostaje osłabiona przez sabotaż od środka.',
+          'W dokach wybucha chaos odciągający uwagę straży.',
+        ].join('\n'),
+        lastAdvanceAt: '2025-04-28T18:10:00.000Z',
+        lastAdvanceSessionId: sessions.s09.id,
+      },
+    }),
+    updateEntity(db, clocks.rynDebt.id, {
+      data: {
+        ...clocks.rynDebt.data,
+        kind: 'free',
+        tickWhen: [
+          'Wierzyciele Ryna naciskają na drużynę lub jego załogę.',
+          'Ryn wybiera półśrodki zamiast spłaty długu.',
+          'Pojawia się nowy trop łączący dług z dawnym rytuałem.',
+        ].join('\n'),
+        lastAdvanceAt: '2025-03-31T22:00:00.000Z',
+        lastAdvanceSessionId: sessions.s05.id,
+      },
+    }),
+    updateEntity(db, clocks.failedPact.id, {
+      data: {
+        ...clocks.failedPact.data,
+        kind: 'free',
+        tickWhen: [
+          'Bohaterowie odkrywają nowy szczegół o rytuale sprzed lat.',
+          'Elsera lub Garet ujawniają kolejne przemilczane fakty.',
+          'Konsekwencje dawnego paktu wracają w bieżącej scenie.',
+        ].join('\n'),
+        lastAdvanceAt: '2025-04-14T22:15:00.000Z',
+        lastAdvanceSessionId: sessions.s07.id,
+      },
+    }),
+  ]);
 
   type SessionKey = keyof typeof sessions;
   const appearsInSessions = (sourceId: string, ...keys: SessionKey[]): NewRelation[] =>
@@ -2321,6 +2471,54 @@ export async function seedDemoData(db: MgHelperDb): Promise<void> {
     ],
     addRelation,
   );
+
+  const demoGeneratorPacks = createGeneratorDemoPacks(campaignId).map((pack, index) => ({
+    ...pack,
+    isActive: index === 0,
+  }));
+  await importGeneratorPacks(db, campaignId, demoGeneratorPacks, 'replace');
+
+  const activePack = demoGeneratorPacks[0];
+  const firstNameTable = activePack?.tables.find((table) => table.type === 'firstName');
+  const locationTable = activePack?.tables.find((table) => table.type === 'locationName');
+  const eventTable = activePack?.tables.find((table) => table.type === 'event');
+  if (activePack && firstNameTable && locationTable && eventTable) {
+    await appendGeneratorRollLog(db, {
+      campaignId,
+      sessionId: sessions.s02.id,
+      packId: activePack.id,
+      kind: 'character',
+      resultText: 'Maeve Graves "Whisper"',
+      sourceTableIds: [firstNameTable.id],
+      createdAt: '2025-03-10T21:05:00.000Z',
+    });
+    await appendGeneratorRollLog(db, {
+      campaignId,
+      sessionId: sessions.s04.id,
+      packId: activePack.id,
+      kind: 'location',
+      resultText: 'Ruins: Morrow Vault',
+      sourceTableIds: [locationTable.id],
+      createdAt: '2025-03-24T20:35:00.000Z',
+    });
+    await appendGeneratorRollLog(db, {
+      campaignId,
+      sessionId: sessions.s08.id,
+      packId: activePack.id,
+      kind: 'eventTable',
+      resultText: 'A courier collapses with a blood-sealed letter.',
+      sourceTableIds: [eventTable.id],
+      createdAt: '2025-04-21T22:05:00.000Z',
+    });
+  }
+}
+
+function getCampaignIdFromDb(db: MgHelperDb): string {
+  const prefix = 'mg-helper-';
+  if (db.name.startsWith(prefix)) {
+    return db.name.slice(prefix.length);
+  }
+  return '__legacy__';
 }
 
 /** True if there's at least one entity in the database */
