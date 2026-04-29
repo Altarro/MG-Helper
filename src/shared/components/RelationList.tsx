@@ -16,6 +16,7 @@ import {
 import { EntityTypeBadge } from './EntityTypeBadge';
 import { getEntityDetailPath } from '@shared/utils/entityTypeMeta';
 import { InlineEmptyState } from './InlineEmptyState';
+import { ConfirmDialog } from './ConfirmDialog';
 
 const RELATION_LABELS: Record<RelationType, string> = {
   contains: 'Zawiera',
@@ -55,6 +56,7 @@ function RelationRow({
   const location = useLocation();
   const other = useEntityById(otherId);
   const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   if (!other) return null;
 
@@ -66,6 +68,7 @@ function RelationRow({
     try {
       await deleteRelation(db, relationId);
       onDeleted();
+      setConfirmDelete(false);
     } catch {
       toast.error('Nie udało się usunąć relacji');
       setDeleting(false);
@@ -113,31 +116,26 @@ function RelationRow({
         : label;
 
   return (
-    <li className="app-input-shell flex items-center gap-3 rounded-[1.2rem] px-4 py-3 text-sm">
-      <span className="app-pill-muted text-surface-500 rounded-full px-2 py-1 font-mono text-[11px]">
-        {directionLabel}
-      </span>
-      <span className="app-pill-muted px-2.5 py-1 text-xs font-medium">{relationBadgeLabel}</span>
-      <button
-        type="button"
-        className={`min-w-0 flex-1 truncate text-left font-medium ${
-          canOpen
-            ? 'text-primary-700 focus:ring-primary-500/30 hover:underline focus:ring-2 focus:outline-none'
-            : 'text-surface-700'
-        }`}
-        onClick={handleOpenTarget}
-        disabled={!canOpen}
-        title={canOpen ? `Otwórz detail: ${other.name}` : other.name}
-        aria-label={`Przejdź do: ${other.name}`}
-      >
-        {other.name}
-      </button>
-      <div className="flex shrink-0 items-center gap-2">
-        {canOpen && (
-          <span className="app-pill-muted rounded-full px-2 py-0.5 text-[11px] font-medium">
-            Detail
-          </span>
-        )}
+    <li className="app-input-shell flex min-w-0 items-stretch overflow-hidden rounded-[1.2rem] text-sm">
+      <div className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3">
+        <span className="app-pill-muted text-surface-500 rounded-full px-2 py-1 font-mono text-[11px]">
+          {directionLabel}
+        </span>
+        <span className="app-pill-muted px-2.5 py-1 text-xs font-medium">{relationBadgeLabel}</span>
+        <button
+          type="button"
+          className={`min-w-0 flex-1 truncate text-left font-medium ${
+            canOpen
+              ? 'text-primary-700 focus:ring-primary-500/30 hover:underline focus:ring-2 focus:outline-none'
+              : 'text-surface-700'
+          }`}
+          onClick={handleOpenTarget}
+          disabled={!canOpen}
+          title={canOpen ? `Otwórz detail: ${other.name}` : other.name}
+          aria-label={`Przejdź do: ${other.name}`}
+        >
+          {other.name}
+        </button>
         {metaLabel && (
           <span className="text-surface-400 max-w-28 truncate text-xs italic">{metaLabel}</span>
         )}
@@ -147,16 +145,25 @@ function RelationRow({
           onClick={canOpen ? handleOpenTarget : undefined}
           ariaLabel={canOpen ? `Otwórz detail ${other.name}` : undefined}
         />
+      </div>
+      <div className="flex shrink-0 items-center self-stretch border-l border-[rgba(86,93,94,0.14)] bg-transparent px-2">
         <button
           type="button"
-          onClick={handleDelete}
+          onClick={() => setConfirmDelete(true)}
           disabled={deleting}
           aria-label="Usuń relację"
-          className="text-surface-400 shrink-0 rounded-full p-1.5 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+          className="text-surface-400 hover:text-danger-700 hover:bg-danger-50 shrink-0 rounded-full p-1 transition-colors disabled:opacity-50"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Usunąć powiązanie?"
+        description={`Czy na pewno chcesz usunąć powiązanie z „${other.name}"?`}
+        onConfirm={() => void handleDelete()}
+        onCancel={() => !deleting && setConfirmDelete(false)}
+      />
     </li>
   );
 }

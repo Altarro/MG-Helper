@@ -11,8 +11,9 @@ import { ClueSessionMatrix, type ClueMatrixFilter } from './ClueSessionMatrix';
 import { ThreatRadarPanel } from './ThreatRadarPanel';
 import { BackstageSummaryPanel } from './BackstageSummaryPanel';
 import { BackstageHintsPanel } from './BackstageHintsPanel';
+import { GraphPage } from '@modules/graph/components/GraphPage';
 
-type TabId = 'radar' | 'matrix';
+type TabId = 'radar' | 'matrix' | 'graph';
 
 export function BackstagePage() {
   const data = useBackstage();
@@ -111,6 +112,17 @@ export function BackstagePage() {
         >
           Macierz sesji
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'graph'}
+          className={`rounded-lg px-4 py-2 font-medium transition-colors ${
+            tab === 'graph' ? 'bg-white text-primary-800 shadow-sm' : 'text-surface-600 hover:text-surface-900'
+          }`}
+          onClick={() => setTab('graph')}
+        >
+          Graf relacji
+        </button>
       </div>
 
       {tab === 'radar' && (
@@ -202,6 +214,14 @@ export function BackstagePage() {
               filter={clueFilter}
             />
           </div>
+        </section>
+      )}
+      {tab === 'graph' && (
+        <section aria-labelledby="graph-heading" className="min-h-0 space-y-3">
+          <h2 id="graph-heading" className="text-sm font-semibold text-surface-800">
+            Graf relacji
+          </h2>
+          <GraphPage />
         </section>
       )}
       {tab === 'matrix' && showFloatingTop && (

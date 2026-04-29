@@ -1,11 +1,11 @@
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { isClock } from '@modules/clocks/types';
 import { CardScrollBlock } from '@shared/components/CardScrollBlock';
 import { getThreatStatus } from '@shared/utils/entityData';
-import { THREAT_TYPE_LABELS } from '../types';
+import { THREAT_TYPE_LABELS, normalizeThreatPillars } from '../types';
 import type { Threat } from '../types';
 import { ThreatClockListStylePanel } from './ThreatClockListStylePanel';
 
@@ -18,6 +18,10 @@ export const ThreatCard = memo(function ThreatCard({ threat, onClick }: ThreatCa
   const { db } = useCampaign();
   const { name, data, tags } = threat;
   const typeLabel = THREAT_TYPE_LABELS[data.threatType];
+  const pillars = useMemo(() => normalizeThreatPillars(data.pillars), [data.pillars]);
+  const hasMoves = data.moves.length > 0;
+  const hasPillars = pillars.length > 0;
+  const [detailMode, setDetailMode] = useState<'moves' | 'pillars'>(hasMoves ? 'moves' : 'pillars');
   const isCompleted = getThreatStatus(threat) === 'completed';
   const impulseTrimmed = data.impulse.trim();
   const clockTickWhenLines = useMemo(
@@ -40,6 +44,16 @@ export const ThreatCard = memo(function ThreatCard({ threat, onClick }: ThreatCa
     const entity = await db.entities.get(rel.targetId);
     return entity && isClock(entity) ? entity : null;
   }, [db, threat.id]);
+
+  useEffect(() => {
+    if (hasMoves) {
+      setDetailMode('moves');
+      return;
+    }
+    if (hasPillars) {
+      setDetailMode('pillars');
+    }
+  }, [hasMoves, hasPillars, threat.id]);
 
   return (
     <div
@@ -78,20 +92,95 @@ export const ThreatCard = memo(function ThreatCard({ threat, onClick }: ThreatCa
         </CardScrollBlock>
       )}
 
-      {data.moves.length > 0 && (
-        <CardScrollBlock
-          label="Ruchy"
-          contentClassName="pr-0.5"
-          remeasureKey={data.moves.join('\u0001')}
-        >
-          <ul className="list-inside list-disc text-sm leading-6 text-surface-700 [&>li+li]:mt-1">
-            {data.moves.map((move, index) => (
-              <li key={`${threat.id}-move-${index}`} className="marker:text-surface-400 pl-0.5">
-                {move}
-              </li>
-            ))}
-          </ul>
-        </CardScrollBlock>
+      {(hasMoves || hasPillars) && (
+        <div className="flex flex-col gap-2">
+          {detailMode === 'moves' && hasMoves && (
+            <CardScrollBlock
+              label="Ruchy"
+              contentClassName="pr-0.5"
+              remeasureKey={data.moves.join('\u0001')}
+              headerRight={
+                hasMoves && hasPillars ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setDetailMode('moves');
+                      }}
+                      className="app-pill rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
+                    >
+                      Ruchy
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setDetailMode('pillars');
+                      }}
+                      className="app-pill-muted hover:bg-[rgba(223,225,218,0.98)] rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
+                    >
+                      Filary
+                    </button>
+                  </div>
+                ) : null
+              }
+            >
+              <ul className="list-inside list-disc text-sm leading-6 text-surface-700 [&>li+li]:mt-1">
+                {data.moves.map((move, index) => (
+                  <li key={`${threat.id}-move-${index}`} className="marker:text-surface-400 pl-0.5">
+                    {move}
+                  </li>
+                ))}
+              </ul>
+            </CardScrollBlock>
+          )}
+
+          {detailMode === 'pillars' && hasPillars && (
+            <CardScrollBlock
+              label="Filary"
+              contentClassName="pr-0.5"
+              remeasureKey={pillars.map((pillar) => `${pillar.label}:${pillar.destroyed ? '1' : '0'}`).join('\u0001')}
+              headerRight={
+                hasMoves && hasPillars ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setDetailMode('moves');
+                      }}
+                      className="app-pill-muted hover:bg-[rgba(223,225,218,0.98)] rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
+                    >
+                      Ruchy
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setDetailMode('pillars');
+                      }}
+                      className="app-pill rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
+                    >
+                      Filary
+                    </button>
+                  </div>
+                ) : null
+              }
+            >
+              <ul className="list-inside list-disc text-sm leading-6 text-surface-700 [&>li+li]:mt-1">
+                {pillars.map((pillar, index) => (
+                  <li
+                    key={`${threat.id}-pillar-${index}`}
+                    className={`marker:text-surface-400 pl-0.5 ${pillar.destroyed ? 'line-through opacity-70' : ''}`}
+                  >
+                    {pillar.label}
+                  </li>
+                ))}
+              </ul>
+            </CardScrollBlock>
+          )}
+        </div>
       )}
 
       {linkedClock && (

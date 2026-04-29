@@ -17,7 +17,7 @@ const ROUTE_LABELS: Record<string, string> = {
   sessions: 'Sesje',
   factions: 'Frakcje',
   items: 'Przedmioty',
-  graph: 'Graf',
+  graph: 'Za kulisami · Graf',
   clues: 'Wskazówki',
   threads: 'Wątki',
   backstage: 'Za kulisami',

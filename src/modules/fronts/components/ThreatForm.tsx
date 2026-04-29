@@ -17,8 +17,9 @@ import {
   THREAT_COMPLETION_OUTCOMES,
   THREAT_COMPLETION_OUTCOME_LABELS,
   DEFAULT_RADAR_ARCHETYPE,
+  normalizeThreatPillars,
 } from '../types';
-import type { RadarArchetype, ThreatCompletionOutcome } from '../types';
+import type { RadarArchetype, ThreatCompletionOutcome, ThreatPillar } from '../types';
 import { getAllRadarArchetypes, getRadarArchetypeLabel } from '@modules/backstage/radarSettings';
 import { CLOCK_SEGMENTS } from '@modules/clocks/types';
 import type { ClockSegments } from '@modules/clocks/types';
@@ -51,6 +52,7 @@ const threatFormSchema = z
   inheritanceNotes: z.string().max(4000).default(''),
   forkThreatId: z.string().default(''),
   moves: z.array(z.object({ value: z.string() })),
+  pillars: z.array(z.object({ value: z.string(), destroyed: z.boolean().default(false) })),
   description: z.string().max(100_000),
   tags: z.array(z.string()).max(50),
   clockName: z.string().max(200).default(''),
@@ -84,6 +86,7 @@ export interface ThreatFormValues {
   inheritanceNotes: string;
   forkThreatId?: string;
   moves: string[];
+  pillars: ThreatPillar[];
   description: string;
   tags: string[];
   clock?: { name: string; segments: ClockSegments; tickLabels?: string[] } | null;
@@ -134,6 +137,10 @@ export function ThreatForm({
       inheritanceNotes: defaultValues?.inheritanceNotes ?? '',
       forkThreatId: defaultValues?.forkThreatId ?? '',
       moves: (defaultValues?.moves ?? []).map((v) => ({ value: v })),
+      pillars: normalizeThreatPillars(defaultValues?.pillars).map((pillar) => ({
+        value: pillar.label,
+        destroyed: pillar.destroyed === true,
+      })),
       description: defaultValues?.description ?? '',
       tags: defaultValues?.tags ?? [],
       clockName: defaultValues?.clock?.name ?? '',
@@ -146,6 +153,11 @@ export function ThreatForm({
   });
 
   const { fields, append, remove, replace } = useFieldArray({ control, name: 'moves' });
+  const {
+    fields: pillarFields,
+    append: appendPillar,
+    remove: removePillar,
+  } = useFieldArray({ control, name: 'pillars' });
   const {
     fields: clockTickWhenFields,
     append: appendClockTickWhen,
@@ -233,6 +245,9 @@ export function ThreatForm({
       inheritanceNotes: raw.inheritanceNotes.trim(),
       forkThreatId: raw.forkThreatId || undefined,
       moves: raw.moves.map((m) => m.value).filter(Boolean),
+      pillars: raw.pillars
+        .map((p) => ({ label: p.value.trim(), destroyed: p.destroyed === true }))
+        .filter((p) => p.label.length > 0),
       clock: showClock && raw.clockName.trim()
         ? {
             name: raw.clockName.trim(),
@@ -402,6 +417,39 @@ export function ThreatForm({
               type="button"
               onClick={() => remove(i)}
               aria-label="Usuń ruch"
+              className="app-button-secondary rounded-2xl p-2.5 text-surface-600 transition-colors hover:text-red-700"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium text-surface-800">Filary zagrożenia</label>
+          <button
+            type="button"
+            onClick={() => appendPillar({ value: '', destroyed: false })}
+            className="flex items-center gap-1 text-xs font-medium text-primary-700 transition-colors hover:text-primary-800"
+          >
+            <Plus className="h-3.5 w-3.5" /> Dodaj filar
+          </button>
+        </div>
+        {pillarFields.length === 0 && (
+          <p className="text-xs text-surface-500">Brak filarów - dodaj kluczowe podpory tego zagrożenia.</p>
+        )}
+        {pillarFields.map((field, i) => (
+          <div key={field.id} className="flex gap-2">
+            <input
+              {...register(`pillars.${i}.value`)}
+              className="app-input flex-1 rounded-2xl px-3.5 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              placeholder={`Filar ${i + 1}...`}
+            />
+            <button
+              type="button"
+              onClick={() => removePillar(i)}
+              aria-label="Usuń filar"
               className="app-button-secondary rounded-2xl p-2.5 text-surface-600 transition-colors hover:text-red-700"
             >
               <X className="h-4 w-4" />

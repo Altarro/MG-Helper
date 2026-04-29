@@ -1,24 +1,39 @@
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
-import { ArrowLeft, Edit2, Trash2, X, Flag, Users, MapPin } from 'lucide-react';
+import { ArrowLeft, Edit2, Trash2, X, Flag, Users, MapPin, Plus, Search } from 'lucide-react';
 import { useFactionById } from '../hooks/useFactionById';
 import { FactionForm } from './FactionForm';
 import { DetailNotFound } from '@shared/components/DetailNotFound';
+import { DetailSection } from '@shared/components/DetailSection';
 import { DetailScrollTopFab } from '@shared/components/DetailScrollTopFab';
 import { DetailTocBar } from '@shared/components/DetailTocBar';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { EntityDetailPortrait } from '@shared/components/EntityDetailPortrait';
 import { NotesList } from '@modules/notes/components/NotesList';
-import { deleteEntity, updateEntity, getEntityById } from '@shared/db/operations';
+import {
+  deleteEntity,
+  updateEntity,
+  getEntityById,
+  deleteRelation,
+  assignBelongsTo,
+} from '@shared/db/operations';
 import { deleteAsset } from '@shared/db/assets';
 import { useCampaign } from '@shared/db/CampaignContext';
 import type { MgHelperDb } from '@shared/db/database';
+import type { Entity } from '@shared/types';
 import { toast } from 'sonner';
 import { useLiveQuery } from 'dexie-react-hooks';
 import type { FactionFormValues } from './FactionForm';
 import { getFactionLifecycleStatus } from '@shared/utils/entityData';
 import { withLifecycleStatus } from '@shared/types/entityLifecycle';
+import { Modal } from '@shared/components/Modal';
+import { useEntitiesByType } from '@shared/hooks/useEntitiesByType';
+
+type FactionAttachment = {
+  relationId: string;
+  entity: Entity;
+};
 
 function useFactionMembers(db: MgHelperDb, factionId: string | undefined) {
   return (
@@ -29,10 +44,14 @@ function useFactionMembers(db: MgHelperDb, factionId: string | undefined) {
         .equals(factionId)
         .filter((r) => r.type === 'belongs_to')
         .toArray();
-      const entities = await Promise.all(rels.map((r) => getEntityById(db, r.sourceId)));
-      return entities.filter(
-        (e): e is NonNullable<typeof e> => e !== undefined && e.type === 'npc',
+      const entities = await Promise.all(
+        rels.map(async (relation) => {
+          const entity = await getEntityById(db, relation.sourceId);
+          if (!entity || entity.type !== 'npc') return null;
+          return { relationId: relation.id, entity } as FactionAttachment;
+        }),
       );
+      return entities.filter((item): item is FactionAttachment => item !== null);
     }, [db, factionId]) ?? []
   );
 }
@@ -46,10 +65,14 @@ function useFactionLocations(db: MgHelperDb, factionId: string | undefined) {
         .equals(factionId)
         .filter((r) => r.type === 'belongs_to')
         .toArray();
-      const entities = await Promise.all(rels.map((r) => getEntityById(db, r.sourceId)));
-      return entities.filter(
-        (e): e is NonNullable<typeof e> => e !== undefined && e.type === 'location',
+      const entities = await Promise.all(
+        rels.map(async (relation) => {
+          const entity = await getEntityById(db, relation.sourceId);
+          if (!entity || entity.type !== 'location') return null;
+          return { relationId: relation.id, entity } as FactionAttachment;
+        }),
       );
+      return entities.filter((item): item is FactionAttachment => item !== null);
     }, [db, factionId]) ?? []
   );
 }
@@ -61,23 +84,57 @@ export function FactionDetail() {
   const { faction } = useFactionById(id);
   const members = useFactionMembers(db, id);
   const locations = useFactionLocations(db, id);
+  const npcs = useEntitiesByType('npc');
+  const allLocations = useEntitiesByType('location');
 
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showMemberPicker, setShowMemberPicker] = useState(false);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [memberQuery, setMemberQuery] = useState('');
+  const [locationQuery, setLocationQuery] = useState('');
+  const [assigningEntityId, setAssigningEntityId] = useState<string | null>(null);
+  const [relationToDelete, setRelationToDelete] = useState<{
+    relationId: string;
+    entityName: string;
+    entityTypeLabel: string;
+  } | null>(null);
   const [statusConfirm, setStatusConfirm] = useState<'disband' | 'restore' | null>(null);
   const [statusSaving, setStatusSaving] = useState(false);
+  const memberIds = useMemo(() => new Set(members.map((item) => item.entity.id)), [members]);
+  const locationIds = useMemo(() => new Set(locations.map((item) => item.entity.id)), [locations]);
+
+  const filteredMemberCandidates = useMemo(() => {
+    const normalized = memberQuery.trim().toLowerCase();
+    return npcs.filter((npc) => {
+      if (memberIds.has(npc.id)) return false;
+      if (!normalized) return true;
+      return npc.name.toLowerCase().includes(normalized);
+    });
+  }, [npcs, memberIds, memberQuery]);
+
+  const filteredLocationCandidates = useMemo(() => {
+    const normalized = locationQuery.trim().toLowerCase();
+    return allLocations.filter((location) => {
+      if (locationIds.has(location.id)) return false;
+      if (!normalized) return true;
+      return location.name.toLowerCase().includes(normalized);
+    });
+  }, [allLocations, locationIds, locationQuery]);
 
   const factionTocItems = useMemo(() => {
     if (!faction || isEditing) return [];
     const items: { id: string; label: string }[] = [];
-    if (faction.data.goals.length > 0) items.push({ id: 'faction-detail-cele', label: 'Cele' });
-    if (faction.data.resources.length > 0) items.push({ id: 'faction-detail-zasoby', label: 'Zasoby' });
+    if (faction.data.goals.length > 0 || faction.data.resources.length > 0) {
+      items.push({ id: 'faction-detail-kontekst', label: 'Kontekst' });
+    }
     if (faction.description) items.push({ id: 'faction-detail-opis', label: 'Opis' });
     items.push(
-      { id: 'faction-detail-members', label: 'Członkowie' },
       { id: 'faction-detail-headquarters', label: 'Siedziby' },
+      { id: 'faction-detail-members', label: 'Członkowie' },
       { id: 'faction-detail-notatki', label: 'Notatki' },
+      { id: 'faction-detail-tagi', label: 'Tagi' },
     );
     return items;
   }, [faction, isEditing]);
@@ -150,6 +207,37 @@ export function FactionDetail() {
       toast.error('Nie udało się zapisać statusu');
     } finally {
       setStatusSaving(false);
+    }
+  }
+
+  async function handleConfirmRelationDelete() {
+    if (!relationToDelete) return;
+    try {
+      await deleteRelation(db, relationToDelete.relationId);
+      toast.success(`Usunięto powiązanie (${relationToDelete.entityTypeLabel.toLowerCase()})`);
+      setRelationToDelete(null);
+    } catch {
+      toast.error('Nie udało się usunąć powiązania');
+    }
+  }
+
+  async function handleAssignToFaction(entityId: string, entityTypeLabel: 'Postać' | 'Lokacja') {
+    if (!faction || assigningEntityId) return;
+    setAssigningEntityId(entityId);
+    try {
+      await assignBelongsTo(db, { sourceId: entityId, targetId: faction.id });
+      toast.success(`${entityTypeLabel} dodana do frakcji`);
+      if (entityTypeLabel === 'Postać') {
+        setShowMemberPicker(false);
+        setMemberQuery('');
+      } else {
+        setShowLocationPicker(false);
+        setLocationQuery('');
+      }
+    } catch {
+      toast.error(`Nie udało się dodać: ${entityTypeLabel.toLowerCase()}`);
+    } finally {
+      setAssigningEntityId(null);
     }
   }
 
@@ -245,55 +333,110 @@ export function FactionDetail() {
         </div>
       )}
 
-      {!isEditing && faction.data.goals.length > 0 && (
-        <div id="faction-detail-cele" className="app-panel rounded-[1.6rem] p-5 lg:p-6">
-          <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
-            Cele
-          </h2>
-          <ul className="list-inside list-disc space-y-1.5">
-            {faction.data.goals.map((g, i) => (
-              <li key={i} className="text-surface-700 text-sm">
-                {g}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {!isEditing &&
+        (faction.data.goals.length > 0 || faction.data.resources.length > 0) && (
+          <DetailSection
+            sectionId="faction-detail-kontekst"
+            title="Kontekst frakcji"
+            tone="accent"
+            contentClassName="flex flex-col gap-4"
+          >
+            {faction.data.goals.length > 0 && (
+              <div className="rounded-[1.25rem] border border-[rgba(186,81,47,0.4)] bg-[linear-gradient(180deg,rgba(255,178,102,0.34)_0%,rgba(182,58,58,0.24)_100%)] px-5 py-4 shadow-[0_12px_24px_rgba(128,44,31,0.14),inset_0_1px_0_rgba(255,255,255,0.32)]">
+                <h2 className="mb-2 text-xs font-semibold tracking-wide text-[rgb(107,33,18)] uppercase">Cele</h2>
+                <ul className="list-inside list-disc space-y-1.5">
+                  {faction.data.goals.map((g, i) => (
+                    <li key={i} className="text-surface-800 text-sm">
+                      {g}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
-      {!isEditing && faction.data.resources.length > 0 && (
-        <div id="faction-detail-zasoby" className="app-panel rounded-[1.6rem] p-5 lg:p-6">
-          <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
-            Zasoby
-          </h2>
-          <ul className="list-inside list-disc space-y-1.5">
-            {faction.data.resources.map((r, i) => (
-              <li key={i} className="text-surface-700 text-sm">
-                {r}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+            {faction.data.resources.length > 0 && (
+              <div className="app-panel rounded-[1.25rem] p-5">
+                <h2 className="text-surface-500 mb-3 text-xs font-semibold tracking-wide uppercase">Zasoby</h2>
+                <ul className="m-0 grid list-none grid-cols-1 gap-2 p-0 sm:grid-cols-2">
+                  {faction.data.resources.map((r, i) => (
+                    <li
+                      key={i}
+                      className="app-input-shell flex min-w-0 items-start gap-2 rounded-[1rem] px-3.5 py-3"
+                    >
+                      <span className="app-pill-muted mt-0.5 inline-flex h-fit shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums">
+                        {i + 1}
+                      </span>
+                      <span className="text-surface-700 min-w-0 text-sm leading-6 break-words">{r}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+          </DetailSection>
+        )}
 
       {!isEditing && faction.description && (
-        <div id="faction-detail-opis" className="app-panel rounded-[1.6rem] p-5 lg:p-6">
-          <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
-            Opis
-          </h2>
-          <div
-            className="prose prose-sm text-surface-700 max-w-none"
-            dangerouslySetInnerHTML={{ __html: faction.description }}
-          />
-        </div>
+        <DetailSection sectionId="faction-detail-opis" title="Opis">
+          <div className="app-panel rounded-[1.25rem] p-5">
+            <div
+              className="prose prose-sm text-surface-700 max-w-none"
+              dangerouslySetInnerHTML={{ __html: faction.description }}
+            />
+          </div>
+        </DetailSection>
       )}
 
-      {!isEditing && faction.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {faction.tags.map((t) => (
-            <span key={t} className="app-pill rounded-full px-2.5 py-1 text-xs font-medium">
-              {t}
-            </span>
-          ))}
+      {/* Headquarters (locations) */}
+      {!isEditing && (
+        <div id="faction-detail-headquarters" className="app-panel rounded-[1.6rem] p-5 lg:p-6">
+          <div className="mb-3 flex items-center gap-2">
+            <MapPin className="text-surface-400 h-4 w-4" />
+            <h2 className="text-surface-700 text-sm font-semibold">Siedziby (lokacje)</h2>
+            <button
+              type="button"
+              onClick={() => setShowLocationPicker(true)}
+              className="app-button-secondary ml-auto inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium"
+            >
+              <Plus className="h-3.5 w-3.5" /> Dodaj
+            </button>
+          </div>
+          {locations.length === 0 ? (
+            <p className="text-surface-400 text-xs">
+              Brak przypiętych lokacji.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {locations.map(({ relationId, entity }) => (
+                <li key={entity.id}>
+                  <div className="app-input-shell flex items-center gap-2 rounded-[1rem] px-3 py-2">
+                    <Link
+                      to={`/locations/${entity.id}`}
+                      className="text-surface-700 hover:text-primary-700 min-w-0 flex-1 text-sm font-medium transition-colors"
+                    >
+                      {entity.name}
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setRelationToDelete({
+                          relationId,
+                          entityName: entity.name,
+                          entityTypeLabel: 'Lokacja',
+                        });
+                      }}
+                      className="text-surface-400 hover:text-danger-700 hover:bg-danger-50 shrink-0 rounded-full p-1 transition-colors"
+                      aria-label={`Usuń lokację ${entity.name} z frakcji`}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
@@ -303,55 +446,46 @@ export function FactionDetail() {
           <div className="mb-3 flex items-center gap-2">
             <Users className="text-surface-400 h-4 w-4" />
             <h2 className="text-surface-700 text-sm font-semibold">Członkowie (Postacie)</h2>
-            <span className="app-pill-muted ml-auto rounded-full px-2 py-0.5 text-xs font-medium">
-              {members.length}
-            </span>
+            <button
+              type="button"
+              onClick={() => setShowMemberPicker(true)}
+              className="app-button-secondary ml-auto inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium"
+            >
+              <Plus className="h-3.5 w-3.5" /> Dodaj
+            </button>
           </div>
           {members.length === 0 ? (
             <p className="text-surface-400 text-xs">
-              Brak — przypisz postać do tej frakcji z widoku Postaci.
+              Brak przypiętych postaci.
             </p>
           ) : (
             <ul className="space-y-2">
-              {members.map((e) => (
-                <li key={e.id}>
-                  <Link
-                    to={`/npcs/${e.id}`}
-                    className="app-input-shell text-surface-700 hover:border-primary-300 hover:text-primary-700 inline-flex w-full rounded-[1rem] px-3 py-2 text-sm font-medium transition-colors"
-                  >
-                    {e.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-
-      {/* Headquarters (locations) */}
-      {!isEditing && (
-        <div id="faction-detail-headquarters" className="app-panel rounded-[1.6rem] p-5 lg:p-6">
-          <div className="mb-3 flex items-center gap-2">
-            <MapPin className="text-surface-400 h-4 w-4" />
-            <h2 className="text-surface-700 text-sm font-semibold">Siedziby (lokacje)</h2>
-            <span className="app-pill-muted ml-auto rounded-full px-2 py-0.5 text-xs font-medium">
-              {locations.length}
-            </span>
-          </div>
-          {locations.length === 0 ? (
-            <p className="text-surface-400 text-xs">
-              Brak — przypisz lokację do tej frakcji z widoku lokacji.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {locations.map((e) => (
-                <li key={e.id}>
-                  <Link
-                    to={`/locations/${e.id}`}
-                    className="app-input-shell text-surface-700 hover:border-primary-300 hover:text-primary-700 inline-flex w-full rounded-[1rem] px-3 py-2 text-sm font-medium transition-colors"
-                  >
-                    {e.name}
-                  </Link>
+              {members.map(({ relationId, entity }) => (
+                <li key={entity.id}>
+                  <div className="app-input-shell flex items-center gap-2 rounded-[1rem] px-3 py-2">
+                    <Link
+                      to={`/npcs/${entity.id}`}
+                      className="text-surface-700 hover:text-primary-700 min-w-0 flex-1 text-sm font-medium transition-colors"
+                    >
+                      {entity.name}
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setRelationToDelete({
+                          relationId,
+                          entityName: entity.name,
+                          entityTypeLabel: 'Postać',
+                        });
+                      }}
+                      className="text-surface-400 hover:text-danger-700 hover:bg-danger-50 shrink-0 rounded-full p-1 transition-colors"
+                      aria-label={`Usuń postać ${entity.name} z frakcji`}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -362,6 +496,22 @@ export function FactionDetail() {
       <div id="faction-detail-notatki">
         <NotesList entityId={id!} />
       </div>
+
+      {!isEditing && (
+        <DetailSection sectionId="faction-detail-tagi" title="Tagi">
+          {faction.tags.length === 0 ? (
+            <p className="text-surface-500 text-sm">Brak tagów — dodaj je w trybie edycji frakcji.</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {faction.tags.map((t) => (
+                <span key={t} className="app-pill rounded-full px-2.5 py-1 text-xs font-medium">
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
+        </DetailSection>
+      )}
 
       <DetailScrollTopFab enabled={!isEditing && factionTocItems.length > 0} />
 
@@ -386,6 +536,98 @@ export function FactionDetail() {
         onConfirm={() => void handleConfirmStatusChange()}
         onCancel={() => !statusSaving && setStatusConfirm(null)}
       />
+
+      <ConfirmDialog
+        open={relationToDelete !== null}
+        title="Usunąć powiązanie?"
+        description={
+          relationToDelete
+            ? `Czy na pewno chcesz usunąć powiązanie „${relationToDelete.entityName}" (${relationToDelete.entityTypeLabel.toLowerCase()}) z tą frakcją?`
+            : ''
+        }
+        onConfirm={() => void handleConfirmRelationDelete()}
+        onCancel={() => setRelationToDelete(null)}
+      />
+
+      {showLocationPicker && (
+        <Modal
+          title="Dodaj lokację do frakcji"
+          size="md"
+          onClose={() => {
+            setShowLocationPicker(false);
+            setLocationQuery('');
+          }}
+        >
+          <div className="flex flex-col gap-3">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-surface-400" />
+              <input
+                value={locationQuery}
+                onChange={(event) => setLocationQuery(event.target.value)}
+                placeholder="Szukaj lokacji..."
+                className="w-full rounded-md border border-surface-300 py-2 pl-8 pr-3 text-sm placeholder:text-surface-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              />
+            </div>
+            <ul className="max-h-64 space-y-1 overflow-auto">
+              {filteredLocationCandidates.length === 0 && (
+                <li className="py-2 text-center text-xs text-surface-400">Brak lokacji do dodania</li>
+              )}
+              {filteredLocationCandidates.map((location) => (
+                <li key={location.id}>
+                  <button
+                    type="button"
+                    disabled={assigningEntityId !== null}
+                    onClick={() => void handleAssignToFaction(location.id, 'Lokacja')}
+                    className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm hover:bg-primary-50 disabled:opacity-50"
+                  >
+                    <span className="text-surface-800 font-medium">{location.name}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </Modal>
+      )}
+
+      {showMemberPicker && (
+        <Modal
+          title="Dodaj postać do frakcji"
+          size="md"
+          onClose={() => {
+            setShowMemberPicker(false);
+            setMemberQuery('');
+          }}
+        >
+          <div className="flex flex-col gap-3">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-surface-400" />
+              <input
+                value={memberQuery}
+                onChange={(event) => setMemberQuery(event.target.value)}
+                placeholder="Szukaj postaci..."
+                className="w-full rounded-md border border-surface-300 py-2 pl-8 pr-3 text-sm placeholder:text-surface-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              />
+            </div>
+            <ul className="max-h-64 space-y-1 overflow-auto">
+              {filteredMemberCandidates.length === 0 && (
+                <li className="py-2 text-center text-xs text-surface-400">Brak postaci do dodania</li>
+              )}
+              {filteredMemberCandidates.map((npc) => (
+                <li key={npc.id}>
+                  <button
+                    type="button"
+                    disabled={assigningEntityId !== null}
+                    onClick={() => void handleAssignToFaction(npc.id, 'Postać')}
+                    className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm hover:bg-primary-50 disabled:opacity-50"
+                  >
+                    <span className="text-surface-800 font-medium">{npc.name}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

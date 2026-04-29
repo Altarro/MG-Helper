@@ -40,6 +40,7 @@ interface RelationPickerProps {
   initialRelationMeta?: RelationMeta;
   lockTargetType?: boolean;
   lockRelationType?: boolean;
+  allowedTargetTypes?: EntityType[];
 }
 
 export function RelationPicker({
@@ -51,6 +52,7 @@ export function RelationPicker({
   initialRelationMeta,
   lockTargetType = false,
   lockRelationType = false,
+  allowedTargetTypes,
 }: RelationPickerProps) {
   const { db } = useCampaign();
   const [targetType, setTargetType] = useState<EntityType>(initialTargetType);
@@ -61,6 +63,13 @@ export function RelationPicker({
   const debouncedQuery = useDebounce(query, 200);
   const [saving, setSaving] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const selectableTargetTypes = allowedTargetTypes?.length ? allowedTargetTypes : ENTITY_TYPES;
+
+  useEffect(() => {
+    if (!selectableTargetTypes.includes(targetType)) {
+      setTargetType(selectableTargetTypes[0] ?? 'npc');
+    }
+  }, [selectableTargetTypes, targetType]);
 
   useEffect(() => {
     searchRef.current?.focus();
@@ -160,7 +169,7 @@ export function RelationPicker({
               }}
               className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
             >
-              {ENTITY_TYPES.map((t) => (
+              {selectableTargetTypes.map((t) => (
                 <option key={t} value={t}>{ENTITY_TYPE_LABELS[t]}</option>
               ))}
             </select>

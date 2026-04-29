@@ -38,6 +38,7 @@ import {
   THREAT_COMPLETION_OUTCOME_LABELS,
   inferThreatCompletionOutcomeFromClock,
   getThreatRadarArchetype,
+  normalizeThreatPillars,
 } from '../types';
 import type { ThreatCompletionOutcome } from '../types';
 import { getThreatStatus, getClockData } from '@shared/utils/entityData';
@@ -65,11 +66,17 @@ export function ThreatDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showThreadPicker, setShowThreadPicker] = useState(false);
   const [showRelPicker, setShowRelPicker] = useState(false);
+  const [unlinkConfirm, setUnlinkConfirm] = useState<{
+    relationId: string;
+    title: string;
+    description: string;
+  } | null>(null);
   const [showDerivedModal, setShowDerivedModal] = useState(false);
   const [derivedSaving, setDerivedSaving] = useState(false);
   const [showFrontRelinkModal, setShowFrontRelinkModal] = useState(false);
   const [relinkFrontId, setRelinkFrontId] = useState('');
   const [relinkFrontSaving, setRelinkFrontSaving] = useState(false);
+  const [confirmRestorePillarIndex, setConfirmRestorePillarIndex] = useState<number | null>(null);
   const returnToSessionLive = (location.state as { returnToSessionLive?: string } | null)
     ?.returnToSessionLive;
   const backPath = returnToSessionLive ? `/sessions/${returnToSessionLive}/live` : '/threats';
@@ -113,6 +120,7 @@ export function ThreatDetail() {
       forkSourceThreat || t.data.completionReason || t.data.reasonOfDead,
     );
     if (t.data.moves.length > 0) items.push({ id: 'threat-detail-ruchy', label: 'Ruchy' });
+    if (normalizeThreatPillars(t.data.pillars).length > 0) items.push({ id: 'threat-detail-filary', label: 'Filary' });
     if (typeof t.data.inheritanceNotes === 'string' && t.data.inheritanceNotes.trim().length > 0) {
       items.push({ id: 'threat-detail-dziedzictwo', label: 'Dziedzictwo' });
     }
@@ -150,6 +158,7 @@ export function ThreatDetail() {
 
   const currentThreat = threat;
   const threatId = id;
+  const normalizedPillars = normalizeThreatPillars(currentThreat.data.pillars);
   const threatStatus = getThreatStatus(currentThreat);
   const completedClockLabels = getCompletedClockLabels(linkedClock);
   const derivedThreatDefaults = buildDerivedThreatDefaults(currentThreat, linkedClock);
@@ -244,6 +253,7 @@ export function ThreatDetail() {
           radarArchetype: values.radarArchetype,
           impulse: values.impulse,
           moves: values.moves,
+          pillars: values.pillars,
           trigger: values.trigger,
           inheritanceNotes: values.inheritanceNotes,
           forkThreatId: values.forkThreatId,
@@ -326,6 +336,7 @@ export function ThreatDetail() {
           radarArchetype: values.radarArchetype,
           impulse: values.impulse,
           moves: values.moves,
+          pillars: values.pillars,
           trigger: values.trigger,
           inheritanceNotes: values.inheritanceNotes,
           forkThreatId: currentThreat.id,
@@ -422,6 +433,35 @@ export function ThreatDetail() {
       toast.error('Nie udało się przepiąć frontu');
     } finally {
       setRelinkFrontSaving(false);
+    }
+  }
+
+  async function handleConfirmUnlink() {
+    if (!unlinkConfirm) return;
+    try {
+      await deleteRelation(db, unlinkConfirm.relationId);
+      toast.success('Usunięto powiązanie z tego widoku');
+      setUnlinkConfirm(null);
+    } catch {
+      toast.error('Nie udało się usunąć powiązania');
+    }
+  }
+
+  async function handleSetPillarDestroyed(index: number, destroyed: boolean) {
+    const pillars = normalizeThreatPillars(currentThreat.data.pillars);
+    const next = pillars.map((pillar, pillarIndex) =>
+      pillarIndex === index ? { ...pillar, destroyed } : pillar,
+    );
+    try {
+      await updateEntity(db, threatId, {
+        data: {
+          ...currentThreat.data,
+          pillars: next,
+        },
+      });
+      toast.success(destroyed ? 'Filar oznaczony jako zniszczony' : 'Filar przywrócony');
+    } catch {
+      toast.error('Nie udało się zaktualizować filaru');
     }
   }
 
@@ -536,6 +576,7 @@ export function ThreatDetail() {
                   : '',
               forkThreatId: currentThreat.data.forkThreatId,
               moves: currentThreat.data.moves,
+              pillars: normalizeThreatPillars(currentThreat.data.pillars),
               description: currentThreat.description,
               tags: currentThreat.tags,
               clock: linkedClock
@@ -582,6 +623,13 @@ export function ThreatDetail() {
                   emptyMessage="To zagrożenie nie jest jeszcze podpięte do żadnego frontu."
                   actionLabel={parentFrontEntity ? '+ Zmień front' : '+ Przypisz front'}
                   onAction={openFrontRelinkModal}
+                  onRemoveItem={(item) =>
+                    setUnlinkConfirm({
+                      relationId: item.relation.id,
+                      title: 'Usunąć powiązany front?',
+                      description: `Czy na pewno chcesz usunąć front „${item.entity.name}" z tego widoku zagrożenia?`,
+                    })}
+                  removeAriaLabel={(item) => `Usuń front ${item.entity.name} z tego widoku`}
                 />
               </div>
 
@@ -592,13 +640,29 @@ export function ThreatDetail() {
                   emptyMessage="To zagrożenie nie ma jeszcze podpiętych wątków przez relację affects."
                   actionLabel="+ Dodaj wątek"
                   onAction={() => setShowThreadPicker(true)}
+                  onRemoveItem={(item) =>
+                    setUnlinkConfirm({
+                      relationId: item.relation.id,
+                      title: 'Usunąć powiązany wątek?',
+                      description: `Czy na pewno chcesz usunąć wątek „${item.entity.name}" z tego widoku zagrożenia?`,
+                    })}
+                  removeAriaLabel={(item) => `Usuń wątek ${item.entity.name} z tego widoku`}
                 />
               </div>
             </div>
 
             <div id="threat-detail-wskazowki" className="scroll-mt-6">
               <div className="app-panel rounded-[1.5rem] p-6">
-                <ClueSection parentId={threatId} title="Wskazówki zagrożenia" />
+                <ClueSection
+                  parentId={threatId}
+                  title="Wskazówki zagrożenia"
+                  onRemoveRelation={(item) =>
+                    setUnlinkConfirm({
+                      relationId: item.relation.id,
+                      title: 'Usunąć wskazówkę z widoku?',
+                      description: `Czy na pewno chcesz usunąć wskazówkę „${item.clue.name}" z tego widoku zagrożenia?`,
+                    })}
+                />
               </div>
             </div>
           </DetailSection>
@@ -616,6 +680,48 @@ export function ThreatDetail() {
                         {index + 1}
                       </span>
                       <p className="text-surface-800 min-w-0 flex-1 text-sm leading-6 break-words">{move}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </DetailSection>
+          )}
+
+          {normalizedPillars.length > 0 && (
+            <DetailSection sectionId="threat-detail-filary" title="Filary zagrożenia">
+              <div className="app-panel rounded-[1.5rem] p-5 shadow-[0_12px_24px_rgba(18,45,66,0.06)] lg:p-6">
+                <ul className="m-0 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2 xl:grid-cols-2">
+                  {normalizedPillars.map((pillar, index) => (
+                    <li
+                      key={`${pillar.label}:${index}`}
+                      className="app-input-shell flex min-h-full min-w-0 gap-3 rounded-[1.25rem] border px-4 py-4 shadow-[0_12px_24px_rgba(18,45,66,0.04)]"
+                    >
+                      <span className="app-pill-muted inline-flex h-fit shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold tabular-nums">
+                        {index + 1}
+                      </span>
+                      <div className="min-w-0 flex flex-1 items-start justify-between gap-3">
+                        <p
+                          className={`text-surface-800 min-w-0 flex-1 text-sm leading-6 break-words ${
+                            pillar.destroyed ? 'line-through opacity-70' : ''
+                          }`}
+                        >
+                          {pillar.label}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            pillar.destroyed
+                              ? setConfirmRestorePillarIndex(index)
+                              : void handleSetPillarDestroyed(index, true)}
+                          className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                            pillar.destroyed
+                              ? 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+                              : 'app-button-danger'
+                          }`}
+                        >
+                          {pillar.destroyed ? 'Zniszczony' : 'Zniszcz'}
+                        </button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -1003,6 +1109,28 @@ export function ThreatDetail() {
         destructive={false}
         onConfirm={handleConfirmReactivate}
         onCancel={() => setConfirmReactivate(false)}
+      />
+
+      <ConfirmDialog
+        open={unlinkConfirm !== null}
+        title={unlinkConfirm?.title ?? 'Usunąć powiązanie?'}
+        description={unlinkConfirm?.description ?? ''}
+        onConfirm={() => void handleConfirmUnlink()}
+        onCancel={() => setUnlinkConfirm(null)}
+      />
+
+      <ConfirmDialog
+        open={confirmRestorePillarIndex !== null}
+        title="Przywrócić filar?"
+        description="Czy na pewno chcesz przywrócić filar?"
+        confirmLabel="Przywróć"
+        destructive={false}
+        onConfirm={() => {
+          if (confirmRestorePillarIndex === null) return;
+          void handleSetPillarDestroyed(confirmRestorePillarIndex, false);
+          setConfirmRestorePillarIndex(null);
+        }}
+        onCancel={() => setConfirmRestorePillarIndex(null)}
       />
 
       {showThreadPicker && (

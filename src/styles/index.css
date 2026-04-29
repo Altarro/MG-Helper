@@ -213,6 +213,31 @@ main > * {
   border: 1px solid rgba(86, 93, 94, 0.12);
 }
 
+.app-parent-location-pill {
+  background: rgba(210, 212, 203, 0.9);
+  color: var(--color-surface-700);
+  border: 1px solid rgba(86, 93, 94, 0.12);
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.app-parent-location-pill:hover {
+  background: rgba(220, 226, 218, 0.94);
+  border-color: rgba(86, 93, 94, 0.2);
+  color: var(--color-surface-700);
+}
+
+.app-parent-location-pill:focus-visible {
+  background: rgba(224, 230, 222, 0.96);
+  border-color: rgba(86, 93, 94, 0.24);
+  color: var(--color-surface-700);
+  box-shadow: 0 0 0 2px rgba(86, 93, 94, 0.16);
+  outline: none;
+}
+
 .app-accent {
   background: linear-gradient(180deg, #f2c458 0%, #ddb14a 100%);
   color: #1b1d20;

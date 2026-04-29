@@ -127,6 +127,7 @@ export function ThreatList() {
           radarArchetype: values.radarArchetype,
           impulse: values.impulse,
           moves: values.moves,
+          pillars: values.pillars,
           trigger: values.trigger,
           inheritanceNotes: values.inheritanceNotes,
           forkThreatId: values.forkThreatId,

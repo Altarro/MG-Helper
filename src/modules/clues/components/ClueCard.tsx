@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { User, MapPin, Zap, Package, CheckCircle2, Circle, ChevronRight, type LucideIcon } from 'lucide-react';
+import { User, MapPin, Zap, Package, CheckCircle2, Circle, ChevronRight, X, type LucideIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { getCatalogLabelByValue } from '@modules/settings/campaignCatalogSettings';
@@ -92,10 +92,12 @@ export const ClueRow = memo(function ClueRow({
   clue,
   metaLabel,
   onToggleDiscovered,
+  onRemove,
 }: {
   clue: Clue;
   metaLabel?: string;
   onToggleDiscovered?: (clue: Clue) => void;
+  onRemove?: (clue: Clue) => void;
 }) {
   const { campaignId } = useCampaign();
   const discovered = clue.data.discovered;
@@ -131,7 +133,6 @@ export const ClueRow = memo(function ClueRow({
             {metaLabel && (
               <span className="app-pill-muted rounded-full px-2 py-0.5 text-[11px] font-medium">{metaLabel}</span>
             )}
-            <span className="app-pill-muted rounded-full px-2 py-0.5 text-[11px] font-medium">Detail</span>
           </div>
           {clue.data.hint ? (
             <p className="text-surface-500 mt-1 line-clamp-2 text-xs leading-5">{clue.data.hint}</p>
@@ -139,23 +140,41 @@ export const ClueRow = memo(function ClueRow({
         </div>
         <ChevronRight className="h-4 w-4 shrink-0 text-surface-300" />
       </Link>
-      {onToggleDiscovered ? (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onToggleDiscovered(clue);
-          }}
-          aria-label={discovered ? 'Oznacz jako nieodkrytą' : 'Oznacz jako odkrytą'}
-          className="flex shrink-0 items-center justify-center self-stretch border-l border-[rgba(86,93,94,0.14)] bg-transparent px-3 transition-colors hover:bg-[rgba(229,231,223,0.65)]"
-        >
-          {discovered ? (
-            <CheckCircle2 className="h-4 w-4 text-success-600" />
-          ) : (
-            <Circle className="text-surface-400 h-4 w-4" />
-          )}
-        </button>
+      {(onToggleDiscovered || onRemove) ? (
+        <div className="flex shrink-0 items-center self-stretch border-l border-[rgba(86,93,94,0.14)] bg-transparent px-2">
+          {onToggleDiscovered ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onToggleDiscovered(clue);
+              }}
+              aria-label={discovered ? 'Oznacz jako nieodkrytą' : 'Oznacz jako odkrytą'}
+              className="flex items-center justify-center rounded-full p-1.5 transition-colors hover:bg-[rgba(229,231,223,0.65)]"
+            >
+              {discovered ? (
+                <CheckCircle2 className="h-4 w-4 text-success-600" />
+              ) : (
+                <Circle className="text-surface-400 h-4 w-4" />
+              )}
+            </button>
+          ) : null}
+          {onRemove ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onRemove(clue);
+              }}
+              aria-label={`Usuń wskazówkę ${clue.name} z tego widoku`}
+              className="text-surface-400 hover:text-danger-700 hover:bg-danger-50 rounded-full p-1 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );

@@ -17,7 +17,7 @@ import { DetailSection } from '@shared/components/DetailSection';
 import { DetailScrollTopFab } from '@shared/components/DetailScrollTopFab';
 import { DetailTocBar } from '@shared/components/DetailTocBar';
 import { useRelatedEntities } from '@shared/hooks/useRelatedEntities';
-import { deleteEntity, updateEntity } from '@shared/db/operations';
+import { deleteEntity, deleteRelation, updateEntity } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
 import { THREAD_KIND_LABELS, THREAD_PRIORITY_LABELS, THREAD_STATUS_LABELS } from '../types';
@@ -58,6 +58,12 @@ export function ThreadDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showRelPicker, setShowRelPicker] = useState(false);
   const [showThreatPicker, setShowThreatPicker] = useState(false);
+  const [showContextLinksPicker, setShowContextLinksPicker] = useState(false);
+  const [unlinkConfirm, setUnlinkConfirm] = useState<{
+    relationId: string;
+    title: string;
+    description: string;
+  } | null>(null);
   const [questlinePicker, setQuestlinePicker] = useState<{
     mode: 'parent' | 'child';
     initialKind?: (typeof THREAD_DERIVATION_KIND_OPTIONS)[number];
@@ -71,17 +77,21 @@ export function ThreadDetail() {
       : null;
   const backPath = returnToSessionLive ? `/sessions/${returnToSessionLive}/live` : '/threads';
   const backLabel = returnToSessionLive ? 'Sesja na żywo' : 'Wątki';
+  const relatedContextLinks = useRelatedEntities(id, {
+    relationTypes: ['related_to'],
+    direction: 'both',
+    otherTypes: ['faction', 'location', 'npc', 'item'],
+  });
 
   const threadTocItems = useMemo(() => {
     if (!thread || isEditing) return [];
     return [
       { id: 'thread-detail-kontekst', label: 'Kontekst' },
       { id: 'thread-detail-sesje', label: 'Sesje' },
-      { id: 'thread-detail-presja', label: 'Presja' },
       { id: 'thread-detail-questline', label: 'Questline' },
-      { id: 'thread-detail-wskazowki', label: 'Wskazówki' },
       { id: 'thread-detail-powiazania', label: 'Powiązania' },
       { id: 'thread-detail-notatki', label: 'Notatki MG' },
+      { id: 'thread-detail-tagi', label: 'Tagi' },
     ];
   }, [thread, isEditing]);
 
@@ -144,6 +154,17 @@ export function ThreadDetail() {
       toast.success(newStatus === 'completed' ? 'Wątek zakończony' : 'Wątek reaktywowany');
     } catch {
       toast.error('Nie udało się zaktualizować statusu');
+    }
+  }
+
+  async function handleConfirmUnlink() {
+    if (!unlinkConfirm) return;
+    try {
+      await deleteRelation(db, unlinkConfirm.relationId);
+      toast.success('Powiązanie usunięte');
+      setUnlinkConfirm(null);
+    } catch {
+      toast.error('Nie udało się usunąć powiązania');
     }
   }
 
@@ -240,47 +261,31 @@ export function ThreadDetail() {
           <DetailSection
             sectionId="thread-detail-kontekst"
             title="Kontekst wątku"
-            description="Główne informacje potrzebne do pracy na sprawie przy stole."
             tone="accent"
+            action={
+              <button
+                type="button"
+                onClick={handleToggleStatus}
+                className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                  isCompleted
+                    ? 'app-button-secondary'
+                    : 'border border-emerald-300/70 bg-emerald-100/80 text-emerald-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] hover:bg-emerald-100'
+                }`}
+              >
+                {isCompleted ? 'Reaktywuj wątek' : 'Oznacz jako zakończony'}
+              </button>
+            }
             contentClassName="flex flex-col gap-5 lg:gap-6"
           >
-            {/* Status toggle */}
-            <button
-              type="button"
-              onClick={handleToggleStatus}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition ${
-                isCompleted
-                  ? 'app-button-secondary'
-                  : 'border border-emerald-300/70 bg-emerald-100/80 text-emerald-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] hover:bg-emerald-100'
-              }`}
-            >
-              {isCompleted ? 'Reaktywuj wątek' : 'Oznacz jako zakończony'}
-            </button>
-
-            {/* Description */}
             {thread.description && (
-              <div>
-                <h2 className="text-surface-500 mb-1 text-xs font-semibold tracking-wide uppercase">
+              <div className="rounded-[1.2rem] border border-emerald-300/45 bg-emerald-100/55 px-5 py-4">
+                <h2 className="text-emerald-800 mb-2 text-xs font-semibold tracking-wide uppercase">
                   Opis
                 </h2>
                 <div
                   className="prose prose-sm text-surface-700 max-w-none"
                   dangerouslySetInnerHTML={{ __html: thread.description }}
                 />
-              </div>
-            )}
-
-            {/* Tags */}
-            {thread.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {thread.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="app-pill-muted rounded-full px-2.5 py-1 text-xs font-medium"
-                  >
-                    {tag}
-                  </span>
-                ))}
               </div>
             )}
 
@@ -294,18 +299,63 @@ export function ThreadDetail() {
                 </p>
               </div>
             )}
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="app-panel rounded-[1.3rem] p-4">
+                <NarrativeLinksSection
+                  title="Powiązania"
+                  items={relatedContextLinks}
+                  emptyMessage="Ten wątek nie ma jeszcze podpiętych powiązań."
+                  actionLabel="+ Dodaj powiązanie"
+                  onAction={() => setShowContextLinksPicker(true)}
+                  onRemoveItem={(item) =>
+                    setUnlinkConfirm({
+                      relationId: item.relation.id,
+                      title: 'Usunąć powiązanie?',
+                      description: `Czy na pewno chcesz usunąć powiązanie z „${item.entity.name}" z tego widoku wątku?`,
+                    })}
+                  removeAriaLabel={(item) => `Usuń powiązanie ${item.entity.name} z tego widoku`}
+                />
+              </div>
+
+              <div className="app-panel rounded-[1.3rem] p-4">
+                <NarrativeLinksSection
+                  title="Powiązane zagrożenia"
+                  items={relatedThreats}
+                  emptyMessage="Ten wątek nie ma jeszcze podpiętych zagrożeń."
+                  actionLabel="+ Dodaj zagrożenie"
+                  onAction={() => setShowThreatPicker(true)}
+                  onRemoveItem={(item) =>
+                    setUnlinkConfirm({
+                      relationId: item.relation.id,
+                      title: 'Usunąć powiązane zagrożenie?',
+                      description: `Czy na pewno chcesz usunąć zagrożenie „${item.entity.name}" z tego widoku wątku?`,
+                    })}
+                  removeAriaLabel={(item) => `Usuń zagrożenie ${item.entity.name} z tego widoku`}
+                />
+              </div>
+            </div>
+
+            <div className="app-panel rounded-[1.3rem] p-4">
+              <ClueSection
+                parentId={thread.id}
+                title="Wskazówki wątku"
+                onRemoveRelation={(item) =>
+                  setUnlinkConfirm({
+                    relationId: item.relation.id,
+                    title: 'Usunąć wskazówkę z widoku?',
+                    description: `Czy na pewno chcesz usunąć wskazówkę „${item.clue.name}" z tego widoku wątku?`,
+                  })}
+              />
+            </div>
           </DetailSection>
 
           <DetailSection
             sectionId="thread-detail-sesje"
             title="Sesje i historia"
-            description="Operacyjny ślad tego, gdzie ten wątek był obecny przy stole."
             contentClassName="flex flex-col gap-5"
           >
             <div>
-              <h2 className="text-surface-500 mb-2 text-xs font-semibold tracking-wide uppercase">
-                Sesje ({sessions?.length ?? 0})
-              </h2>
               {sessions === undefined ? (
                 <LoadingSpinner />
               ) : sessions.length === 0 ? (
@@ -341,23 +391,8 @@ export function ThreadDetail() {
           </DetailSection>
 
           <DetailSection
-            sectionId="thread-detail-presja"
-            title="Presja fabularna"
-            description="Główne zagrożenia, na które ten wątek wpływa albo przez które jest napedzany."
-          >
-            <NarrativeLinksSection
-              title="Powiązane zagrożenia"
-              items={relatedThreats}
-              emptyMessage="Ten wątek nie ma jeszcze jawnie podpietych zagrożeń przez relacje affects."
-              actionLabel="+ Dodaj zagrożenie"
-              onAction={() => setShowThreatPicker(true)}
-            />
-          </DetailSection>
-
-          <DetailSection
             sectionId="thread-detail-questline"
             title="Questline"
-            description="Relacje nadrzędne i pochodne, ktore pozwalają czytać ten wątek jako odnogę, kontynuację albo konsekwencję."
           >
             <NarrativeLinksSection
               title="Wątki nadrzędne"
@@ -365,6 +400,13 @@ export function ThreadDetail() {
               emptyMessage="Ten wątek nie wynika jeszcze z innego wątku."
               actionLabel="+ Podepnij rodzica"
               onAction={() => setQuestlinePicker({ mode: 'parent', initialKind: 'followup' })}
+              onRemoveItem={(item) =>
+                setUnlinkConfirm({
+                  relationId: item.relation.id,
+                  title: 'Usunąć powiązanie questline?',
+                  description: `Czy na pewno chcesz odpiąć nadrzędny wątek „${item.entity.name}"?`,
+                })}
+              removeAriaLabel={(item) => `Usuń nadrzędny wątek ${item.entity.name}`}
               meta={(item) => {
                 const kind = item.relation.meta?.threadDerivationKind;
                 if (!kind) return 'Relacja legacy bez doprecyzowanego typu questline.';
@@ -372,16 +414,12 @@ export function ThreadDetail() {
               }}
             />
 
-            <div>
-              <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
+            <div className="mt-4">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-surface-500 text-xs font-semibold tracking-wide uppercase">
                     Wątki pochodne
                   </h2>
-                  <p className="text-surface-400 mt-1 text-sm">
-                    Podepnij istniejący wątek jako nastepstwo, odnogę, alternatywę albo
-                    konsekwencję.
-                  </p>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {THREAD_DERIVATION_KIND_OPTIONS.map((kind) => (
@@ -409,6 +447,13 @@ export function ThreadDetail() {
                       title={THREAD_DERIVATION_KIND_LABELS[group.kind]}
                       items={group.items}
                       emptyMessage=""
+                      onRemoveItem={(item) =>
+                        setUnlinkConfirm({
+                          relationId: item.relation.id,
+                          title: 'Usunąć powiązanie questline?',
+                          description: `Czy na pewno chcesz odpiąć pochodny wątek „${item.entity.name}"?`,
+                        })}
+                      removeAriaLabel={(item) => `Usuń pochodny wątek ${item.entity.name}`}
                       meta={() => getThreadDerivationDirectionLabel(group.kind, 'incoming')}
                     />
                   ))}
@@ -417,6 +462,13 @@ export function ThreadDetail() {
                       title="Legacy questline"
                       items={legacyChildThreads}
                       emptyMessage=""
+                      onRemoveItem={(item) =>
+                        setUnlinkConfirm({
+                          relationId: item.relation.id,
+                          title: 'Usunąć powiązanie questline?',
+                          description: `Czy na pewno chcesz odpiąć pochodny wątek „${item.entity.name}"?`,
+                        })}
+                      removeAriaLabel={(item) => `Usuń pochodny wątek ${item.entity.name}`}
                       meta={() => 'Relacja legacy bez doprecyzowanego typu questline.'}
                     />
                   )}
@@ -426,48 +478,46 @@ export function ThreadDetail() {
           </DetailSection>
 
           <DetailSection
-            sectionId="thread-detail-wskazowki"
-            title="Wskazówki wątku"
-            description="Tropy, które prowadzą do tej sprawy i pomagają MG utrzymać ciąg poszlak."
-          >
-            <ClueSection parentId={thread.id} title="Powiązane wskazówki" />
-          </DetailSection>
-
-          <DetailSection
             sectionId="thread-detail-powiazania"
             title="Powiązania świata"
-            description="Relacje dodatkowe poza głównym kontraktem fabularnym i historia sesji."
-            action={null}
+            action={
+              <button
+                onClick={() => setShowRelPicker(true)}
+                className="app-button-secondary rounded-full px-3 py-1.5 text-xs font-medium"
+              >
+                + Dodaj
+              </button>
+            }
           >
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-surface-500 text-xs font-semibold tracking-wide uppercase">
-                  Pozostałe powiązania
-                </h2>
-                <button
-                  onClick={() => setShowRelPicker(true)}
-                  className="app-button-secondary rounded-full px-3 py-1.5 text-xs font-medium"
-                >
-                  + Dodaj
-                </button>
-              </div>
-              <RelationList
-                entityId={thread.id}
-                excludeRelationTypes={['affects', 'derives_from', 'clues_for', 'appears_in']}
-                emptyMessage="Brak dodatkowych relacji świata dla tego wątku."
-              />
-            </div>
+            <RelationList
+              entityId={thread.id}
+              excludeRelationTypes={['affects', 'derives_from', 'clues_for', 'appears_in']}
+              emptyMessage="Brak dodatkowych relacji świata dla tego wątku."
+            />
           </DetailSection>
           <DetailSection
             sectionId="thread-detail-notatki"
             title="Notatki MG"
-            description="Zaplecze robocze dla prowadzącego, oddzielone od głównej narracji."
           >
             <NotesList
               entityId={thread.id}
               showTitle={false}
               emptyMessage="Brak notatek podpietych do tego wątku."
             />
+          </DetailSection>
+
+          <DetailSection sectionId="thread-detail-tagi" title="Tagi">
+            {thread.tags.length === 0 ? (
+              <p className="text-surface-500 text-sm">Brak tagów — dodaj je w trybie edycji wątku.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {thread.tags.map((tag) => (
+                  <span key={tag} className="app-pill-muted rounded-full px-2.5 py-1 text-xs font-medium">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
           </DetailSection>
 
           <DetailScrollTopFab enabled={threadTocItems.length > 0} />
@@ -494,6 +544,18 @@ export function ThreadDetail() {
         />
       )}
 
+      {showContextLinksPicker && (
+        <RelationPicker
+          sourceId={thread.id}
+          sourceType="thread"
+          initialTargetType="npc"
+          initialRelationType="related_to"
+          lockRelationType
+          allowedTargetTypes={['faction', 'location', 'npc', 'item']}
+          onClose={() => setShowContextLinksPicker(false)}
+        />
+      )}
+
       {questlinePicker && (
         <ThreadQuestlinePickerModal
           currentThreadId={thread.id}
@@ -509,6 +571,14 @@ export function ThreadDetail() {
         description={`Czy na pewno chcesz usunąć wątek „${thread.name}"? Tej operacji nie można cofnąć.`}
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}
+      />
+
+      <ConfirmDialog
+        open={Boolean(unlinkConfirm)}
+        title={unlinkConfirm?.title ?? 'Usunąć powiązanie?'}
+        description={unlinkConfirm?.description ?? ''}
+        onConfirm={() => void handleConfirmUnlink()}
+        onCancel={() => setUnlinkConfirm(null)}
       />
     </div>
   );

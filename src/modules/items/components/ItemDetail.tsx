@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router';
-import { ArrowLeft, Edit2, Trash2, X, Package, OctagonAlert } from 'lucide-react';
+import { ArrowLeft, Edit2, Trash2, X, Package, OctagonAlert, Plus } from 'lucide-react';
 import { useItemById } from '../hooks/useItemById';
 import { ItemForm } from './ItemForm';
 import { DetailNotFound } from '@shared/components/DetailNotFound';
@@ -9,7 +9,10 @@ import { DetailTocBar } from '@shared/components/DetailTocBar';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { EntityDetailPortrait } from '@shared/components/EntityDetailPortrait';
+import { DetailSection } from '@shared/components/DetailSection';
 import { NotesList } from '@modules/notes/components/NotesList';
+import { RelationList } from '@shared/components/RelationList';
+import { RelationPicker } from '@shared/components/RelationPicker';
 import { deleteEntity, updateEntity } from '@shared/db/operations';
 import { deleteAsset } from '@shared/db/assets';
 import { useCampaign } from '@shared/db/CampaignContext';
@@ -31,6 +34,7 @@ export function ItemDetail() {
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmDestroy, setConfirmDestroy] = useState(false);
+  const [showRelationPicker, setShowRelationPicker] = useState(false);
   const returnToSessionLive =
     typeof location.state === 'object' &&
     location.state !== null &&
@@ -43,10 +47,12 @@ export function ItemDetail() {
 
   const itemTocItems = useMemo(() => {
     if (!item || isEditing) return [];
+    const hasContext = Boolean(item.description) || item.data.properties.length > 0;
     const items: { id: string; label: string }[] = [];
-    if (item.data.properties.length > 0) items.push({ id: 'item-detail-properties', label: 'Właściwości' });
-    if (item.description) items.push({ id: 'item-detail-opis', label: 'Opis' });
-    items.push({ id: 'item-detail-notatki', label: 'Notatki' });
+    if (hasContext) items.push({ id: 'item-detail-kontekst', label: 'Kontekst przedmiotu' });
+    items.push({ id: 'item-detail-relacje', label: 'Relacje' });
+    items.push({ id: 'item-detail-notatki', label: 'Notatki MG' });
+    items.push({ id: 'item-detail-tagi', label: 'Tagi' });
     return items;
   }, [item, isEditing]);
 
@@ -242,46 +248,77 @@ export function ItemDetail() {
         </div>
       )}
 
-      {!isEditing && item.data.properties.length > 0 && (
-        <div id="item-detail-properties" className="app-panel rounded-[1.6rem] p-5 lg:p-6">
-          <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
-            Właściwości
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {item.data.properties.map((p, i) => (
-              <span key={i} className="app-pill-muted rounded-full px-3 py-1 text-sm font-medium">
-                {p}
-              </span>
-            ))}
-          </div>
-        </div>
+      {!isEditing && (item.description || item.data.properties.length > 0) && (
+        <DetailSection
+          sectionId="item-detail-kontekst"
+          title="Kontekst przedmiotu"
+          tone="accent"
+          contentClassName="flex flex-col gap-4"
+        >
+          {item.description && (
+            <div className="rounded-[1.25rem] border border-[rgba(86,150,176,0.34)] bg-[linear-gradient(180deg,rgba(171,219,235,0.5)_0%,rgba(116,188,214,0.28)_100%)] px-5 py-4 shadow-[0_12px_24px_rgba(35,95,120,0.1),inset_0_1px_0_rgba(245,252,255,0.45)]">
+              <h2 className="mb-2 text-xs font-semibold tracking-wide text-[rgb(40,95,116)] uppercase">Opis</h2>
+              <div
+                className="prose prose-sm text-surface-800 max-w-none"
+                dangerouslySetInnerHTML={{ __html: item.description }}
+              />
+            </div>
+          )}
+          {item.data.properties.length > 0 && (
+            <div className="app-panel rounded-[1.4rem] p-5">
+              <h3 className="text-surface-500 mb-3 text-xs font-semibold tracking-wide uppercase">Właściwości</h3>
+              <div className="flex flex-wrap gap-2">
+                {item.data.properties.map((p, i) => (
+                  <span key={i} className="app-pill-muted rounded-full px-3 py-1 text-sm font-medium">
+                    {p}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </DetailSection>
       )}
 
-      {!isEditing && item.description && (
-        <div id="item-detail-opis" className="app-panel rounded-[1.6rem] p-5 lg:p-6">
-          <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
-            Opis
-          </h2>
-          <div
-            className="prose prose-sm text-surface-700 max-w-none"
-            dangerouslySetInnerHTML={{ __html: item.description }}
-          />
-        </div>
+      {!isEditing && (
+        <DetailSection
+          sectionId="item-detail-relacje"
+          title="Relacje"
+          action={
+            <button
+              type="button"
+              onClick={() => setShowRelationPicker(true)}
+              className="app-button-secondary flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Dodaj
+            </button>
+          }
+        >
+          <RelationList entityId={item.id} />
+        </DetailSection>
       )}
 
-      {!isEditing && item.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {item.tags.map((t) => (
-            <span key={t} className="app-danger-pill rounded-full px-2.5 py-1 text-xs font-medium">
-              {t}
-            </span>
-          ))}
-        </div>
+      {!isEditing && (
+        <DetailSection sectionId="item-detail-notatki" title="Notatki MG">
+          <NotesList entityId={id!} showTitle={false} emptyMessage="Brak notatek podpiętych do tego przedmiotu." />
+        </DetailSection>
       )}
 
-      <div id="item-detail-notatki">
-        <NotesList entityId={id!} />
-      </div>
+      {!isEditing && (
+        <DetailSection sectionId="item-detail-tagi" title="Tagi">
+          {item.tags.length === 0 ? (
+            <p className="text-surface-500 text-sm">Brak tagów — dodaj je w trybie edycji przedmiotu.</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {item.tags.map((t) => (
+                <span key={t} className="app-pill-muted rounded-full px-2.5 py-1 text-xs font-medium">
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
+        </DetailSection>
+      )}
 
       <DetailScrollTopFab enabled={!isEditing && itemTocItems.length > 0} />
 
@@ -302,6 +339,10 @@ export function ItemDetail() {
         onConfirm={() => void applyItemDestroyed(true)}
         onCancel={() => setConfirmDestroy(false)}
       />
+
+      {showRelationPicker && (
+        <RelationPicker sourceId={item.id} sourceType="item" onClose={() => setShowRelationPicker(false)} />
+      )}
     </div>
   );
 }

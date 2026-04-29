@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link, useSearchParams, useLocation } from 'react-router';
-import { ArrowLeft, Edit2, Trash2, X, Plus, AlertTriangle, Shield, Search } from 'lucide-react';
+import { ArrowLeft, Edit2, Trash2, X, Plus, AlertTriangle, Shield, Search, ChevronRight } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useFrontById } from '../hooks/useFrontById';
 import { useFronts } from '../hooks/useFronts';
@@ -24,6 +24,7 @@ import { RelationPicker } from '@shared/components/RelationPicker';
 import { DetailSection } from '@shared/components/DetailSection';
 import { DetailScrollTopFab } from '@shared/components/DetailScrollTopFab';
 import { DetailTocBar } from '@shared/components/DetailTocBar';
+import { EntityTypeBadge } from '@shared/components/EntityTypeBadge';
 import { NotesList } from '@modules/notes/components/NotesList';
 import {
   addEntity,
@@ -43,6 +44,7 @@ import {
   THREAT_TYPE_LABELS,
   inferThreatCompletionOutcomeFromClock,
   getThreatRadarArchetype,
+  normalizeThreatPillars,
 } from '../types';
 import { getThreatStatus, getClockData } from '@shared/utils/entityData';
 import { normalizeThreatLifecycle } from '@shared/utils/threatLifecycle';
@@ -110,6 +112,7 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
           radarArchetype: values.radarArchetype,
           impulse: values.impulse,
           moves: values.moves,
+          pillars: values.pillars,
           trigger: values.trigger,
           inheritanceNotes: values.inheritanceNotes,
           forkThreatId: values.forkThreatId,
@@ -240,6 +243,7 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
                     : '',
                 forkThreatId: threat.data.forkThreatId,
                 moves: threat.data.moves,
+                pillars: normalizeThreatPillars(threat.data.pillars),
                 description: threat.description,
                 tags: threat.tags,
                 clock: linkedClock
@@ -367,6 +371,24 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
                 </div>
               )}
 
+              {normalizeThreatPillars(threat.data.pillars).length > 0 && (
+                <div>
+                  <h3 className="text-surface-500 mb-2 text-xs font-semibold tracking-wide uppercase">
+                    Filary zagrożenia
+                  </h3>
+                  <ul className="list-inside list-disc space-y-1">
+                    {normalizeThreatPillars(threat.data.pillars).map((pillar, index) => (
+                      <li
+                        key={index}
+                        className={`text-surface-700 text-sm ${pillar.destroyed ? 'line-through opacity-70' : ''}`}
+                      >
+                        {pillar.label}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               {threat.description && (
                 <div>
                   <h3 className="text-surface-500 mb-1 text-xs font-semibold tracking-wide uppercase">
@@ -483,7 +505,18 @@ export function FrontDetail() {
   const [existingThreatQuery, setExistingThreatQuery] = useState('');
   const [assigningThreatId, setAssigningThreatId] = useState<string | null>(null);
   const [showRelPicker, setShowRelPicker] = useState(false);
+  const [showFactionPicker, setShowFactionPicker] = useState(false);
+  const [unlinkConfirm, setUnlinkConfirm] = useState<{
+    relationId: string;
+    title: string;
+    description: string;
+  } | null>(null);
   const selectedThreatId = searchParams.get('threat');
+  const relatedFactions = useRelatedEntities(id ?? '', {
+    relationTypes: ['related_to'],
+    direction: 'both',
+    otherTypes: ['faction'],
+  });
 
   const returnToSessionLive =
     typeof location.state === 'object' &&
@@ -514,6 +547,15 @@ export function FrontDetail() {
       ),
     [threatFrontRelations],
   );
+  const threatFrontRelationByThreatId = useMemo(
+    () =>
+      new Map(
+        (threatFrontRelations ?? [])
+          .filter((relation) => relation.targetId === front?.id)
+          .map((relation) => [relation.sourceId, relation.id]),
+      ),
+    [threatFrontRelations, front?.id],
+  );
 
   const frontNameById = useMemo(
     () => new Map((fronts ?? []).map((frontEntity) => [frontEntity.id, frontEntity.name])),
@@ -543,7 +585,6 @@ export function FrontDetail() {
     if (front.data.goal) items.push({ id: 'front-detail-kontekst', label: 'Kontekst' });
     if (front.data.stakes.length > 0) items.push({ id: 'front-detail-stawki', label: 'Stawki' });
     if (front.description) items.push({ id: 'front-detail-opis', label: 'Opis' });
-    if (id) items.push({ id: 'front-detail-wskazowki', label: 'Wskazówki' });
     items.push({ id: 'front-detail-zagrozenia', label: 'Zagrożenia' });
     if (threats && threats.length > 0) {
       items.push({ id: 'front-detail-genealogia', label: 'Genealogia' });
@@ -551,6 +592,7 @@ export function FrontDetail() {
     items.push(
       { id: 'front-detail-powiazania', label: 'Powiązania' },
       { id: 'front-detail-notatki', label: 'Notatki MG' },
+      { id: 'front-detail-tagi', label: 'Tagi' },
     );
     return items;
   }, [front, isEditing, id, threats]);
@@ -621,6 +663,7 @@ export function FrontDetail() {
           radarArchetype: values.radarArchetype,
           impulse: values.impulse,
           moves: values.moves,
+          pillars: values.pillars,
           trigger: values.trigger,
           inheritanceNotes: values.inheritanceNotes,
           forkThreatId: values.forkThreatId,
@@ -696,6 +739,28 @@ export function FrontDetail() {
       toast.error('Nie udało się podpiąć istniejącego zagrożenia');
     } finally {
       setAssigningThreatId(null);
+    }
+  }
+
+  function openAttachThreatPanel() {
+    setThreatComposerMode('existing');
+    setShowThreatForm(true);
+    requestAnimationFrame(() => {
+      document.getElementById('front-detail-zagrozenia')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
+  }
+
+  async function handleConfirmUnlink() {
+    if (!unlinkConfirm) return;
+    try {
+      await deleteRelation(db, unlinkConfirm.relationId);
+      toast.success('Usunięto powiązanie z tego widoku');
+      setUnlinkConfirm(null);
+    } catch {
+      toast.error('Nie udało się usunąć powiązania');
     }
   }
 
@@ -804,46 +869,138 @@ export function FrontDetail() {
         </div>
       ) : (
         <>
-          {front.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {front.tags.map((tag) => (
-                <span key={tag} className="app-pill rounded-full px-2.5 py-1 text-xs">
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
+          <DetailSection sectionId="front-detail-kontekst" title="Kontekst frontu" tone="accent">
+            <div className="flex flex-col gap-6">
+              {front.data.goal && (
+                <div className="rounded-[1.2rem] border border-[rgba(163,122,201,0.3)] bg-[rgba(163,122,201,0.12)] px-5 py-4">
+                  <h2 className="text-primary-700 mb-2 text-xs font-semibold tracking-wide uppercase">
+                    Cel frontu
+                  </h2>
+                  <p className="text-surface-800 text-sm whitespace-pre-wrap">{front.data.goal}</p>
+                </div>
+              )}
 
-          {front.data.goal && (
-            <DetailSection
-              sectionId="front-detail-kontekst"
-              title="Kontekst frontu"
-              description="Główna oś kampanii i najważniejszy cel, wokół którego porządkujesz zagrożenia."
-              tone="accent"
-            >
-              <h2 className="text-primary-600 mb-2 text-xs font-semibold tracking-wide uppercase">
-                Cel frontu
-              </h2>
-              <p className="text-surface-800 text-sm whitespace-pre-wrap">{front.data.goal}</p>
-            </DetailSection>
-          )}
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="app-panel rounded-[1.3rem] p-4">
+                  <NarrativeLinksSection
+                    title="Powiązane frakcje"
+                    items={relatedFactions}
+                    emptyMessage="Ten front nie ma jeszcze podpiętych frakcji."
+                    actionLabel="+ Dodaj frakcję"
+                    onAction={() => setShowFactionPicker(true)}
+                    onRemoveItem={(item) =>
+                      setUnlinkConfirm({
+                        relationId: item.relation.id,
+                        title: 'Usunąć powiązaną frakcję?',
+                        description: `Czy na pewno chcesz usunąć frakcję „${item.entity.name}" z tego widoku frontu?`,
+                      })}
+                    removeAriaLabel={(item) => `Usuń frakcję ${item.entity.name} z tego widoku`}
+                  />
+                </div>
+
+                <div className="app-panel rounded-[1.3rem] p-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <h2 className="text-surface-500 text-xs font-semibold tracking-wide uppercase">
+                      Powiązane zagrożenia
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={openAttachThreatPanel}
+                      className="app-button-secondary rounded-full px-3 py-1.5 text-xs font-medium"
+                    >
+                      + Dodaj zagrożenie
+                    </button>
+                  </div>
+                  {!threats || threats.length === 0 ? (
+                    <p className="text-surface-500 text-sm">
+                      Brak podpiętych zagrożeń.
+                    </p>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {threats.slice(0, 3).map((threat) => {
+                        const relationId = threatFrontRelationByThreatId.get(threat.id);
+                        return (
+                          <div
+                            key={threat.id}
+                            className="app-input-shell flex min-w-0 items-stretch overflow-hidden rounded-[1.2rem]"
+                          >
+                            <button
+                              type="button"
+                              onClick={() =>
+                                navigate(`/threats/${threat.id}`, {
+                                  state: returnToSessionLive ? { returnToSessionLive } : undefined,
+                                })
+                              }
+                              className="hover:border-primary-300 flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[rgba(229,231,223,0.98)]"
+                            >
+                              <span className="flex flex-wrap items-center gap-2">
+                                <span className="text-surface-800 truncate font-medium">{threat.name}</span>
+                                <EntityTypeBadge type="threat" size="sm" />
+                              </span>
+                              <ChevronRight className="text-surface-300 ml-auto h-4 w-4 shrink-0" />
+                            </button>
+                            <div className="flex shrink-0 items-center self-stretch border-l border-[rgba(86,93,94,0.14)] bg-transparent px-2">
+                              {relationId ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setUnlinkConfirm({
+                                      relationId,
+                                      title: 'Usunąć powiązane zagrożenie?',
+                                      description: `Czy na pewno chcesz usunąć zagrożenie „${threat.name}" z tego widoku frontu?`,
+                                    })}
+                                  className="text-surface-400 hover:text-danger-700 hover:bg-danger-50 rounded-full p-1 transition-colors"
+                                  aria-label={`Usuń zagrożenie ${threat.name} z tego widoku`}
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {id && (
+                <div className="app-panel rounded-[1.3rem] p-4">
+                  <ClueSection
+                    parentId={id}
+                    title="Wskazówki frontu"
+                    onRemoveRelation={(item) =>
+                      setUnlinkConfirm({
+                        relationId: item.relation.id,
+                        title: 'Usunąć wskazówkę z widoku?',
+                        description: `Czy na pewno chcesz usunąć wskazówkę „${item.clue.name}" z tego widoku frontu?`,
+                      })}
+                  />
+                </div>
+              )}
+            </div>
+          </DetailSection>
 
           {front.data.stakes.length > 0 && (
             <DetailSection
               sectionId="front-detail-stawki"
               title="Stawki"
-              description="Pytania i ryzyka, które ten front stawia przed kampanią."
             >
-              <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
-                Stawki
-              </h2>
-              <ul className="list-inside list-disc space-y-1.5">
-                {front.data.stakes.map((stake, index) => (
-                  <li key={index} className="text-surface-700 text-sm">
-                    {stake}
-                  </li>
-                ))}
-              </ul>
+              <div className="app-panel rounded-[1.5rem] p-5 shadow-[0_12px_24px_rgba(18,45,66,0.06)] lg:p-6">
+                <ul className="m-0 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2 xl:grid-cols-2">
+                  {front.data.stakes.map((stake, index) => (
+                    <li
+                      key={index}
+                      className="app-input-shell flex min-h-full min-w-0 gap-3 rounded-[1.25rem] border px-4 py-4 shadow-[0_12px_24px_rgba(18,45,66,0.04)]"
+                    >
+                      <span className="app-pill-muted inline-flex h-fit shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold tabular-nums">
+                        {index + 1}
+                      </span>
+                      <p className="text-surface-800 min-w-0 flex-1 text-sm leading-6 break-words">{stake}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </DetailSection>
           )}
 
@@ -851,34 +1008,22 @@ export function FrontDetail() {
             <DetailSection
               sectionId="front-detail-opis"
               title="Opis"
-              description="Pełny opis frontu i jego roli w strukturze kampanii."
             >
-              <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
-                Opis
-              </h2>
-              <div
-                className="prose prose-sm text-surface-700 max-w-none"
-                dangerouslySetInnerHTML={{ __html: front.description }}
-              />
+              <div className="app-panel min-w-0 w-full rounded-[1.5rem] p-5 lg:p-6">
+                <div
+                  className="prose prose-sm prose-headings:text-surface-800 prose-p:text-surface-800 prose-li:text-surface-800 prose-a:text-primary-700 min-w-0 w-full max-w-none text-pretty text-surface-800 [&_*]:max-w-none"
+                  dangerouslySetInnerHTML={{ __html: front.description }}
+                />
+              </div>
             </DetailSection>
           )}
 
-          {id && (
-            <DetailSection
-              sectionId="front-detail-wskazowki"
-              title="Wskazówki frontu"
-              description="Tropy i sekrety, które prowadzą bezpośrednio do głównej osi kampanii."
-            >
-              <ClueSection parentId={id} title="Wskazówki frontu" />
-            </DetailSection>
-          )}
         </>
       )}
 
       <DetailSection
         sectionId="front-detail-zagrozenia"
         title="Zagrożenia frontu"
-        description="Główne presje podpięte do tej osi kampanii."
       >
         <div>
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -1123,7 +1268,6 @@ export function FrontDetail() {
         <DetailSection
           sectionId="front-detail-genealogia"
           title="Genealogia zagrożeń"
-          description="Łańcuch eskalacji: źródła, zagrożenia wynikające i ich dalsze konsekwencje."
         >
           <ThreatGenealogySection threats={threats} returnToSessionLive={returnToSessionLive} />
         </DetailSection>
@@ -1139,15 +1283,26 @@ export function FrontDetail() {
         />
       )}
 
+      {showFactionPicker && (
+        <RelationPicker
+          sourceId={front.id}
+          sourceType="front"
+          initialTargetType="faction"
+          initialRelationType="related_to"
+          lockTargetType
+          lockRelationType
+          onClose={() => setShowFactionPicker(false)}
+        />
+      )}
+
       <DetailSection
         sectionId="front-detail-powiazania"
         title="Powiązania świata"
-        description="Relacje dodatkowe poza główną osią fabularną i przypiętymi zagrożeniami."
         action={
           <button
             type="button"
             onClick={() => setShowRelPicker(true)}
-            className="text-primary-700 text-xs hover:underline"
+            className="app-button-secondary rounded-full px-3 py-1.5 text-xs font-medium"
           >
             + Dodaj
           </button>
@@ -1163,13 +1318,26 @@ export function FrontDetail() {
       <DetailSection
         sectionId="front-detail-notatki"
         title="Notatki MG"
-        description="Zaplecze robocze dla prowadzącego, oddzielone od głównej osi i jej tropów."
       >
         <NotesList
           entityId={front.id}
           showTitle={false}
           emptyMessage="Brak notatek podpiętych do tego frontu."
         />
+      </DetailSection>
+
+      <DetailSection sectionId="front-detail-tagi" title="Tagi">
+        {front.tags.length === 0 ? (
+          <p className="text-surface-500 text-sm">Brak tagów — dodaj je w trybie edycji frontu.</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {front.tags.map((tag) => (
+              <span key={tag} className="app-pill rounded-full px-2.5 py-1 text-xs font-medium">
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
       </DetailSection>
 
       <DetailScrollTopFab enabled={!isEditing && frontTocItems.length > 0} />
@@ -1180,6 +1348,14 @@ export function FrontDetail() {
         description={`Czy na pewno chcesz usunąć front "${front.name}"? Ta operacja jest nieodwracalna.`}
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}
+      />
+
+      <ConfirmDialog
+        open={unlinkConfirm !== null}
+        title={unlinkConfirm?.title ?? 'Usunąć powiązanie?'}
+        description={unlinkConfirm?.description ?? ''}
+        onConfirm={() => void handleConfirmUnlink()}
+        onCancel={() => setUnlinkConfirm(null)}
       />
     </div>
   );

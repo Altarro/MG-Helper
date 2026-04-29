@@ -9,10 +9,7 @@ import {
   BookOpen,
   Shield,
   Package,
-  GitFork,
   Settings,
-  Sun,
-  Moon,
   Compass,
   Milestone,
   StickyNote,
@@ -20,7 +17,6 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useDarkMode } from '@shared/hooks/useDarkMode';
 import {
   getLiveSessionMarker,
   LIVE_SESSION_MARKER_UPDATED_EVENT,
@@ -60,9 +56,9 @@ const navGroups = [
   {
     label: 'Świat gry',
     items: [
+      { to: '/factions', label: 'Frakcje', icon: Shield },
       { to: '/locations', label: 'Lokacje', icon: MapPin },
       { to: '/npcs', label: 'Postacie', icon: Users },
-      { to: '/factions', label: 'Frakcje', icon: Shield },
       { to: '/items', label: 'Przedmioty', icon: Package },
     ],
   },
@@ -74,10 +70,6 @@ const navGroups = [
       { to: '/backstage', label: 'Za kulisami', icon: Theater },
       { to: '/notes', label: 'Notatki', icon: StickyNote },
     ],
-  },
-  {
-    label: 'Narzędzia',
-    items: [{ to: '/graph', label: 'Graf', icon: GitFork }],
   },
 ] as const satisfies readonly NavGroup[];
 
@@ -115,7 +107,6 @@ function SidebarLink({
 }
 
 export function PrimarySidebar({ onClose }: { onClose?: () => void }) {
-  const [dark, toggleDark] = useDarkMode();
   const { campaignId, db } = useCampaign();
   const [liveMarker, setLiveMarker] = useState<LiveSessionMarker | null>(() => getLiveSessionMarker());
   const sessionsMeta = useLiveQuery(async () => {
@@ -254,14 +245,6 @@ export function PrimarySidebar({ onClose }: { onClose?: () => void }) {
         >
           <Settings className="h-4 w-4" /> Ustawienia
         </NavLink>
-        <button
-          onClick={toggleDark}
-          aria-label={dark ? 'Włącz tryb jasny' : 'Włącz tryb ciemny'}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-surface-700 transition-all hover:bg-[rgba(223,225,218,0.72)] hover:text-primary-800"
-        >
-          {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          {dark ? 'Tryb jasny' : 'Tryb ciemny'}
-        </button>
       </div>
     </aside>
   );

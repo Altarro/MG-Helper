@@ -30,23 +30,25 @@ export function DetailSection({
   contentClassName = '',
   sectionId,
 }: DetailSectionProps) {
+  const headerSpacingClass = description ? 'mb-5' : 'mb-3';
+
   return (
     <section
       id={sectionId}
       className={`rounded-[1.6rem] p-5 lg:p-6 ${TONE_CLASSES[tone]} ${className}`.trim()}
     >
-      <div className="mb-5 flex min-w-0 flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
+      <div className={`${headerSpacingClass} min-w-0`}>
+        <div className="flex min-w-0 items-center justify-between gap-3">
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-surface-500">
             {title}
           </h2>
-          {description && (
-            <p className="text-surface-500/90 mt-1.5 w-full min-w-0 max-w-[68ch] text-[11px] font-normal leading-snug text-pretty">
-              {description}
-            </p>
-          )}
+          {action ? <div className="shrink-0">{action}</div> : null}
         </div>
-        {action ? <div className="shrink-0">{action}</div> : null}
+        {description && (
+          <p className="text-surface-500/90 mt-1.5 w-full min-w-0 max-w-[68ch] text-[11px] font-normal leading-snug text-pretty">
+            {description}
+          </p>
+        )}
       </div>
       <div className={['min-w-0 w-full', contentClassName].filter(Boolean).join(' ')}>{children}</div>
     </section>

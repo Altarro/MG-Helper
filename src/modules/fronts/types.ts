@@ -67,6 +67,12 @@ export interface ThreatTypePreset {
   impulse: string;
   trigger: string;
   moves: string[];
+  pillars?: string[];
+}
+
+export interface ThreatPillar {
+  label: string;
+  destroyed?: boolean;
 }
 
 export const THREAT_TYPE_PRESETS: Record<ThreatType, ThreatTypePreset> = {
@@ -188,6 +194,7 @@ export interface ThreatData {
   status?: ThreatStatus;
   impulse: string;
   moves: string[];
+  pillars?: Array<string | ThreatPillar>;
   trigger?: string;
   /** Preferowane pole z powodem zakończenia zagrożenia. */
   completionReason?: string;
@@ -222,4 +229,17 @@ export function inferThreatCompletionOutcomeFromClock(
 ): ThreatCompletionOutcome {
   if (clock && isCompleted(clock)) return 'completed_by_clock';
   return 'resolved_early';
+}
+
+export function normalizeThreatPillars(
+  pillars: ThreatData['pillars'] | undefined,
+): ThreatPillar[] {
+  if (!pillars || pillars.length === 0) return [];
+  return pillars
+    .map((pillar) =>
+      typeof pillar === 'string'
+        ? { label: pillar, destroyed: false }
+        : { label: pillar.label, destroyed: pillar.destroyed === true },
+    )
+    .filter((pillar) => pillar.label.trim().length > 0);
 }

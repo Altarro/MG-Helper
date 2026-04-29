@@ -13,6 +13,7 @@ import {
 } from '@shared/domain/storyContracts';
 import { toast } from 'sonner';
 import type { Clue } from '@modules/clues/types';
+import type { ClueRelationItem } from '@modules/clues/hooks/useCluesFor';
 import type { ClueFormValues } from '@modules/clues/components/ClueForm';
 
 interface ClueSectionProps {
@@ -21,6 +22,7 @@ interface ClueSectionProps {
   /** Label for the section header */
   title?: string;
   showTitle?: boolean;
+  onRemoveRelation?: (item: ClueRelationItem) => void;
 }
 
 /**
@@ -28,7 +30,7 @@ interface ClueSectionProps {
  * Shows a compact list and inline quick-add form.
  * Cascade-delete is handled by the caller (via deleteEntity on the parent which uses the DB cascade).
  */
-export function ClueSection({ parentId, title = 'Wskazówki' }: ClueSectionProps) {
+export function ClueSection({ parentId, title = 'Wskazówki', onRemoveRelation }: ClueSectionProps) {
   const { db } = useCampaign();
   const clues = useCluesFor(parentId);
   const [showForm, setShowForm] = useState(false);
@@ -78,16 +80,11 @@ export function ClueSection({ parentId, title = 'Wskazówki' }: ClueSectionProps
     }
   }
 
-  const count = clues?.length ?? 0;
-
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-surface-500 text-xs font-semibold tracking-wide uppercase">
           {title}
-          {count > 0 ? (
-            <span className="text-surface-400 ml-1.5 font-normal tabular-nums normal-case">({count})</span>
-          ) : null}
         </h2>
         <button
           type="button"
@@ -141,6 +138,7 @@ export function ClueSection({ parentId, title = 'Wskazówki' }: ClueSectionProps
               clue={item.clue}
               metaLabel={item.relation.meta?.clueStrength ? CLUE_STRENGTH_LABELS[item.relation.meta.clueStrength] : undefined}
               onToggleDiscovered={handleToggleDiscovered}
+              onRemove={onRemoveRelation ? () => onRemoveRelation(item) : undefined}
             />
           ))}
           <Link

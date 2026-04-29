@@ -12,6 +12,7 @@ import { RelationPicker } from '@shared/components/RelationPicker';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { LoadingPage } from '@shared/components/LoadingSpinner';
 import { DetailNotFound } from '@shared/components/DetailNotFound';
+import { DetailSection } from '@shared/components/DetailSection';
 import { DetailScrollTopFab } from '@shared/components/DetailScrollTopFab';
 import { DetailTocBar } from '@shared/components/DetailTocBar';
 import { ClockWidget } from '@modules/clocks/components/ClockWidget';
@@ -163,7 +164,12 @@ export function NpcDetail() {
     }, [db, id]) ?? [];
   const currentNamedLocationId =
     currentLocation && !isDraftLocation(currentLocation) ? currentLocation.id : null;
-  const recentLocationHistory = locationHistory.slice(0, 4);
+  /** Wpisów z aktualną lokacją nie pokazujemy w liście „ostatnio widziany” — jest osobny blok u góry. */
+  const locationHistoryExcludingCurrent = useMemo(() => {
+    if (!currentNamedLocationId) return locationHistory;
+    return locationHistory.filter((entry) => entry.data.locationId !== currentNamedLocationId);
+  }, [locationHistory, currentNamedLocationId]);
+  const recentLocationHistoryOnly = locationHistoryExcludingCurrent.slice(0, 4);
 
   // Load related clocks for inline widgets
   const relatedClocks = useLiveQuery(async () => {
@@ -186,16 +192,22 @@ export function NpcDetail() {
 
   const npcTocItems = useMemo(() => {
     if (!npc || editing) return [];
+    const hasKontekst =
+      Boolean(npc.description) ||
+      Boolean(npc.data.instinct) ||
+      Boolean(npc.data.motivation) ||
+      Boolean(npc.data.appearance) ||
+      Boolean(npc.data.playStyle);
     const items: { id: string; label: string }[] = [
       { id: 'npc-detail-lokacja', label: 'Lokacja' },
-      { id: 'npc-detail-historia-lokacji', label: 'Historia lokacji' },
       { id: 'npc-detail-sesje', label: 'Sesje' },
-      { id: 'npc-detail-karta', label: 'Karta postaci' },
     ];
-    if (npc.description) items.push({ id: 'npc-detail-opis', label: 'Opis' });
+    if (hasKontekst) items.push({ id: 'npc-detail-kontekst', label: 'Kontekst postaci' });
     const clocks = relatedClocks ?? [];
     if (clocks.length > 0) items.push({ id: 'npc-detail-zegary', label: 'Zegary' });
     items.push({ id: 'npc-detail-relacje', label: 'Relacje' });
+    items.push({ id: 'npc-detail-notatki', label: 'Notatki MG' });
+    items.push({ id: 'npc-detail-tagi', label: 'Tagi' });
     return items;
   }, [npc, editing, relatedClocks]);
 
@@ -320,7 +332,7 @@ export function NpcDetail() {
   const npcIsDead = getNpcLifecycleStatus({ data: npc!.data }) === 'completed';
 
   return (
-    <div className="mx-auto max-w-5xl p-6">
+    <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
       {/* Back */}
       <button
         type="button"
@@ -434,34 +446,74 @@ export function NpcDetail() {
             className="mb-2"
           />
 
-          <section
-            id="npc-detail-lokacja"
-            className="app-panel mb-6 rounded-[1.6rem] p-5 shadow-[0_16px_32px_rgba(18,45,66,0.08)] lg:p-6"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h2 className="text-surface-800 text-sm font-semibold">Aktualna lokacja</h2>
-                {currentLocation ? (
-                  isDraftLocation(currentLocation) ? (
-                    <p className="text-surface-700 mt-1 text-sm">Pusta scena sesji</p>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/locations/${currentLocation.id}`)}
-                      className="text-primary-700 hover:text-primary-800 mt-1 inline-flex items-center gap-1 text-sm font-medium transition-colors"
-                    >
-                      <MapPin className="h-3.5 w-3.5" />
-                      {currentLocation.name}
-                    </button>
-                  )
-                ) : (
-                  <p className="text-surface-500 mt-1 text-sm">Brak aktualnej lokacji.</p>
-                )}
-                <p className="text-surface-400 mt-1 text-xs">
-                  Relacja `contains` wskazuje jedną bieżącą lokację kampanijną tej postaci.
-                </p>
-              </div>
-              <div className="flex shrink-0 gap-2">
+          {(npc.description ||
+            npc.data.instinct ||
+            npc.data.motivation ||
+            npc.data.appearance ||
+            npc.data.playStyle) && (
+            <DetailSection
+              sectionId="npc-detail-kontekst"
+              title="Kontekst postaci"
+              tone="accent"
+              contentClassName="flex flex-col gap-4"
+            >
+              {npc.description && (
+                <div className="rounded-[1.25rem] border border-[rgba(150,50,75,0.32)] bg-[linear-gradient(180deg,rgba(235,165,185,0.55)_0%,rgba(205,110,135,0.32)_100%)] px-5 py-4 shadow-[0_12px_24px_rgba(90,30,50,0.1),inset_0_1px_0_rgba(255,245,248,0.42)]">
+                  <h2 className="mb-2 text-xs font-semibold tracking-wide text-[rgb(92,28,48)] uppercase">Opis</h2>
+                  <div
+                    className="prose prose-sm text-surface-800 max-w-none"
+                    dangerouslySetInnerHTML={{ __html: npc.description }}
+                  />
+                </div>
+              )}
+              {(npc.data.instinct ||
+                npc.data.motivation ||
+                npc.data.appearance ||
+                npc.data.playStyle) && (
+                <div className="app-panel flex flex-col gap-3 rounded-[1.4rem] p-5">
+                  {npc.data.instinct && (
+                    <div>
+                      <p className="text-surface-400 mb-0.5 text-xs font-medium tracking-wide uppercase">
+                        Instynkt
+                      </p>
+                      <p className="text-surface-700 text-sm italic">{npc.data.instinct}</p>
+                    </div>
+                  )}
+                  {npc.data.motivation && (
+                    <div>
+                      <p className="text-surface-400 mb-0.5 text-xs font-medium tracking-wide uppercase">
+                        Motywacja
+                      </p>
+                      <p className="text-surface-700 text-sm">{npc.data.motivation}</p>
+                    </div>
+                  )}
+                  {npc.data.appearance && (
+                    <div>
+                      <p className="text-surface-400 mb-0.5 text-xs font-medium tracking-wide uppercase">
+                        Wygląd
+                      </p>
+                      <p className="text-surface-700 text-sm whitespace-pre-wrap">{npc.data.appearance}</p>
+                    </div>
+                  )}
+                  {npc.data.playStyle && (
+                    <div>
+                      <p className="text-surface-400 mb-0.5 text-xs font-medium tracking-wide uppercase">
+                        Sposób odgrywania
+                      </p>
+                      <p className="text-surface-700 text-sm whitespace-pre-wrap">{npc.data.playStyle}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </DetailSection>
+          )}
+
+          <DetailSection
+            sectionId="npc-detail-lokacja"
+            title="Lokacja"
+            contentClassName="flex flex-col gap-4"
+            action={
+              <div className="flex shrink-0 flex-wrap justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setShowLocationPicker(true)}
@@ -478,104 +530,89 @@ export function NpcDetail() {
                     Wyczyść
                   </button>
                 )}
+                {locationHistory.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowHistoryModal(true)}
+                    className="app-button-secondary rounded-full px-3 py-1.5 text-xs font-medium"
+                  >
+                    Cała historia
+                  </button>
+                ) : null}
               </div>
-            </div>
-          </section>
-
-          <section
-            id="npc-detail-historia-lokacji"
-            className="app-panel mb-6 rounded-[1.6rem] p-5 shadow-[0_16px_32px_rgba(18,45,66,0.08)] lg:p-6"
+            }
           >
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-surface-800 text-sm font-semibold">Ostatnio widziany w</h2>
-                <p className="text-surface-400 mt-1 text-xs">
-                  Pierwszy wpis to aktualna lokacja, kolejne 3 pokazują najświeższe archiwum.
-                </p>
-              </div>
-              {locationHistory.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setShowHistoryModal(true)}
-                  className="app-button-secondary rounded-full px-3 py-1.5 text-xs font-medium"
-                >
-                  Cala historia
-                </button>
-              )}
-            </div>
-            {recentLocationHistory.length === 0 ? (
-              <p className="text-surface-500 text-sm">
-                Brak zapisanej historii lokacji. Pierwsza zmiana lokacji dopisze wpis do historii.
+            <div className="app-card rounded-[1.25rem] border border-[rgba(176,120,72,0.32)] bg-[linear-gradient(180deg,rgba(232,195,150,0.5)_0%,rgba(198,145,95,0.28)_100%)] p-4 shadow-[0_12px_26px_rgba(18,45,66,0.08),inset_0_1px_0_rgba(255,248,235,0.45)]">
+              <p className="text-[rgb(110,72,42)] mb-2 text-xs font-semibold tracking-wide uppercase">
+                Aktualna lokacja
               </p>
-            ) : (
-              <div className="flex flex-col gap-3">
-                {recentLocationHistory.map((entry, index) => {
-                  const isCurrent =
-                    index === 0 &&
-                    currentNamedLocationId !== null &&
-                    entry.data.locationId === currentNamedLocationId;
+              <div className="min-w-0">
+                {currentLocation ? (
+                  isDraftLocation(currentLocation) ? (
+                    <p className="text-surface-800 text-sm">Pusta scena sesji</p>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/locations/${currentLocation.id}`)}
+                      className="text-primary-800 hover:text-primary-900 inline-flex items-center gap-1 text-sm font-semibold transition-colors"
+                    >
+                      <MapPin className="h-3.5 w-3.5" />
+                      {currentLocation.name}
+                    </button>
+                  )
+                ) : (
+                  <p className="text-surface-600 text-sm">Brak aktualnej lokacji.</p>
+                )}
+              </div>
+            </div>
 
-                  return (
+            {recentLocationHistoryOnly.length > 0 ? (
+              <div>
+                <p className="text-surface-400 mb-2 text-xs font-semibold tracking-wide uppercase">
+                  Ostatnio widziany w
+                </p>
+                <div className="flex flex-col gap-3">
+                  {recentLocationHistoryOnly.map((entry) => (
                     <div
                       key={entry.id}
-                      className={`rounded-[1.2rem] border p-4 shadow-[0_12px_24px_rgba(18,45,66,0.06)] ${
-                        isCurrent
-                          ? 'border-primary-300 bg-primary-50/65'
-                          : 'border-white/55 bg-[rgba(244,245,240,0.9)]'
-                      }`}
+                      className="app-input-shell flex items-start justify-between gap-3 rounded-[1.2rem] p-4"
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p
-                              className={`text-xs font-medium tracking-wide uppercase ${
-                                isCurrent ? 'text-primary-700' : 'text-surface-400'
-                              }`}
-                            >
-                              {formatDateTime(entry.data.timestamp)}
-                            </p>
-                            {isCurrent && (
-                              <span className="bg-primary-100 text-primary-700 rounded-full px-2 py-0.5 text-[11px] font-semibold">
-                                Aktualna
-                              </span>
-                            )}
-                          </div>
-                          <p
-                            className={`mt-1 text-sm font-semibold ${isCurrent ? 'text-primary-900' : 'text-surface-900'}`}
-                          >
-                            {entry.data.locationName}
-                          </p>
-                          {entry.data.sessionName && (
-                            <p className="text-surface-500 mt-1 text-xs">
-                              Podczas: {entry.data.sessionName}
-                            </p>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/locations/${entry.data.locationId}`)}
-                          className="app-button-secondary shrink-0 rounded-full px-3 py-1.5 text-xs font-medium"
-                        >
-                          Otwórz
-                        </button>
+                      <div className="min-w-0">
+                        <p className="text-surface-400 text-xs font-medium tracking-wide uppercase">
+                          {formatDateTime(entry.data.timestamp)}
+                        </p>
+                        <p className="text-surface-900 mt-1 text-sm font-semibold">{entry.data.locationName}</p>
+                        {entry.data.sessionName && (
+                          <p className="text-surface-500 mt-1 text-xs">Podczas: {entry.data.sessionName}</p>
+                        )}
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/locations/${entry.data.locationId}`)}
+                        className="app-button-secondary shrink-0 rounded-full px-3 py-1.5 text-xs font-medium"
+                      >
+                        Otwórz
+                      </button>
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            )}
-          </section>
+            ) : locationHistory.length === 0 ? (
+              <p className="text-surface-500 text-sm">
+                Brak zapisanej historii lokacji. Pierwsza zmiana lokacji dopisze wpis do archiwum.
+              </p>
+            ) : null}
+          </DetailSection>
 
-          <section
-            id="npc-detail-sesje"
-            className="app-panel mb-6 rounded-[1.6rem] p-5 shadow-[0_16px_32px_rgba(18,45,66,0.08)] lg:p-6"
-          >
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-surface-800 text-sm font-semibold">Obecność w sesjach</h2>
+          <DetailSection
+            sectionId="npc-detail-sesje"
+            title="Obecność w sesjach"
+            action={
               <span className="text-surface-400 text-xs">
                 {sessionAppearances.length === 0 ? 'Brak' : `${sessionAppearances.length} powiązań`}
               </span>
-            </div>
+            }
+          >
             {sessionAppearances.length === 0 ? (
               <p className="text-surface-500 text-sm">
                 NPC nie jest jeszcze podpięty do żadnej sesji.
@@ -595,83 +632,11 @@ export function NpcDetail() {
                 ))}
               </div>
             )}
-          </section>
-
-          {/* NPC fields */}
-          <div
-            id="npc-detail-karta"
-            className="app-panel mb-6 flex flex-col gap-3 rounded-[1.6rem] p-5 shadow-[0_16px_32px_rgba(18,45,66,0.08)] lg:p-6"
-          >
-            {npc.data.instinct && (
-              <div>
-                <p className="text-surface-400 mb-0.5 text-xs font-medium tracking-wide uppercase">
-                  Instynkt
-                </p>
-                <p className="text-surface-700 text-sm italic">{npc.data.instinct}</p>
-              </div>
-            )}
-            {npc.data.motivation && (
-              <div>
-                <p className="text-surface-400 mb-0.5 text-xs font-medium tracking-wide uppercase">
-                  Motywacja
-                </p>
-                <p className="text-surface-700 text-sm">{npc.data.motivation}</p>
-              </div>
-            )}
-            {npc.data.appearance && (
-              <div>
-                <p className="text-surface-400 mb-0.5 text-xs font-medium tracking-wide uppercase">
-                  Wygląd
-                </p>
-                <p className="text-surface-700 text-sm whitespace-pre-wrap">
-                  {npc.data.appearance}
-                </p>
-              </div>
-            )}
-            {npc.data.playStyle && (
-              <div>
-                <p className="text-surface-400 mb-0.5 text-xs font-medium tracking-wide uppercase">
-                  Sposób odgrywania
-                </p>
-                <p className="text-surface-700 text-sm whitespace-pre-wrap">{npc.data.playStyle}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Tags */}
-          {npc.tags.length > 0 && (
-            <div className="mb-4 flex flex-wrap gap-1.5">
-              {npc.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="app-pill-muted rounded-full px-2.5 py-1 text-xs font-medium"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* Description */}
-          {npc.description && (
-            <section
-              id="npc-detail-opis"
-              className="app-panel mb-6 rounded-[1.6rem] p-5 shadow-[0_16px_32px_rgba(18,45,66,0.08)] lg:p-6"
-            >
-              <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
-                Opis
-              </h2>
-              <div
-                className="prose prose-sm text-surface-700 max-w-none"
-                dangerouslySetInnerHTML={{ __html: npc.description }}
-              />
-            </section>
-          )}
+          </DetailSection>
 
           {/* Inline clocks */}
           {relatedClocks && relatedClocks.length > 0 && (
-            <section id="npc-detail-zegary" className="mb-6">
-              <h2 className="text-surface-800 mb-3 text-sm font-semibold">Powiązane zegary</h2>
+            <DetailSection sectionId="npc-detail-zegary" title="Powiązane zegary">
               <div className="flex flex-wrap gap-4">
                 {relatedClocks.map((clock) =>
                   clock ? (
@@ -684,13 +649,14 @@ export function NpcDetail() {
                   ) : null,
                 )}
               </div>
-            </section>
+            </DetailSection>
           )}
 
           {/* Relations */}
-          <section id="npc-detail-relacje" className="mb-6">
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-surface-800 text-sm font-semibold">Relacje</h2>
+          <DetailSection
+            sectionId="npc-detail-relacje"
+            title="Relacje"
+            action={
               <button
                 type="button"
                 onClick={() => setShowRelationPicker(true)}
@@ -699,10 +665,28 @@ export function NpcDetail() {
                 <Plus className="h-3.5 w-3.5" />
                 Dodaj
               </button>
-            </div>
-            <NotesList entityId={npc.id} />
+            }
+          >
             <RelationList entityId={npc.id} onNavigate={handleNavigateToEntity} />
-          </section>
+          </DetailSection>
+
+          <DetailSection sectionId="npc-detail-notatki" title="Notatki MG">
+            <NotesList entityId={npc.id} showTitle={false} emptyMessage="Brak notatek podpiętych do tej postaci." />
+          </DetailSection>
+
+          <DetailSection sectionId="npc-detail-tagi" title="Tagi">
+            {npc.tags.length === 0 ? (
+              <p className="text-surface-500 text-sm">Brak tagów — dodaj je w trybie edycji postaci.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {npc.tags.map((tag) => (
+                  <span key={tag} className="app-pill-muted rounded-full px-2.5 py-1 text-xs font-medium">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+          </DetailSection>
 
           <DetailScrollTopFab enabled={npcTocItems.length > 0} />
         </>
