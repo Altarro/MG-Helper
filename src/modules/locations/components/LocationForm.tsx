@@ -4,12 +4,13 @@ import { z } from 'zod';
 import { TagInput } from '@shared/components/TagInput';
 import { RichTextEditor } from '@shared/components/RichTextEditor';
 import { ImagePicker } from '@shared/components/ImagePicker';
+import { useCampaign } from '@shared/db/CampaignContext';
+import { getActiveCatalogOptions, getCatalogLabelByValue } from '@modules/settings/campaignCatalogSettings';
 import { useLocations } from '../hooks/useLocations';
-import { LOCATION_TYPES, LOCATION_TYPE_LABELS } from '../types';
 
 const locationFormSchema = z.object({
   name: z.string().min(1, 'Nazwa jest wymagana').max(200),
-  locationType: z.enum(LOCATION_TYPES).default('region'),
+  locationType: z.string().min(1).default('region'),
   danger: z.coerce.number().int().min(0).max(5).default(0),
   see: z.string().max(1000).default(''),
   hear: z.string().max(1000).default(''),
@@ -48,6 +49,15 @@ export function LocationForm({
   isSaving = false,
   onCancel,
 }: LocationFormProps) {
+  const { campaignId } = useCampaign();
+  const currentLocationType = defaultValues?.locationType ?? 'region';
+  const locationTypeBase = getActiveCatalogOptions(campaignId, 'locationType');
+  const locationTypeOptions = locationTypeBase.some((x) => x.id === currentLocationType)
+    ? locationTypeBase
+    : [
+        ...locationTypeBase,
+        { id: currentLocationType, label: getCatalogLabelByValue('locationType', currentLocationType, campaignId) },
+      ];
   const {
     register,
     control,
@@ -128,8 +138,8 @@ export function LocationForm({
             {...register('locationType')}
             className="app-input rounded-2xl px-3.5 py-3 text-sm text-surface-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           >
-            {LOCATION_TYPES.map((t) => (
-              <option key={t} value={t}>{LOCATION_TYPE_LABELS[t]}</option>
+            {locationTypeOptions.map((t) => (
+              <option key={t.id} value={t.id}>{t.label}</option>
             ))}
           </select>
         </div>

@@ -18,9 +18,11 @@ export async function createExportPayload(
   db: MgHelperDb,
   options: ExportJsonOptions = {},
 ): Promise<BackupPayload> {
-  const [entities, relations] = await Promise.all([
+  const [entities, relations, generatorPacks, generatorRollLogs] = await Promise.all([
     db.entities.toArray(),
     db.relations.toArray(),
+    db.generatorPacks.toArray(),
+    db.generatorRollLogs.toArray(),
   ]);
 
   return {
@@ -30,6 +32,8 @@ export async function createExportPayload(
     campaignMeta: options.campaignMeta ?? null,
     entities,
     relations,
+    generatorPacks,
+    generatorRollLogs,
   };
 }
 

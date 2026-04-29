@@ -9,16 +9,22 @@ import {
   BookOpen,
   Shield,
   Package,
-  GitFork,
   Settings,
-  Sun,
-  Moon,
   Compass,
   Milestone,
-  CalendarDays,
   StickyNote,
+  Theater,
 } from 'lucide-react';
-import { useDarkMode } from '@shared/hooks/useDarkMode';
+import { useEffect, useState } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import {
+  getLiveSessionMarker,
+  LIVE_SESSION_MARKER_UPDATED_EVENT,
+  type LiveSessionMarker,
+} from '@modules/sessions/hooks/useLiveSessionState';
+import { useCampaign } from '@shared/db/CampaignContext';
+import { getSessionLifecycleStatus, type SessionData } from '@modules/sessions/types';
+import { trackNavigationClick } from '@shared/telemetry/navigationTelemetry';
 
 type NavItem = {
   to: string;
@@ -50,9 +56,9 @@ const navGroups = [
   {
     label: 'Świat gry',
     items: [
+      { to: '/factions', label: 'Frakcje', icon: Shield },
       { to: '/locations', label: 'Lokacje', icon: MapPin },
       { to: '/npcs', label: 'Postacie', icon: Users },
-      { to: '/factions', label: 'Frakcje', icon: Shield },
       { to: '/items', label: 'Przedmioty', icon: Package },
     ],
   },
@@ -61,13 +67,9 @@ const navGroups = [
     items: [
       { to: '/sessions', label: 'Sesje', icon: BookOpen },
       { to: '/clocks', label: 'Zegary', icon: Clock },
-      { to: '/timeline', label: 'Oś czasu', icon: CalendarDays },
+      { to: '/backstage', label: 'Za kulisami', icon: Theater },
       { to: '/notes', label: 'Notatki', icon: StickyNote },
     ],
-  },
-  {
-    label: 'Narzędzia',
-    items: [{ to: '/graph', label: 'Graf', icon: GitFork }],
   },
 ] as const satisfies readonly NavGroup[];
 
@@ -92,7 +94,10 @@ function SidebarLink({
     <NavLink
       to={to}
       end={to === '/'}
-      onClick={onClose}
+      onClick={() => {
+        trackNavigationClick('sidebar', to);
+        onClose?.();
+      }}
       className={({ isActive }) => navLinkClassName(isActive)}
     >
       <Icon className="h-4 w-4" />
@@ -102,7 +107,39 @@ function SidebarLink({
 }
 
 export function PrimarySidebar({ onClose }: { onClose?: () => void }) {
-  const [dark, toggleDark] = useDarkMode();
+  const { campaignId, db } = useCampaign();
+  const [liveMarker, setLiveMarker] = useState<LiveSessionMarker | null>(() => getLiveSessionMarker());
+  const sessionsMeta = useLiveQuery(async () => {
+    const sessions = await db.entities.where('type').equals('session').toArray();
+    const cleanupPending = sessions.filter(
+      (entity) => getSessionLifecycleStatus(entity.data as unknown as SessionData) === 'cleanup_pending',
+    );
+    const latestPending = cleanupPending.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+    return {
+      cleanupPendingCount: cleanupPending.length,
+      latestPendingId: latestPending?.id ?? null,
+      latestPendingName: latestPending?.name ?? null,
+    };
+  }, [db]);
+
+  useEffect(() => {
+    function syncLiveMarker() {
+      setLiveMarker(getLiveSessionMarker());
+    }
+
+    syncLiveMarker();
+    window.addEventListener('storage', syncLiveMarker);
+    window.addEventListener(LIVE_SESSION_MARKER_UPDATED_EVENT, syncLiveMarker);
+    return () => {
+      window.removeEventListener('storage', syncLiveMarker);
+      window.removeEventListener(LIVE_SESSION_MARKER_UPDATED_EVENT, syncLiveMarker);
+    };
+  }, []);
+
+  const isLiveInCurrentCampaign =
+    liveMarker && (!liveMarker.campaignId || liveMarker.campaignId === campaignId);
+  const cleanupPendingCount = sessionsMeta?.cleanupPendingCount ?? 0;
+  const hasPendingCleanup = cleanupPendingCount > 0;
 
   return (
     <aside className="flex w-sidebar flex-col border-r border-[rgba(18,45,66,0.12)] bg-[linear-gradient(180deg,rgba(223,225,218,0.95)_0%,rgba(210,212,203,0.98)_100%)] shadow-[inset_-1px_0_0_rgba(255,244,220,0.15)]">
@@ -127,9 +164,74 @@ export function PrimarySidebar({ onClose }: { onClose?: () => void }) {
               <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-surface-500">
                 {group.label}
               </div>
-              {group.items.map((item) => (
-                <SidebarLink key={item.to} item={item} onClose={onClose} />
-              ))}
+              {group.items.map((item) => {
+                if (item.to !== '/sessions') {
+                  return <SidebarLink key={item.to} item={item} onClose={onClose} />;
+                }
+
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={false}
+                    onClick={() => {
+                      trackNavigationClick('sidebar', item.to);
+                      onClose?.();
+                    }}
+                    className={({ isActive }) => navLinkClassName(isActive)}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                      <span>{item.label}</span>
+                      <span className="flex items-center gap-1">
+                        {isLiveInCurrentCampaign && (
+                          <span className="rounded-full border border-[rgba(33,71,102,0.24)] bg-[rgba(111,146,164,0.16)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-primary-800">
+                            Live
+                          </span>
+                        )}
+                        {hasPendingCleanup && (
+                          <span className="rounded-full border border-[rgba(176,108,103,0.24)] bg-[rgba(176,108,103,0.14)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-danger-800">
+                            Cleanup {cleanupPendingCount}
+                          </span>
+                        )}
+                      </span>
+                    </span>
+                  </NavLink>
+                );
+              })}
+              {(isLiveInCurrentCampaign || hasPendingCleanup) && (
+                <div className="mt-1 flex flex-wrap gap-1.5 pl-10">
+                  {isLiveInCurrentCampaign && liveMarker && (
+                    <NavLink
+                      to={`/sessions/${liveMarker.sessionId}/live`}
+                      onClick={() => {
+                        trackNavigationClick('sidebar', `/sessions/${liveMarker.sessionId}/live`);
+                        onClose?.();
+                      }}
+                      className="rounded-full border border-[rgba(33,71,102,0.18)] bg-[rgba(111,146,164,0.12)] px-2.5 py-1 text-[11px] font-medium text-primary-800 hover:bg-[rgba(111,146,164,0.18)]"
+                    >
+                      Wróć do live
+                    </NavLink>
+                  )}
+                  {hasPendingCleanup && sessionsMeta?.latestPendingId && (
+                    <NavLink
+                      to={`/sessions/${sessionsMeta.latestPendingId}/cleanup`}
+                      onClick={() => {
+                        trackNavigationClick('sidebar', `/sessions/${sessionsMeta.latestPendingId}/cleanup`);
+                        onClose?.();
+                      }}
+                      className="rounded-full border border-[rgba(176,108,103,0.24)] bg-[rgba(176,108,103,0.12)] px-2.5 py-1 text-[11px] font-medium text-danger-800 hover:bg-[rgba(176,108,103,0.18)]"
+                      title={
+                        sessionsMeta.latestPendingName
+                          ? `Dokończ cleanup: ${sessionsMeta.latestPendingName}`
+                          : 'Dokończ cleanup'
+                      }
+                    >
+                      Dokończ cleanup
+                    </NavLink>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -138,18 +240,11 @@ export function PrimarySidebar({ onClose }: { onClose?: () => void }) {
       <div className="space-y-1 border-t border-[rgba(18,45,66,0.1)] p-2">
         <NavLink
           to="/settings"
+          onClick={() => trackNavigationClick('sidebar', '/settings')}
           className={({ isActive }) => navLinkClassName(isActive)}
         >
           <Settings className="h-4 w-4" /> Ustawienia
         </NavLink>
-        <button
-          onClick={toggleDark}
-          aria-label={dark ? 'W??cz tryb jasny' : 'W??cz tryb ciemny'}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-surface-700 transition-all hover:bg-[rgba(223,225,218,0.72)] hover:text-primary-800"
-        >
-          {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          {dark ? 'Tryb jasny' : 'Tryb ciemny'}
-        </button>
       </div>
     </aside>
   );

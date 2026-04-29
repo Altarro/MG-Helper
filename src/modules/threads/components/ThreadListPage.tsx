@@ -22,11 +22,13 @@ import { useThreats } from '@modules/fronts/hooks/useThreats';
 import { ThreadCard } from './ThreadCard';
 import { SortableThreadCard } from './SortableThreadCard';
 import { ThreadForm } from './ThreadForm';
+import { FilterCountBadge } from '@shared/components/FilterCountBadge';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { EmptyState } from '@shared/components/EmptyState';
 import { addEntity, updateSortOrders } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
+import { formatPolishThreadCount } from '@shared/utils/polishPlural';
 import { reorderEntities } from '@shared/utils/dnd';
 import type { Thread } from '../types';
 import type { ThreadFormValues } from './ThreadForm';
@@ -89,21 +91,30 @@ export function ThreadList() {
   }, [threatLinks, threatMap]);
 
   const lowerQuery = query.trim().toLowerCase();
-  const filtered = threads?.filter((thread) => {
+  const queryMatchedThreads = threads?.filter((thread) => {
     const relatedThreats = (threadThreatMap.get(thread.id) ?? [])
       .map((threatId) => threatMap.get(threatId))
       .filter((threat): threat is NonNullable<typeof threat> => Boolean(threat));
 
-    const matchesQuery =
+    return (
       !lowerQuery ||
       thread.name.toLowerCase().includes(lowerQuery) ||
       thread.tags.some((tag) => tag.toLowerCase().includes(lowerQuery)) ||
-      relatedThreats.some((threat) => threat.name.toLowerCase().includes(lowerQuery));
-
-    const matchesTab = tab === 'all' || thread.data.status === tab;
-
-    return matchesQuery && matchesTab;
+      relatedThreats.some((threat) => threat.name.toLowerCase().includes(lowerQuery))
+    );
   });
+  const filtered = queryMatchedThreads?.filter(
+    (thread) => tab === 'all' || thread.data.status === tab,
+  );
+  const tabStats = useMemo(() => {
+    const list = queryMatchedThreads ?? [];
+    return {
+      all: list.length,
+      active: list.filter((t) => t.data.status === 'active').length,
+      completed: list.filter((t) => t.data.status === 'completed').length,
+    };
+  }, [queryMatchedThreads]);
+  const viewModeCount = filtered?.length ?? 0;
 
   const groupedSections = useMemo(() => {
     const sections = new Map<
@@ -211,7 +222,8 @@ export function ThreadList() {
                   : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
               }`}
             >
-              Grupowanie
+              <span>Grupowanie</span>
+              <FilterCountBadge selected={viewMode === 'grouped'} count={viewModeCount} />
             </button>
             <button
               type="button"
@@ -222,7 +234,8 @@ export function ThreadList() {
                   : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
               }`}
             >
-              Siatka
+              <span>Siatka</span>
+              <FilterCountBadge selected={viewMode === 'flat'} count={viewModeCount} />
             </button>
             <button
               type="button"
@@ -266,7 +279,17 @@ export function ThreadList() {
                 tab === value ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
               }`}
             >
-              {label}
+              <span>{label}</span>
+              <FilterCountBadge
+                selected={tab === value}
+                count={
+                  value === 'all'
+                    ? tabStats.all
+                    : value === 'active'
+                      ? tabStats.active
+                      : tabStats.completed
+                }
+              />
             </button>
           ))}
         </div>
@@ -334,7 +357,7 @@ export function ThreadList() {
                   </Link>
                 </div>
                 <span className="app-pill-muted shrink-0 rounded-full px-3 py-1 text-xs">
-                  {section.threads.length} wąt.
+                  {formatPolishThreadCount(section.threads.length)}
                 </span>
               </div>
 
@@ -362,7 +385,7 @@ export function ThreadList() {
                   </p>
                 </div>
                 <span className="app-danger-pill shrink-0 rounded-full px-3 py-1 text-xs">
-                  {freeThreads.length} szt.
+                  {formatPolishThreadCount(freeThreads.length)}
                 </span>
               </div>
 

@@ -1,4 +1,5 @@
 import { Clock3, History, Shield, Sparkles } from 'lucide-react';
+import { Link } from 'react-router';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { useDashboard } from '../hooks/useDashboard';
 import { ActiveFronts } from './ActiveFronts';
@@ -62,6 +63,49 @@ export function DashboardPage() {
             </div>
           </div>
         </div>
+      </section>
+
+      <section className="app-panel rounded-[1.85rem] p-5 lg:p-6">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-surface-500 text-sm font-semibold tracking-[0.18em] uppercase">
+              Wymaga decyzji
+            </h2>
+            <p className="text-surface-700 mt-1 text-sm">
+              Priorytety operacyjne: cleanup, niespójności i sygnały wymagające reakcji.
+            </p>
+          </div>
+        </div>
+        {data.decisionItems.length === 0 ? (
+          <p className="app-input-shell text-surface-600 rounded-[1.25rem] border-dashed px-4 py-3 text-sm">
+            Brak pilnych decyzji. Kampania jest uporządkowana.
+          </p>
+        ) : (
+          <ul className="grid gap-3 lg:grid-cols-2">
+            {data.decisionItems.map((item) => (
+              <li key={item.id}>
+                <Link
+                  to={item.href}
+                  className="app-input-shell flex items-start gap-3 rounded-[1.2rem] px-4 py-3 transition-colors hover:bg-[rgba(229,231,223,0.98)]"
+                >
+                  <span
+                    className={`mt-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${
+                      item.priority === 'high'
+                        ? 'bg-danger-100 text-danger-800'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    {item.priority === 'high' ? 'Pilne' : 'Ważne'}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-surface-900">{item.title}</span>
+                    <span className="mt-1 block text-xs text-surface-600">{item.description}</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
 import {
   ArrowLeft,
@@ -22,6 +22,9 @@ import { format, parseISO } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { useSessionById } from '../hooks/useSessionById';
 import { SessionForm } from './SessionForm';
+import { DetailNotFound } from '@shared/components/DetailNotFound';
+import { DetailScrollTopFab } from '@shared/components/DetailScrollTopFab';
+import { DetailTocBar } from '@shared/components/DetailTocBar';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { useNotesBySession } from '@modules/notes/hooks/useNotesBySession';
@@ -38,6 +41,7 @@ import { LocationPickerModal } from './LocationPickerModal';
 import type { SessionFormValues } from './SessionForm';
 import type { Entity } from '@shared/types/entity';
 import { removeEntityFromSession } from '../utils/liveSessionCommands';
+import { getSessionLifecycleStatus, type SessionData } from '../types';
 
 function useSessionAppearances(db: MgHelperDb, sessionId: string | undefined) {
   return (
@@ -188,12 +192,12 @@ function CampaignEntityPickerModal({
   );
 }
 
-function NotesSection({ sessionId }: { sessionId: string }) {
+function NotesSection({ sessionId, sectionId }: { sessionId: string; sectionId?: string }) {
   const notes = useNotesBySession(sessionId);
   if (!notes || notes.length === 0) return null;
 
   return (
-    <section className="app-panel rounded-[1.8rem] p-5 lg:p-6">
+    <section id={sectionId} className="app-panel rounded-[1.8rem] p-5 lg:p-6">
       <h3 className="text-surface-500 mb-4 text-sm font-semibold tracking-[0.18em] uppercase">
         Notatki z sesji
       </h3>
@@ -295,6 +299,7 @@ export function SessionDetail() {
   const navigate = useNavigate();
   const { db } = useCampaign();
   const { session } = useSessionById(id);
+  const linkedSessionNotes = useNotesBySession(id ?? '__none__');
   const appearances = useSessionAppearances(db, id);
 
   const [isEditing, setIsEditing] = useState(false);
@@ -306,17 +311,43 @@ export function SessionDetail() {
   const [threadPickerOpen, setThreadPickerOpen] = useState(false);
   const [cluePickerOpen, setCluePickerOpen] = useState(false);
   const [threatPickerOpen, setThreatPickerOpen] = useState(false);
+  const [confirmReportOverwrite, setConfirmReportOverwrite] = useState(false);
+  const blockingCleanupSession = useLiveQuery(async () => {
+    const all = await db.entities.where('type').equals('session').toArray();
+    return all.find(
+      (entity) =>
+        entity.id !== id &&
+        getSessionLifecycleStatus(entity.data as unknown as SessionData) === 'cleanup_pending',
+    );
+  }, [db, id]);
+
+  const sessionTocItems = useMemo(() => {
+    if (!session || isEditing) return [];
+    const d = session.data as unknown as SessionData;
+    const items: { id: string; label: string }[] = [];
+    if (d.summary) items.push({ id: 'session-detail-streszczenie', label: 'Streszczenie' });
+    if (d.plannedDurationMin || (d.scenes?.length ?? 0) > 0) {
+      items.push({ id: 'session-detail-sceny', label: 'Sceny' });
+    }
+    if (session.description) items.push({ id: 'session-detail-zapisy-html', label: 'Notatki' });
+    items.push({ id: 'session-detail-encje', label: 'Obecność' });
+    if (linkedSessionNotes && linkedSessionNotes.length > 0) {
+      items.push({ id: 'session-detail-notatki-z-sesji', label: 'Notatki z sesji' });
+    }
+    return items;
+  }, [session, isEditing, linkedSessionNotes]);
 
   if (session === undefined) return <LoadingSpinner />;
 
   if (!session) {
     return (
-      <div className="p-6">
-        <p className="text-surface-500">Sesja nie znaleziona.</p>
-        <Link to="/sessions" className="text-primary-600 hover:underline">
-          ← Powrót do sesji
-        </Link>
-      </div>
+      <DetailNotFound
+        icon={BookOpen}
+        title="Sesja nie znaleziona"
+        description="Mogła zostać usunięta albo odnośnik jest nieaktualny."
+        to="/sessions"
+        linkLabel="Wróć do listy sesji"
+      />
     );
   }
 
@@ -334,11 +365,16 @@ export function SessionDetail() {
   }
 
   const title = session.name || `Sesja ${session.data.number}`;
+  const reportStatusLabel =
+    (session.data as unknown as SessionData).reportAvailable === true
+      ? 'Raport dostępny'
+      : 'Brak raportu (po ponownym uruchomieniu sesji)';
   const formattedDate = session.data.date
     ? format(parseISO(session.data.date), 'd MMMM yyyy', { locale: pl })
     : '';
 
   async function handleUpdate(values: SessionFormValues) {
+    if (!session) return;
     setSaving(true);
     try {
       await updateEntity(db, session!.id, {
@@ -346,9 +382,12 @@ export function SessionDetail() {
         description: values.description,
         tags: values.tags,
         data: {
+          ...(session.data as unknown as SessionData),
           number: values.number,
           date: values.date,
           summary: values.summary,
+          plannedDurationMin: values.plannedDurationMin,
+          scenes: values.scenes,
         },
       });
       toast.success('Sesja zaktualizowana');
@@ -399,6 +438,41 @@ export function SessionDetail() {
     }
   }
 
+  async function startLiveNow() {
+    if (!session) return;
+    await updateEntity(db, session.id, {
+      data: {
+        ...(session.data as unknown as SessionData),
+        reportAvailable: false,
+        reportGeneratedAt: undefined,
+        liveRunStartedAt: new Date().toISOString(),
+        liveRunEndedAt: undefined,
+        spotlightSummary: undefined,
+      },
+    });
+    void navigate(`/sessions/${session.id}/live`);
+  }
+
+  function handleStartLive() {
+    if (!session) return;
+    if (blockingCleanupSession) {
+      const blockedTitle =
+        blockingCleanupSession.name ||
+        `Sesja ${(blockingCleanupSession.data as { number?: number }).number ?? '?'}`;
+      toast.error(
+        `Dokończ najpierw sprzątanie: ${blockedTitle}. Start nowej sesji na żywo jest zablokowany.`,
+      );
+      void navigate(`/sessions/${blockingCleanupSession.id}/cleanup`);
+      return;
+    }
+    const data = session.data as unknown as SessionData;
+    if (data.reportAvailable) {
+      setConfirmReportOverwrite(true);
+      return;
+    }
+    void startLiveNow();
+  }
+
   async function handleLocationSelect(locationId: string | null) {
     if (!locationId) return;
     await addEntitiesToSession([locationId]);
@@ -438,6 +512,11 @@ export function SessionDetail() {
                 {formattedDate && (
                   <p className="text-surface-600 mt-2 text-sm leading-7">{formattedDate}</p>
                 )}
+                <p className="mt-2">
+                  <span className="rounded-full border border-[rgba(86,93,94,0.14)] bg-[rgba(223,225,218,0.75)] px-2.5 py-1 text-xs text-surface-700">
+                    {reportStatusLabel}
+                  </span>
+                </p>
               </div>
             </div>
           </div>
@@ -451,7 +530,11 @@ export function SessionDetail() {
               Raport
             </Link>
             <Link
-              to={`/sessions/${session.id}/live`}
+              to="#"
+              onClick={(event) => {
+                event.preventDefault();
+                handleStartLive();
+              }}
               className="app-accent inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-transform hover:-translate-y-0.5"
             >
               <Zap className="h-4 w-4" />
@@ -493,6 +576,10 @@ export function SessionDetail() {
         </div>
       </section>
 
+      {!isEditing && (
+        <DetailTocBar ariaLabel="Sekcje karty sesji" items={sessionTocItems} className="shrink-0" />
+      )}
+
       {isEditing && (
         <div className="app-panel rounded-[1.8rem] p-5 lg:p-6">
           <div className="mb-4 flex items-center justify-between gap-3">
@@ -515,6 +602,8 @@ export function SessionDetail() {
               date: session.data.date,
               name: session.name,
               summary: session.data.summary,
+              plannedDurationMin: session.data.plannedDurationMin,
+              scenes: session.data.scenes ?? [],
               description: session.description,
               tags: session.tags,
             }}
@@ -526,7 +615,7 @@ export function SessionDetail() {
       )}
 
       {!isEditing && session.data.summary && (
-        <section className="app-panel rounded-[1.8rem] p-5 lg:p-6">
+        <section id="session-detail-streszczenie" className="app-panel rounded-[1.8rem] p-5 lg:p-6">
           <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-[0.18em] uppercase">
             Streszczenie
           </h2>
@@ -534,8 +623,33 @@ export function SessionDetail() {
         </section>
       )}
 
+      {!isEditing && (session.data.plannedDurationMin || (session.data.scenes?.length ?? 0) > 0) && (
+        <section id="session-detail-sceny" className="app-panel rounded-[1.8rem] p-5 lg:p-6">
+          <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-[0.18em] uppercase">
+            Sceny
+          </h2>
+          {session.data.plannedDurationMin && (
+            <p className="mb-3 text-sm text-surface-700">
+              Planowany czas sesji: <span className="font-semibold">{session.data.plannedDurationMin} min</span>
+            </p>
+          )}
+          {(session.data.scenes?.length ?? 0) > 0 ? (
+            <ol className="flex list-decimal flex-col gap-2 pl-5">
+              {(session.data.scenes ?? []).map((scene, index) => (
+                <li key={`${scene.name}-${index}`} className="text-sm text-surface-800">
+                  <p className="font-medium">{scene.name} <span className="text-surface-500">({scene.estimatedDurationMin} min)</span></p>
+                  {scene.goal && <p className="text-xs text-surface-600">{scene.goal}</p>}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="text-xs text-surface-500">Brak scen.</p>
+          )}
+        </section>
+      )}
+
       {!isEditing && session.description && (
-        <section className="app-panel rounded-[1.8rem] p-5 lg:p-6">
+        <section id="session-detail-zapisy-html" className="app-panel rounded-[1.8rem] p-5 lg:p-6">
           <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-[0.18em] uppercase">
             Notatki
           </h2>
@@ -557,7 +671,7 @@ export function SessionDetail() {
       )}
 
       {!isEditing && (
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+        <section id="session-detail-encje" className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
           <SessionEntityColumn
             title="Postacie"
             count={appearances.npcs.length}
@@ -616,7 +730,9 @@ export function SessionDetail() {
         </section>
       )}
 
-      <NotesSection sessionId={id!} />
+      <NotesSection sessionId={id!} sectionId="session-detail-notatki-z-sesji" />
+
+      <DetailScrollTopFab enabled={!isEditing && sessionTocItems.length > 0} />
 
       <ConfirmDialog
         open={confirmDelete}
@@ -684,6 +800,20 @@ export function SessionDetail() {
           onClose={() => setThreatPickerOpen(false)}
         />
       )}
+
+      <ConfirmDialog
+        open={confirmReportOverwrite}
+        title="Uruchomić sesję ponownie?"
+        description="Raport tej sesji zostanie nadpisany przy nowym przebiegu."
+        confirmLabel="Tak, uruchom ponownie"
+        cancelLabel="Anuluj"
+        destructive={false}
+        onConfirm={() => {
+          setConfirmReportOverwrite(false);
+          void startLiveNow();
+        }}
+        onCancel={() => setConfirmReportOverwrite(false)}
+      />
     </div>
   );
 }

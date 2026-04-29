@@ -1,7 +1,8 @@
 import React from 'react';
-import { User, Crown } from 'lucide-react';
+import { User, Crown, Skull } from 'lucide-react';
 import type { Npc } from '../types';
 import { useAssetUrl } from '@shared/hooks/useAssetUrl';
+import { getNpcLifecycleStatus } from '@shared/utils/entityData';
 
 interface NpcCardProps {
   npc: Npc;
@@ -10,12 +11,15 @@ interface NpcCardProps {
 
 export const NpcCard = React.memo(function NpcCard({ npc, onClick }: NpcCardProps) {
   const isPC = npc.data?.isPC === true;
+  const isDead = getNpcLifecycleStatus({ data: npc.data }) === 'completed';
   const thumbUrl = useAssetUrl(npc.data?.imageId ?? null, { thumb: true });
   return (
     <button
       type="button"
       onClick={onClick}
-      className="app-card flex w-full flex-col gap-3 rounded-[1.35rem] p-5 text-left transition-all hover:-translate-y-0.5"
+      className={`app-card flex w-full flex-col gap-3 rounded-[1.35rem] p-5 text-left transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/35 ${
+        isDead ? 'opacity-90' : ''
+      }`}
     >
       <div className="flex items-start gap-3">
         {thumbUrl ? (
@@ -35,6 +39,12 @@ export const NpcCard = React.memo(function NpcCard({ npc, onClick }: NpcCardProp
             {isPC && (
               <span className="app-danger-pill shrink-0 rounded-full px-2.5 py-1 text-xs font-medium">
                 Gracz
+              </span>
+            )}
+            {isDead && (
+              <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-danger-300/50 bg-danger-50 px-2 py-0.5 text-[10px] font-semibold text-danger-800">
+                <Skull className="h-3 w-3" aria-hidden />
+                Nie żyje
               </span>
             )}
           </div>

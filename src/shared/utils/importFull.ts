@@ -2,6 +2,7 @@ import { unzipSync, strFromU8 } from 'fflate';
 import DOMPurify from 'dompurify';
 import type { MgHelperDb } from '@shared/db/database';
 import type { Asset, Entity, Relation } from '@shared/types';
+import { normalizeImportedEntityLifecycle } from '@shared/types/entityLifecycle';
 import {
   findContainsParentConflict,
   getRelationIntegrityKey,
@@ -162,7 +163,7 @@ export async function importFull(
     };
   }
 
-  const { entities, relations } = normalized.payload;
+  const { entities, relations, generatorPacks, generatorRollLogs } = normalized.payload;
 
   // Standard referential/integrity checks, mirroring importJson.
   const entitiesById = new Map(entities.map((entity) => [entity.id, entity] as const));
@@ -304,12 +305,25 @@ export async function importFull(
     });
   }
 
-  await db.transaction('rw', db.entities, db.relations, db.assets, async () => {
+  const entitiesForStore = sanitizedEntities.map((e) => normalizeImportedEntityLifecycle(e as Entity));
+
+  await db.transaction(
+    'rw',
+    [db.entities, db.relations, db.assets, db.generatorPacks, db.generatorRollLogs],
+    async () => {
     await db.entities.clear();
     await db.relations.clear();
     await db.assets.clear();
-    await db.entities.bulkAdd(sanitizedEntities as unknown as Entity[]);
+    await db.generatorPacks.clear();
+    await db.generatorRollLogs.clear();
+    await db.entities.bulkAdd(entitiesForStore as unknown as Entity[]);
     await db.relations.bulkAdd(relations as unknown as Relation[]);
+    if (generatorPacks.length > 0) {
+      await db.generatorPacks.bulkAdd(generatorPacks);
+    }
+    if (generatorRollLogs.length > 0) {
+      await db.generatorRollLogs.bulkAdd(generatorRollLogs);
+    }
     if (newAssets.length > 0) {
       await db.assets.bulkAdd(newAssets);
     }
@@ -317,7 +331,7 @@ export async function importFull(
 
   return {
     ok: true,
-    entityCount: sanitizedEntities.length,
+    entityCount: entitiesForStore.length,
     relationCount: relations.length,
     assetCount: newAssets.length,
     orphanedImageRefs,

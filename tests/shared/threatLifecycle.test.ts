@@ -8,7 +8,7 @@ import {
 
 describe('threat lifecycle helpers', () => {
   it('treats legacy active threats with a death reason as completed', () => {
-    expect(deriveThreatStatus('active', 'Rozbite podczas finalu')).toBe('completed');
+    expect(deriveThreatStatus('active', undefined, 'Rozbite podczas finalu')).toBe('completed');
     expect(
       getThreatStatus({
         data: {
@@ -22,10 +22,10 @@ describe('threat lifecycle helpers', () => {
     ).toBe('completed');
   });
 
-  it('clears death reason when an active threat is saved from the form flow', () => {
+  it('clears completion reason when an active threat is saved from the form flow', () => {
     expect(normalizeThreatLifecycle('active', 'Stary powod')).toEqual({
       status: 'active',
-      reasonOfDead: '',
+      completionReason: '',
     });
   });
 
@@ -39,7 +39,14 @@ describe('threat lifecycle helpers', () => {
     expect(
       threatNeedsCleanupReason({
         status: 'completed',
-        reasonOfDead: 'Zakończone w sesji',
+        completionReason: '',
+        reasonOfDead: '',
+      }),
+    ).toBe(true);
+    expect(
+      threatNeedsCleanupReason({
+        status: 'completed',
+        completionReason: 'Zakończone w sesji',
       }),
     ).toBe(false);
     expect(

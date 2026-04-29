@@ -7,6 +7,30 @@
   display: none;
 }
 
+.rail-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(33, 71, 102, 0.35) rgba(210, 212, 203, 0.55);
+}
+
+.rail-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+.rail-scroll::-webkit-scrollbar-track {
+  background: rgba(210, 212, 203, 0.62);
+  border-radius: 999px;
+}
+
+.rail-scroll::-webkit-scrollbar-thumb {
+  background: rgba(33, 71, 102, 0.36);
+  border-radius: 999px;
+  border: 2px solid rgba(210, 212, 203, 0.62);
+}
+
+.rail-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(24, 57, 82, 0.52);
+}
+
 @theme {
   /* Colors - palette derived from the provided image */
   --color-primary-50: #d7e3e7;
@@ -133,6 +157,7 @@ main > * {
     0 18px 40px rgba(18, 45, 66, 0.08),
     inset 0 1px 0 rgba(255, 244, 220, 0.2);
   backdrop-filter: blur(10px);
+  color: var(--color-surface-800);
 }
 
 .app-panel-strong {
@@ -161,10 +186,19 @@ main > * {
   background: rgba(223, 225, 218, 0.9);
   border: 1px solid rgba(86, 93, 94, 0.18);
   box-shadow: inset 0 1px 0 rgba(255, 250, 240, 0.4);
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    background-color 140ms ease;
 }
 
 .app-input:focus {
   background: rgba(229, 231, 223, 0.98);
+  border-color: rgba(33, 71, 102, 0.42);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 240, 0.45),
+    0 0 0 3px rgba(111, 146, 164, 0.2);
+  outline: none;
 }
 
 .app-pill {
@@ -177,6 +211,31 @@ main > * {
   background: rgba(210, 212, 203, 0.9);
   color: var(--color-surface-700);
   border: 1px solid rgba(86, 93, 94, 0.12);
+}
+
+.app-parent-location-pill {
+  background: rgba(210, 212, 203, 0.9);
+  color: var(--color-surface-700);
+  border: 1px solid rgba(86, 93, 94, 0.12);
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.app-parent-location-pill:hover {
+  background: rgba(220, 226, 218, 0.94);
+  border-color: rgba(86, 93, 94, 0.2);
+  color: var(--color-surface-700);
+}
+
+.app-parent-location-pill:focus-visible {
+  background: rgba(224, 230, 222, 0.96);
+  border-color: rgba(86, 93, 94, 0.24);
+  color: var(--color-surface-700);
+  box-shadow: 0 0 0 2px rgba(86, 93, 94, 0.16);
+  outline: none;
 }
 
 .app-accent {
@@ -223,10 +282,29 @@ main > * {
   box-shadow:
     0 10px 22px rgba(18, 45, 66, 0.18),
     inset 0 1px 0 rgba(186, 207, 214, 0.22);
+  transition:
+    transform 120ms ease,
+    box-shadow 140ms ease,
+    background-color 140ms ease;
 }
 
 .app-button-primary:hover {
   background: linear-gradient(180deg, var(--color-primary-500) 0%, var(--color-primary-700) 100%);
+  box-shadow:
+    0 14px 26px rgba(18, 45, 66, 0.22),
+    inset 0 1px 0 rgba(186, 207, 214, 0.25);
+}
+
+.app-button-primary:active {
+  transform: translateY(1px);
+}
+
+.app-button-primary:focus-visible {
+  outline: none;
+  box-shadow:
+    0 10px 22px rgba(18, 45, 66, 0.18),
+    inset 0 1px 0 rgba(186, 207, 214, 0.22),
+    0 0 0 3px rgba(111, 146, 164, 0.3);
 }
 
 .app-button-secondary {
@@ -234,10 +312,27 @@ main > * {
   color: var(--color-surface-800);
   border: 1px solid rgba(86, 93, 94, 0.18);
   box-shadow: inset 0 1px 0 rgba(255, 250, 240, 0.35);
+  transition:
+    transform 120ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    background-color 140ms ease;
 }
 
 .app-button-secondary:hover {
   background: rgba(229, 231, 223, 0.98);
+  border-color: rgba(33, 71, 102, 0.24);
+}
+
+.app-button-secondary:active {
+  transform: translateY(1px);
+}
+
+.app-button-secondary:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 240, 0.35),
+    0 0 0 3px rgba(111, 146, 164, 0.26);
 }
 
 .app-button-danger {

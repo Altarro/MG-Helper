@@ -16,11 +16,15 @@ export const SessionCard = memo(function SessionCard({ session }: SessionCardPro
     : '';
 
   const title = name || `Sesja ${data.number}`;
+  const reportStatusLabel =
+    data.reportAvailable === true
+      ? 'Raport dostępny'
+      : 'Brak raportu (po ponownym uruchomieniu sesji)';
 
   return (
     <Link
       to={`/sessions/${session.id}`}
-      className="app-card flex flex-col gap-3 rounded-[1.35rem] p-5 transition-all hover:-translate-y-0.5"
+      className="app-card flex flex-col gap-3 rounded-[1.35rem] p-5 transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/35"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
@@ -35,6 +39,12 @@ export const SessionCard = memo(function SessionCard({ session }: SessionCardPro
       {data.summary && (
         <p className="line-clamp-3 text-sm leading-6 text-surface-700">{data.summary}</p>
       )}
+
+      <div className="mt-1">
+        <span className="rounded-full border border-[rgba(86,93,94,0.14)] bg-[rgba(223,225,218,0.75)] px-2.5 py-1 text-[11px] text-surface-700">
+          {reportStatusLabel}
+        </span>
+      </div>
 
       {tags && tags.length > 0 && (
         <div className="mt-auto flex flex-wrap gap-2">

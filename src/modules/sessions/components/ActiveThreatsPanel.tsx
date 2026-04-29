@@ -7,14 +7,18 @@ import { ClueSection } from '@shared/components/ClueSection';
 import { TickProgress } from '@shared/components/TickProgress';
 import { useCampaign } from '@shared/db/CampaignContext';
 import type { MgHelperDb } from '@shared/db/database';
-import { addRelation, updateEntity } from '@shared/db/operations';
+import { updateEntity } from '@shared/db/operations';
+import { withClockAdvanceMeta } from '@modules/clocks/clockAdvance';
 import type { Clock } from '@modules/clocks/types';
 import { isClock } from '@modules/clocks/types';
 import { getClockData, getThreatData, getThreatStatus } from '@shared/utils/entityData';
 import { normalizeThreatLifecycle } from '@shared/utils/threatLifecycle';
+import { inferThreatCompletionOutcomeFromClock } from '@modules/fronts/types';
 import { ThreatPreviewModal } from './ThreatPreviewModal';
 import { toast } from 'sonner';
 import type { Entity } from '@shared/types';
+import { ensureEntityAppearsInSession } from '../utils/liveSessionCommands';
+import { recordEntityMutationInSession, recordSessionSignal } from '../utils/sessionSignals';
 
 interface ThreatRow {
   threat: Entity;
@@ -223,12 +227,56 @@ function useOrphanClocks(db: MgHelperDb, sessionId?: string) {
   }, [db, sessionId]);
 }
 
-async function tick(db: MgHelperDb, clock: Clock) {
+async function tick(
+  db: MgHelperDb,
+  clock: Clock,
+  sessionId?: string,
+  context?: { threatId: string; threatName: string },
+) {
   const data = getClockData(clock);
   if (data.filled >= data.segments || data.isActive === false) return;
 
   const newFilled = data.filled + 1;
-  await updateEntity(db, clock.id, { data: { ...data, filled: newFilled } });
+  await updateEntity(db, clock.id, {
+    data: withClockAdvanceMeta(data, newFilled, sessionId ? { sessionId } : undefined) as unknown as Record<
+      string,
+      unknown
+    >,
+  });
+  if (sessionId) {
+    await recordEntityMutationInSession(db, {
+      sessionId,
+      entityType: clock.type,
+      entityId: clock.id,
+      entityName: clock.name,
+      changedFields: ['filled'],
+      source: 'active-threats/tick',
+      extra: { fromFilled: data.filled, toFilled: newFilled, segments: data.segments },
+    });
+    await recordSessionSignal(db, {
+      sessionId,
+      signalType: 'clock_ticked',
+      entityType: clock.type,
+      entityId: clock.id,
+      entityName: clock.name,
+      metadata: { filled: newFilled, segments: data.segments },
+    });
+    if (context && data.filled === 0 && newFilled > 0) {
+      await recordSessionSignal(db, {
+        sessionId,
+        signalType: 'threat_clock_started',
+        entityType: 'threat',
+        entityId: context.threatId,
+        entityName: context.threatName,
+        metadata: {
+          clockId: clock.id,
+          clockName: clock.name,
+          fromFilled: data.filled,
+          toFilled: newFilled,
+        },
+      });
+    }
+  }
   if (newFilled >= data.segments) {
     toast.success(`Zegar „${clock.name}” został domknięty`);
   }
@@ -302,10 +350,20 @@ export function ActiveThreatsPanel({ sessionId }: { sessionId?: string }) {
     const nextStatus = currentStatus === 'active' ? 'completed' : 'active';
 
     try {
+      const lifecycle = normalizeThreatLifecycle(
+        nextStatus,
+        getThreatData(row.threat).completionReason ?? getThreatData(row.threat).reasonOfDead,
+      );
+      const completionOutcome =
+        nextStatus === 'completed'
+          ? inferThreatCompletionOutcomeFromClock(row.clock)
+          : undefined;
+
       await updateEntity(db, row.threat.id, {
         data: {
           ...row.threat.data,
-          ...normalizeThreatLifecycle(nextStatus, getThreatData(row.threat).reasonOfDead),
+          ...lifecycle,
+          completionOutcome,
         },
       });
 
@@ -317,6 +375,47 @@ export function ActiveThreatsPanel({ sessionId }: { sessionId?: string }) {
             isActive: nextStatus === 'active',
           },
         });
+      }
+
+      if (sessionId) {
+        await recordEntityMutationInSession(db, {
+          sessionId,
+          entityType: row.threat.type,
+          entityId: row.threat.id,
+          entityName: row.threat.name,
+          changedFields: ['status'],
+          source: 'active-threats/toggle-status',
+          extra: { from: currentStatus, to: nextStatus },
+        });
+        await recordSessionSignal(db, {
+          sessionId,
+          signalType: 'threat_status_changed',
+          entityType: row.threat.type,
+          entityId: row.threat.id,
+          entityName: row.threat.name,
+          metadata: { from: currentStatus, to: nextStatus },
+        });
+        if (nextStatus === 'completed') {
+          await recordSessionSignal(db, {
+            sessionId,
+            signalType: 'entity_died_in_session',
+            entityType: row.threat.type,
+            entityId: row.threat.id,
+            entityName: row.threat.name,
+            metadata: { source: 'threat_status_changed', from: currentStatus, to: nextStatus },
+          });
+        }
+        if (row.clock) {
+          await recordEntityMutationInSession(db, {
+            sessionId,
+            entityType: row.clock.type,
+            entityId: row.clock.id,
+            entityName: row.clock.name,
+            changedFields: ['isActive'],
+            source: 'active-threats/threat-status-sync-clock',
+            extra: { isActive: nextStatus === 'active' },
+          });
+        }
       }
 
       toast.success(nextStatus === 'completed' ? 'Zagrożenie zakończone' : 'Zagrożenie aktywowane');
@@ -407,7 +506,8 @@ export function ActiveThreatsPanel({ sessionId }: { sessionId?: string }) {
               <span className="text-surface-500 w-7 shrink-0 text-right text-xs">{percent}%</span>
               <button
                 type="button"
-                onClick={() => void tick(db, clock)}
+                onClick={() =>
+                  void tick(db, clock, sessionId, { threatId: threat.id, threatName: threat.name })}
                 disabled={clockData.filled >= clockData.segments || clockData.isActive === false}
                 className="app-button-primary rounded-full px-3 py-1 text-xs font-semibold disabled:opacity-40"
                 title="Zwiększ zegar o 1 segment"
@@ -452,11 +552,7 @@ export function ActiveThreatsPanel({ sessionId }: { sessionId?: string }) {
     if (!sessionId) return;
 
     try {
-      await Promise.all(
-        entityIds.map((entityId) =>
-          addRelation(db, { type: 'appears_in', sourceId: entityId, targetId: sessionId }),
-        ),
-      );
+      await Promise.all(entityIds.map((entityId) => ensureEntityAppearsInSession(db, entityId, sessionId)));
       toast.success(
         `Dodano ${entityIds.length} ${entityIds.length === 1 ? 'zagrożenie' : 'zagrożenia'} z kampanii`,
       );
@@ -649,7 +745,7 @@ export function ActiveThreatsPanel({ sessionId }: { sessionId?: string }) {
                   <span className="text-surface-500 w-7 text-right text-xs">{percent}%</span>
                   <button
                     type="button"
-                    onClick={() => void tick(db, clock)}
+                    onClick={() => void tick(db, clock, sessionId)}
                     disabled={clockData.filled >= clockData.segments}
                     className="app-button-primary rounded-full px-3 py-1 text-xs font-semibold disabled:opacity-40"
                     title="Zwiększ zegar o 1 segment"

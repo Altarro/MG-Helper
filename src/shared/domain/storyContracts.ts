@@ -9,6 +9,7 @@
 export const STORY_ENTITY_ROLES = {
   front: 'Strategic campaign container and long-running story umbrella.',
   threat: 'Active pressure in the fiction. May belong to a front or stay free.',
+  /** Z założenia składowa / ślad przy zagrożeniu frontu (nie „równorzędna” całości presji). */
   thread: 'Playable quest / case / lead closest to the table.',
   clue: 'Atomic piece of information. May stay free or point to a story object.',
 } as const;

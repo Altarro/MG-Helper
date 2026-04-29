@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useNavigate, useParams, Link, useLocation } from 'react-router';
 import { AlertTriangle, ArrowLeft, Edit2, GitBranchPlus, Trash2 } from 'lucide-react';
 import { useThreatById } from '../hooks/useThreatById';
 import { useFronts } from '../hooks/useFronts';
 import { ThreatForm } from './ThreatForm';
+import { ThreatClockPreview } from './ThreatClockPreview';
+import { DetailNotFound } from '@shared/components/DetailNotFound';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { Modal } from '@shared/components/Modal';
@@ -13,22 +15,32 @@ import { RelationList } from '@shared/components/RelationList';
 import { RelationPicker } from '@shared/components/RelationPicker';
 import { ClueSection } from '@shared/components/ClueSection';
 import { DetailSection } from '@shared/components/DetailSection';
+import { DetailScrollTopFab } from '@shared/components/DetailScrollTopFab';
+import { DetailTocBar } from '@shared/components/DetailTocBar';
 import { NotesList } from '@modules/notes/components/NotesList';
-import { ClockWidget } from '@modules/clocks/components/ClockWidget';
-import { TickProgress } from '@shared/components/TickProgress';
 import {
   addEntity,
   addRelation,
   assignBelongsTo,
   deleteEntity,
+  deleteRelation,
   updateEntity,
 } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { useRelatedEntities } from '@shared/hooks/useRelatedEntities';
 import { useThreatDetailPath } from '@shared/hooks/useThreatDetailPath';
-import { CLOCK_SEGMENTS, isClock } from '@modules/clocks/types';
+import { isClock } from '@modules/clocks/types';
+import { markClockLinkedToThreat, markClockUnlinkedFromThreat } from '@modules/clocks/threatClockLink';
 import { toast } from 'sonner';
-import { THREAT_TYPE_LABELS, THREAT_DEATH_REASON_PRESETS } from '../types';
+import {
+  THREAT_TYPE_LABELS,
+  THREAT_DEATH_REASON_PRESETS,
+  THREAT_COMPLETION_OUTCOME_LABELS,
+  inferThreatCompletionOutcomeFromClock,
+  getThreatRadarArchetype,
+  normalizeThreatPillars,
+} from '../types';
+import type { ThreatCompletionOutcome } from '../types';
 import { getThreatStatus, getClockData } from '@shared/utils/entityData';
 import { normalizeThreatLifecycle } from '@shared/utils/threatLifecycle';
 import { buildDerivedThreatDefaults, getCompletedClockLabels } from '../utils/derivedThreat';
@@ -48,19 +60,23 @@ export function ThreatDetail() {
   const [toggleSaving, setToggleSaving] = useState(false);
   const [toggleReason, setToggleReason] = useState('');
   const [toggleReasonError, setToggleReasonError] = useState('');
+  const [toggleCompletionOutcome, setToggleCompletionOutcome] =
+    useState<ThreatCompletionOutcome>('resolved_early');
   const [confirmReactivate, setConfirmReactivate] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showThreadPicker, setShowThreadPicker] = useState(false);
   const [showRelPicker, setShowRelPicker] = useState(false);
+  const [unlinkConfirm, setUnlinkConfirm] = useState<{
+    relationId: string;
+    title: string;
+    description: string;
+  } | null>(null);
   const [showDerivedModal, setShowDerivedModal] = useState(false);
   const [derivedSaving, setDerivedSaving] = useState(false);
-  const [showQuickClockModal, setShowQuickClockModal] = useState(false);
-  const [quickClockName, setQuickClockName] = useState('');
-  const [quickClockSegments, setQuickClockSegments] = useState<number>(6);
-  const [quickClockSaving, setQuickClockSaving] = useState(false);
   const [showFrontRelinkModal, setShowFrontRelinkModal] = useState(false);
   const [relinkFrontId, setRelinkFrontId] = useState('');
   const [relinkFrontSaving, setRelinkFrontSaving] = useState(false);
+  const [confirmRestorePillarIndex, setConfirmRestorePillarIndex] = useState<number | null>(null);
   const returnToSessionLive = (location.state as { returnToSessionLive?: string } | null)
     ?.returnToSessionLive;
   const backPath = returnToSessionLive ? `/sessions/${returnToSessionLive}/live` : '/threats';
@@ -93,21 +109,56 @@ export function ThreatDetail() {
   });
   const fronts = useFronts();
 
+  const threatTocItems = useMemo(() => {
+    if (!threat || !id || isEditing) return [];
+    const t = threat;
+    const items: { id: string; label: string }[] = [
+      { id: 'threat-detail-kontekst', label: 'Kontekst' },
+      { id: 'threat-detail-wskazowki', label: 'Wskazówki' },
+    ];
+    const hasHistoria = Boolean(
+      forkSourceThreat || t.data.completionReason || t.data.reasonOfDead,
+    );
+    if (t.data.moves.length > 0) items.push({ id: 'threat-detail-ruchy', label: 'Ruchy' });
+    if (normalizeThreatPillars(t.data.pillars).length > 0) items.push({ id: 'threat-detail-filary', label: 'Filary' });
+    if (typeof t.data.inheritanceNotes === 'string' && t.data.inheritanceNotes.trim().length > 0) {
+      items.push({ id: 'threat-detail-dziedzictwo', label: 'Dziedzictwo' });
+    }
+    if (hasHistoria) items.push({ id: 'threat-detail-historia', label: 'Historia' });
+    if (t.description) items.push({ id: 'threat-detail-opis', label: 'Opis' });
+    items.push({ id: 'threat-detail-zegar', label: 'Zegar presji' });
+    items.push(
+      { id: 'threat-detail-powiazania', label: 'Powiązania' },
+      { id: 'threat-detail-notatki', label: 'Notatki MG' },
+    );
+    items.push({ id: 'threat-detail-tagi', label: 'Tagi' });
+    return items;
+  }, [threat, id, isEditing, forkSourceThreat]);
+
+  useEffect(() => {
+    if (!id || !linkedClock) return;
+    const k = linkedClock.data.kind ?? 'free';
+    if (k === 'session' || k === 'threat') return;
+    void markClockLinkedToThreat(db, linkedClock.id);
+  }, [db, id, linkedClock]);
+
   if (threat === undefined) return <LoadingSpinner />;
 
   if (!threat || !id) {
     return (
-      <div className="p-6">
-        <p className="text-surface-500">Zagrożenie nie znalezione.</p>
-        <Link to="/threats" className="text-primary-600 hover:underline">
-          ← Powrót do zagrożeń
-        </Link>
-      </div>
+      <DetailNotFound
+        icon={AlertTriangle}
+        title="Nie znaleziono zagrożenia"
+        description="Mogło zostać usunięte albo odnośnik jest nieaktualny."
+        to="/threats"
+        linkLabel="Wróć do listy zagrożeń"
+      />
     );
   }
 
   const currentThreat = threat;
   const threatId = id;
+  const normalizedPillars = normalizeThreatPillars(currentThreat.data.pillars);
   const threatStatus = getThreatStatus(currentThreat);
   const completedClockLabels = getCompletedClockLabels(linkedClock);
   const derivedThreatDefaults = buildDerivedThreatDefaults(currentThreat, linkedClock);
@@ -117,6 +168,7 @@ export function ThreatDetail() {
     if (threatStatus === 'completed') {
       setConfirmReactivate(true);
     } else {
+      setToggleCompletionOutcome(inferThreatCompletionOutcomeFromClock(linkedClock ?? undefined));
       setToggleReason('');
       setToggleReasonError('');
       setToggleModalOpen(true);
@@ -137,6 +189,7 @@ export function ThreatDetail() {
         data: {
           ...currentThreat.data,
           ...normalizeThreatLifecycle('completed', trimmed),
+          completionOutcome: toggleCompletionOutcome,
         },
       });
 
@@ -165,6 +218,7 @@ export function ThreatDetail() {
         data: {
           ...currentThreat.data,
           ...normalizeThreatLifecycle('active', ''),
+          completionOutcome: undefined,
         },
       });
 
@@ -188,7 +242,7 @@ export function ThreatDetail() {
   async function handleUpdate(values: ThreatFormValues) {
     setSaving(true);
     try {
-      const lifecycle = normalizeThreatLifecycle(values.status, values.reasonOfDead);
+      const lifecycle = normalizeThreatLifecycle(values.status, values.completionReason);
       await updateEntity(db, threatId, {
         name: values.name,
         description: values.description,
@@ -196,39 +250,67 @@ export function ThreatDetail() {
         data: {
           ...currentThreat.data,
           threatType: values.threatType,
+          radarArchetype: values.radarArchetype,
           impulse: values.impulse,
           moves: values.moves,
+          pillars: values.pillars,
           trigger: values.trigger,
           inheritanceNotes: values.inheritanceNotes,
           forkThreatId: values.forkThreatId,
           ...lifecycle,
+          ...(values.status === 'completed'
+            ? {
+                completionOutcome:
+                  values.completionOutcome ?? currentThreat.data.completionOutcome,
+              }
+            : { completionOutcome: undefined }),
         },
       });
 
-      if (linkedClock) {
+      if (linkedClock && values.clock) {
         const clockData = getClockData(linkedClock);
+        const seg = values.clock.segments;
+        const rawLabels = (values.clock.tickLabels ?? []).slice(0, seg);
+        const tickLabels = [...rawLabels];
+        while (tickLabels.length < seg) tickLabels.push('');
         await updateEntity(db, linkedClock.id, {
+          name: values.clock.name,
           data: {
             ...clockData,
+            segments: seg,
+            filled: Math.min(clockData.filled, seg),
+            tickLabels: tickLabels.map((line) => line.slice(0, 300)),
             isActive: lifecycle.status !== 'completed',
           },
         });
-      }
-
-      if (values.clock && !linkedClock) {
+      } else if (linkedClock && !values.clock) {
+        const rel = await db.relations
+          .where('sourceId')
+          .equals(threatId)
+          .filter((r) => r.type === 'tracks')
+          .first();
+        if (rel) await deleteRelation(db, rel.id);
+        await markClockUnlinkedFromThreat(db, linkedClock.id);
+      } else if (values.clock && !linkedClock) {
+        const seg = values.clock.segments;
+        const rawLabels = (values.clock.tickLabels ?? []).slice(0, seg);
+        const tickLabels = [...rawLabels];
+        while (tickLabels.length < seg) tickLabels.push('');
         const clockEntity = await addEntity(db, {
           type: 'clock',
           name: values.clock.name,
           description: '',
           tags: [],
           data: {
-            segments: values.clock.segments,
+            kind: 'threat',
+            segments: seg,
             filled: 0,
-            tickLabels: [],
+            tickLabels: tickLabels.map((line) => line.slice(0, 300)),
             isActive: lifecycle.status !== 'completed',
           },
         });
         await addRelation(db, { type: 'tracks', sourceId: threatId, targetId: clockEntity.id });
+        await markClockLinkedToThreat(db, clockEntity.id);
       }
 
       toast.success('Zagrożenie zaktualizowane');
@@ -243,7 +325,7 @@ export function ThreatDetail() {
   async function handleCreateDerivedThreat(values: ThreatFormValues) {
     setDerivedSaving(true);
     try {
-      const lifecycle = normalizeThreatLifecycle(values.status, values.reasonOfDead);
+      const lifecycle = normalizeThreatLifecycle(values.status, values.completionReason);
       const entity = await addEntity(db, {
         type: 'threat',
         name: values.name,
@@ -251,12 +333,17 @@ export function ThreatDetail() {
         tags: values.tags,
         data: {
           threatType: values.threatType,
+          radarArchetype: values.radarArchetype,
           impulse: values.impulse,
           moves: values.moves,
+          pillars: values.pillars,
           trigger: values.trigger,
           inheritanceNotes: values.inheritanceNotes,
           forkThreatId: currentThreat.id,
           ...lifecycle,
+          ...(values.status === 'completed' && values.completionOutcome
+            ? { completionOutcome: values.completionOutcome }
+            : {}),
         },
       });
 
@@ -269,19 +356,25 @@ export function ThreatDetail() {
       }
 
       if (values.clock) {
+        const seg = values.clock.segments;
+        const rawLabels = (values.clock.tickLabels ?? []).slice(0, seg);
+        const tickLabels = [...rawLabels];
+        while (tickLabels.length < seg) tickLabels.push('');
         const clockEntity = await addEntity(db, {
           type: 'clock',
           name: values.clock.name,
           description: '',
           tags: [],
           data: {
-            segments: values.clock.segments,
+            kind: 'threat',
+            segments: seg,
             filled: 0,
-            tickLabels: [],
+            tickLabels: tickLabels.map((line) => line.slice(0, 300)),
             isActive: lifecycle.status !== 'completed',
           },
         });
         await addRelation(db, { type: 'tracks', sourceId: entity.id, targetId: clockEntity.id });
+        await markClockLinkedToThreat(db, clockEntity.id);
       }
 
       toast.success(`Utworzono zagrożenie wynikające "${values.name}"`);
@@ -305,61 +398,6 @@ export function ThreatDetail() {
       navigate(backPath);
     } catch {
       toast.error('Nie udało się usunąć zagrożenia');
-    }
-  }
-
-  async function handleCreateQuickClock() {
-    const trimmedName = quickClockName.trim();
-    if (!trimmedName || linkedClock) return;
-
-    setQuickClockSaving(true);
-    try {
-      const clockEntity = await addEntity(db, {
-        type: 'clock',
-        name: trimmedName,
-        description: '',
-        tags: [],
-        data: {
-          segments: quickClockSegments as 4 | 6 | 8 | 10 | 12,
-          filled: 0,
-          tickLabels: [],
-          isActive: threatStatus !== 'completed',
-        },
-      });
-      await addRelation(db, { type: 'tracks', sourceId: threatId, targetId: clockEntity.id });
-      toast.success(`Dodano zegar "${trimmedName}"`);
-      setQuickClockName('');
-      setQuickClockSegments(6);
-      setShowQuickClockModal(false);
-    } catch {
-      toast.error('Nie udało się utworzyć zegara');
-    } finally {
-      setQuickClockSaving(false);
-    }
-  }
-
-  async function handleAdjustLinkedClock(delta: 1 | -1) {
-    if (!linkedClock) return;
-    const data = linkedClock.data;
-    if (delta > 0 && (data.filled >= data.segments || data.isActive === false)) return;
-    if (delta < 0 && data.filled <= 0) return;
-
-    const nextFilled = Math.max(0, Math.min(data.filled + delta, data.segments));
-    if (nextFilled === data.filled) return;
-
-    try {
-      await updateEntity(db, linkedClock.id, {
-        data: {
-          ...data,
-          filled: nextFilled,
-        },
-      });
-
-      if (delta > 0 && nextFilled >= data.segments) {
-        toast.success(`Zegar "${linkedClock.name}" wypełniony!`);
-      }
-    } catch {
-      toast.error('Nie udało się zaktualizować postępu zegara');
     }
   }
 
@@ -398,6 +436,35 @@ export function ThreatDetail() {
     }
   }
 
+  async function handleConfirmUnlink() {
+    if (!unlinkConfirm) return;
+    try {
+      await deleteRelation(db, unlinkConfirm.relationId);
+      toast.success('Usunięto powiązanie z tego widoku');
+      setUnlinkConfirm(null);
+    } catch {
+      toast.error('Nie udało się usunąć powiązania');
+    }
+  }
+
+  async function handleSetPillarDestroyed(index: number, destroyed: boolean) {
+    const pillars = normalizeThreatPillars(currentThreat.data.pillars);
+    const next = pillars.map((pillar, pillarIndex) =>
+      pillarIndex === index ? { ...pillar, destroyed } : pillar,
+    );
+    try {
+      await updateEntity(db, threatId, {
+        data: {
+          ...currentThreat.data,
+          pillars: next,
+        },
+      });
+      toast.success(destroyed ? 'Filar oznaczony jako zniszczony' : 'Filar przywrócony');
+    } catch {
+      toast.error('Nie udało się zaktualizować filaru');
+    }
+  }
+
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
       <Link
@@ -417,7 +484,7 @@ export function ThreatDetail() {
             <h1 className="text-surface-900 text-3xl font-semibold tracking-[-0.03em]">
               {currentThreat.name}
             </h1>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="app-danger-pill inline-flex rounded-full px-3 py-1 text-xs font-semibold">
                 {THREAT_TYPE_LABELS[currentThreat.data.threatType]}
               </span>
@@ -430,7 +497,24 @@ export function ThreatDetail() {
               >
                 {threatStatus === 'completed' ? 'Zakończone' : 'Aktywne'}
               </span>
+              {threatStatus === 'completed' && currentThreat.data.completionOutcome && (
+                <span className="inline-flex rounded-full border border-amber-200/80 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900">
+                  {THREAT_COMPLETION_OUTCOME_LABELS[currentThreat.data.completionOutcome]}
+                </span>
+              )}
+              {threatStatus === 'completed' && !currentThreat.data.completionOutcome && (
+                <span className="text-surface-500 text-xs font-medium">
+                  Sposób zakończenia niezapisany (starszy wpis)
+                </span>
+              )}
             </div>
+            <p className="text-surface-600 mt-3 text-xs">
+              {parentFrontEntity
+                ? `Front: ${parentFrontEntity.name}`
+                : 'Front: brak przypisania'}
+              {' • '}
+              {linkedClock ? `Zegar: ${linkedClock.name}` : 'Zegar: brak'}
+            </p>
           </div>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
@@ -471,27 +555,42 @@ export function ThreatDetail() {
         </div>
       </div>
 
+      {!isEditing && (
+        <DetailTocBar ariaLabel="Sekcje karty zagrożenia" items={threatTocItems} />
+      )}
+
       {isEditing ? (
         <div className="app-panel rounded-[1.75rem] p-4 shadow-[0_20px_40px_rgba(18,45,66,0.08)] lg:p-6">
           <ThreatForm
             defaultValues={{
               name: currentThreat.name,
               threatType: currentThreat.data.threatType,
+              radarArchetype: getThreatRadarArchetype(currentThreat.data),
               status: threatStatus,
               impulse: currentThreat.data.impulse,
               trigger: currentThreat.data.trigger ?? '',
-              reasonOfDead: currentThreat.data.reasonOfDead ?? '',
+              completionReason: currentThreat.data.completionReason ?? currentThreat.data.reasonOfDead ?? '',
               inheritanceNotes:
                 typeof currentThreat.data.inheritanceNotes === 'string'
                   ? currentThreat.data.inheritanceNotes
                   : '',
               forkThreatId: currentThreat.data.forkThreatId,
               moves: currentThreat.data.moves,
+              pillars: normalizeThreatPillars(currentThreat.data.pillars),
               description: currentThreat.description,
               tags: currentThreat.tags,
               clock: linkedClock
-                ? { name: linkedClock.name, segments: linkedClock.data.segments }
+                ? {
+                    name: linkedClock.name,
+                    segments: linkedClock.data.segments,
+                    tickLabels: [...(linkedClock.data.tickLabels ?? [])],
+                  }
                 : null,
+              completionOutcome:
+                currentThreat.data.completionOutcome ??
+                (threatStatus === 'completed'
+                  ? inferThreatCompletionOutcomeFromClock(linkedClock ?? undefined)
+                  : undefined),
             }}
             onSubmit={handleUpdate}
             isSaving={saving}
@@ -502,8 +601,8 @@ export function ThreatDetail() {
       ) : (
         <>
           <DetailSection
+            sectionId="threat-detail-kontekst"
             title="Kontekst zagrożenia"
-            description="Główne informacje o presji fabularnej i jej miejscu w kampanii."
             tone="accent"
             contentClassName="flex flex-col gap-5 lg:gap-6"
           >
@@ -524,6 +623,13 @@ export function ThreatDetail() {
                   emptyMessage="To zagrożenie nie jest jeszcze podpięte do żadnego frontu."
                   actionLabel={parentFrontEntity ? '+ Zmień front' : '+ Przypisz front'}
                   onAction={openFrontRelinkModal}
+                  onRemoveItem={(item) =>
+                    setUnlinkConfirm({
+                      relationId: item.relation.id,
+                      title: 'Usunąć powiązany front?',
+                      description: `Czy na pewno chcesz usunąć front „${item.entity.name}" z tego widoku zagrożenia?`,
+                    })}
+                  removeAriaLabel={(item) => `Usuń front ${item.entity.name} z tego widoku`}
                 />
               </div>
 
@@ -534,29 +640,114 @@ export function ThreatDetail() {
                   emptyMessage="To zagrożenie nie ma jeszcze podpiętych wątków przez relację affects."
                   actionLabel="+ Dodaj wątek"
                   onAction={() => setShowThreadPicker(true)}
+                  onRemoveItem={(item) =>
+                    setUnlinkConfirm({
+                      relationId: item.relation.id,
+                      title: 'Usunąć powiązany wątek?',
+                      description: `Czy na pewno chcesz usunąć wątek „${item.entity.name}" z tego widoku zagrożenia?`,
+                    })}
+                  removeAriaLabel={(item) => `Usuń wątek ${item.entity.name} z tego widoku`}
+                />
+              </div>
+            </div>
+
+            <div id="threat-detail-wskazowki" className="scroll-mt-6">
+              <div className="app-panel rounded-[1.5rem] p-6">
+                <ClueSection
+                  parentId={threatId}
+                  title="Wskazówki zagrożenia"
+                  onRemoveRelation={(item) =>
+                    setUnlinkConfirm({
+                      relationId: item.relation.id,
+                      title: 'Usunąć wskazówkę z widoku?',
+                      description: `Czy na pewno chcesz usunąć wskazówkę „${item.clue.name}" z tego widoku zagrożenia?`,
+                    })}
                 />
               </div>
             </div>
           </DetailSection>
 
-          {(currentThreat.data.trigger || forkSourceThreat || currentThreat.data.reasonOfDead) && (
+          {currentThreat.data.moves.length > 0 && (
+            <DetailSection sectionId="threat-detail-ruchy" title="Ruchy zagrożenia">
+              <div className="app-panel rounded-[1.5rem] p-5 shadow-[0_12px_24px_rgba(18,45,66,0.06)] lg:p-6">
+                <ul className="m-0 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2 xl:grid-cols-2">
+                  {currentThreat.data.moves.map((move, index) => (
+                    <li
+                      key={index}
+                      className="app-input-shell flex min-h-full min-w-0 gap-3 rounded-[1.25rem] border px-4 py-4 shadow-[0_12px_24px_rgba(18,45,66,0.04)]"
+                    >
+                      <span className="app-pill-muted inline-flex h-fit shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold tabular-nums">
+                        {index + 1}
+                      </span>
+                      <p className="text-surface-800 min-w-0 flex-1 text-sm leading-6 break-words">{move}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </DetailSection>
+          )}
+
+          {normalizedPillars.length > 0 && (
+            <DetailSection sectionId="threat-detail-filary" title="Filary zagrożenia">
+              <div className="app-panel rounded-[1.5rem] p-5 shadow-[0_12px_24px_rgba(18,45,66,0.06)] lg:p-6">
+                <ul className="m-0 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2 xl:grid-cols-2">
+                  {normalizedPillars.map((pillar, index) => (
+                    <li
+                      key={`${pillar.label}:${index}`}
+                      className="app-input-shell flex min-h-full min-w-0 gap-3 rounded-[1.25rem] border px-4 py-4 shadow-[0_12px_24px_rgba(18,45,66,0.04)]"
+                    >
+                      <span className="app-pill-muted inline-flex h-fit shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold tabular-nums">
+                        {index + 1}
+                      </span>
+                      <div className="min-w-0 flex flex-1 items-start justify-between gap-3">
+                        <p
+                          className={`text-surface-800 min-w-0 flex-1 text-sm leading-6 break-words ${
+                            pillar.destroyed ? 'line-through opacity-70' : ''
+                          }`}
+                        >
+                          {pillar.label}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            pillar.destroyed
+                              ? setConfirmRestorePillarIndex(index)
+                              : void handleSetPillarDestroyed(index, true)}
+                          className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                            pillar.destroyed
+                              ? 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+                              : 'app-button-danger'
+                          }`}
+                        >
+                          {pillar.destroyed ? 'Zniszczony' : 'Zniszcz'}
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </DetailSection>
+          )}
+
+          {typeof currentThreat.data.inheritanceNotes === 'string' &&
+            currentThreat.data.inheritanceNotes.trim().length > 0 && (
+              <DetailSection
+                sectionId="threat-detail-dziedzictwo"
+                title="Dziedzictwo zagrożenia"
+              >
+                <p className="text-surface-700 text-sm whitespace-pre-wrap">
+                  {currentThreat.data.inheritanceNotes}
+                </p>
+              </DetailSection>
+            )}
+
+          {(forkSourceThreat || currentThreat.data.completionReason || currentThreat.data.reasonOfDead) && (
             <DetailSection
-              title="Historia i tykanie"
-              description="Trigger, pochodzenie i stan wygaszenia zagrożenia."
+              sectionId="threat-detail-historia"
+              title="Historia"
               contentClassName="flex flex-col gap-5"
             >
               <div className="grid gap-5 lg:grid-cols-2">
-                {currentThreat.data.trigger && (
-                  <div className="app-panel rounded-[1.5rem] p-6">
-                    <h2 className="text-surface-500 mb-2 text-xs font-semibold tracking-wide uppercase">
-                      Trigger tykania
-                    </h2>
-                    <p className="text-surface-700 text-sm whitespace-pre-wrap">
-                      {currentThreat.data.trigger}
-                    </p>
-                  </div>
-                )}
-
                 {forkSourceThreat && (
                   <div className="app-panel rounded-[1.5rem] p-6">
                     <h2 className="text-surface-500 mb-2 text-xs font-semibold tracking-wide uppercase">
@@ -575,13 +766,17 @@ export function ThreatDetail() {
                   </div>
                 )}
 
-                {currentThreat.data.reasonOfDead && (
-                  <div className="app-danger-card rounded-[1.5rem] p-6 lg:col-span-2">
+                {(currentThreat.data.completionReason ?? currentThreat.data.reasonOfDead) && (
+                  <div
+                    className={`app-danger-card rounded-[1.5rem] p-6 ${
+                      forkSourceThreat ? '' : 'lg:col-span-2'
+                    }`}
+                  >
                     <h2 className="text-surface-500 mb-2 text-xs font-semibold tracking-wide uppercase">
                       Powód wygaszenia / śmierci
                     </h2>
                     <p className="text-surface-700 text-sm whitespace-pre-wrap">
-                      {currentThreat.data.reasonOfDead}
+                      {currentThreat.data.completionReason ?? currentThreat.data.reasonOfDead}
                     </p>
                   </div>
                 )}
@@ -589,141 +784,65 @@ export function ThreatDetail() {
             </DetailSection>
           )}
 
-          {currentThreat.data.moves.length > 0 && (
-            <DetailSection
-              title="Ruchy zagrożenia"
-              description="Lista ruchów, po których MG może sięgać podczas eskalacji."
-              contentClassName="flex flex-col gap-5"
-            >
-              <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
-                Ruchy zagrożenia
-              </h2>
-              <ul className="list-inside list-disc space-y-1.5">
-                {currentThreat.data.moves.map((move, index) => (
-                  <li key={index} className="text-surface-700 text-sm">
-                    {move}
-                  </li>
-                ))}
-              </ul>
-            </DetailSection>
-          )}
-
-          {typeof currentThreat.data.inheritanceNotes === 'string' &&
-            currentThreat.data.inheritanceNotes.trim().length > 0 && (
-              <DetailSection
-                title="Dziedzictwo zagrożenia"
-                description="To, co przeszło dalej po wcześniejszym zagrożeniu: skutki, etapy i konsekwencje."
-              >
-                <p className="text-surface-700 text-sm whitespace-pre-wrap">
-                  {currentThreat.data.inheritanceNotes}
-                </p>
-              </DetailSection>
-            )}
-
-          {linkedClock && (
-            <DetailSection
-              title="Zegar presji"
-              description="Operacyjny licznik eskalacji przypięty do tego zagrożenia."
-            >
-              <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
-                Powiązany zegar
-              </h2>
-              <Link
-                to={`/clocks/${linkedClock.id}`}
-                className="app-input-shell hover:border-primary-300 m-[-0.35rem] flex items-center gap-4 rounded-[1.4rem] p-3 transition-colors hover:bg-[rgba(229,231,223,0.98)]"
-              >
-                <ClockWidget clock={linkedClock} size={56} showLabel />
-                <div className="min-w-0">
-                  <p className="text-surface-900 font-medium">{linkedClock.name}</p>
-                  <p className="text-surface-500 text-sm">
-                    {linkedClock.data.filled}/{linkedClock.data.segments} segmentów
-                  </p>
-                </div>
-              </Link>
-              <div className="mt-3 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => void handleAdjustLinkedClock(-1)}
-                  disabled={linkedClock.data.filled <= 0}
-                  className="app-button-secondary rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-40"
-                >
-                  -1 tick
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleAdjustLinkedClock(1)}
-                  disabled={
-                    linkedClock.data.filled >= linkedClock.data.segments ||
-                    linkedClock.data.isActive === false
-                  }
-                  className="app-button-primary rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-40"
-                >
-                  +1 tick
-                </button>
-              </div>
-
-              {linkedClock.data.tickLabels && linkedClock.data.tickLabels.length > 0 && (
-                <div className="mt-4">
-                  <TickProgress
-                    tickLabels={linkedClock.data.tickLabels}
-                    filled={linkedClock.data.filled}
-                    segments={linkedClock.data.segments}
-                  />
-                </div>
-              )}
-            </DetailSection>
-          )}
-
-          {!linkedClock && (
-            <DetailSection
-              title="Zegar presji"
-              description="To zagrożenie nie ma jeszcze zegara, ale możesz dodać go od razu bez przechodzenia do edycji."
-            >
-              <button
-                type="button"
-                onClick={() => setShowQuickClockModal(true)}
-                className="app-button-primary rounded-full px-4 py-2 text-sm font-medium"
-              >
-                + Dodaj zegar
-              </button>
-            </DetailSection>
-          )}
-
           {currentThreat.description && (
-            <DetailSection title="Opis" description="Pełny opis zagrożenia i jego roli w kampanii.">
-              <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
-                Opis
-              </h2>
-              <div
-                className="prose prose-sm text-surface-700 max-w-none"
-                dangerouslySetInnerHTML={{ __html: currentThreat.description }}
-              />
+            <DetailSection sectionId="threat-detail-opis" title="Opis">
+              <div className="app-panel min-w-0 w-full rounded-[1.5rem] p-5 lg:p-6">
+                <div
+                  className="prose prose-sm prose-headings:text-surface-800 prose-p:text-surface-800 prose-li:text-surface-800 prose-a:text-primary-700 min-w-0 w-full max-w-none text-pretty text-surface-800 [&_*]:max-w-none"
+                  dangerouslySetInnerHTML={{ __html: currentThreat.description }}
+                />
+              </div>
             </DetailSection>
-          )}
-
-          {currentThreat.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {currentThreat.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="app-danger-pill rounded-full px-2.5 py-1 text-xs font-medium"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
           )}
 
           <DetailSection
-            title="Wskazówki zagrożenia"
-            description="Tropy prowadzące bezpośrednio do tego zagrożenia."
+            sectionId="threat-detail-zegar"
+            title="Zegar presji"
+            contentClassName="flex flex-col gap-5"
           >
-            <ClueSection parentId={threatId} title="Wskazówki" />
+            {!linkedClock ? (
+              <div className="app-input-shell text-surface-500 rounded-[1.25rem] px-4 py-4 text-sm">
+                <p>Brak powiązanego zegara.</p>
+                <p className="mt-2 text-xs leading-relaxed">
+                  Dodaj zegar i uzupełnij warunki w trybie <span className="text-surface-700 font-medium">Edytuj</span>.
+                </p>
+              </div>
+            ) : (
+              <ThreatClockPreview clock={linkedClock} triggerText={currentThreat.data.trigger} />
+            )}
+            {!linkedClock &&
+              (currentThreat.data.trigger ?? '').split(/\r?\n/).some((l) => l.trim().length > 0) && (
+                <div className="app-panel rounded-[1.5rem] p-6">
+                  <h2 className="text-surface-500 mb-2 text-xs font-semibold tracking-wide uppercase">
+                    Zegar tyka, gdy
+                  </h2>
+                  <ul className="list-none space-y-0.5 pl-0 text-sm leading-snug text-surface-700">
+                    {(currentThreat.data.trigger ?? '')
+                      .split(/\r?\n/)
+                      .map((line) => line.trim())
+                      .filter(Boolean)
+                      .map((line, index) => (
+                        <li key={`${currentThreat.id}-trigger-ro-${index}`} className="flex gap-0.5">
+                          <span
+                            className="text-primary-600/75 mt-[0.15em] shrink-0 text-[10px] leading-none"
+                            aria-hidden
+                          >
+                            ▸
+                          </span>
+                          <span className="min-w-0">{line}</span>
+                        </li>
+                      ))}
+                  </ul>
+                  <p className="text-surface-500 mt-3 text-xs">
+                    Po dodaniu zegara te warunki będą też widoczne na karcie zegara.
+                  </p>
+                </div>
+              )}
           </DetailSection>
 
           <DetailSection
+            sectionId="threat-detail-powiazania"
             title="Powiązania świata"
-            description="Relacje dodatkowe poza głównym kontraktem zagrożenia."
             action={
               <button
                 type="button"
@@ -742,8 +861,8 @@ export function ThreatDetail() {
           </DetailSection>
 
           <DetailSection
+            sectionId="threat-detail-notatki"
             title="Notatki MG"
-            description="Zaplecze robocze dla prowadzącego poza główną presją i jej tropami."
           >
             <NotesList
               entityId={currentThreat.id}
@@ -751,6 +870,29 @@ export function ThreatDetail() {
               emptyMessage="Brak notatek podpiętych do tego zagrożenia."
             />
           </DetailSection>
+
+          <DetailSection
+            sectionId="threat-detail-tagi"
+            title="Tagi"
+            contentClassName="flex flex-col gap-3"
+          >
+            {currentThreat.tags.length === 0 ? (
+              <p className="text-surface-500 text-sm">Brak tagów — dodaj je w trybie edycji zagrożenia.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {currentThreat.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="app-danger-pill rounded-full px-2.5 py-1 text-xs font-medium"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+          </DetailSection>
+
+          <DetailScrollTopFab enabled={threatTocItems.length > 0} />
         </>
       )}
 
@@ -776,6 +918,39 @@ export function ThreatDetail() {
             className="app-input text-surface-800 mt-3 w-full rounded-[1.2rem] px-4 py-3 text-sm"
           />
           {toggleReasonError && <p className="mt-2 text-xs text-red-600">{toggleReasonError}</p>}
+
+          <div className="mt-4 rounded-[1.1rem] border border-[rgba(86,93,94,0.14)] bg-[rgba(223,225,218,0.45)] p-3">
+            <p className="text-surface-800 text-xs font-semibold tracking-wide uppercase">
+              Jak zakończyło się zagrożenie?
+            </p>
+            <p className="text-surface-600 mt-1 text-xs leading-relaxed">
+              <strong className="text-surface-800">Rozwiązane</strong> — padło lub zamknięte fabularnie przy niepełnym
+              zegarze. <strong className="text-surface-800">Ukończone</strong> — kanoniczne domknięcie zegara
+              (ostatni segment).
+            </p>
+            <div className="mt-3 flex flex-col gap-2.5">
+              {(
+                [
+                  ['resolved_early', THREAT_COMPLETION_OUTCOME_LABELS.resolved_early],
+                  ['completed_by_clock', THREAT_COMPLETION_OUTCOME_LABELS.completed_by_clock],
+                ] as const
+              ).map(([value, label]) => (
+                <label
+                  key={value}
+                  className="flex cursor-pointer items-start gap-2 rounded-lg border border-transparent px-1 py-0.5 hover:border-[rgba(86,93,94,0.12)]"
+                >
+                  <input
+                    type="radio"
+                    name="threat-completion-outcome"
+                    className="mt-0.5"
+                    checked={toggleCompletionOutcome === value}
+                    onChange={() => setToggleCompletionOutcome(value)}
+                  />
+                  <span className="text-surface-800 text-sm">{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
 
           <div className="mt-3 flex flex-wrap gap-2">
             {THREAT_DEATH_REASON_PRESETS.map((preset) => (
@@ -851,63 +1026,6 @@ export function ThreatDetail() {
             submitLabel="Utwórz zagrożenie wynikające"
             currentThreatId={currentThreat.id}
           />
-        </Modal>
-      )}
-
-      {showQuickClockModal && (
-        <Modal title="Dodaj zegar do zagrożenia" onClose={() => setShowQuickClockModal(false)}>
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <label htmlFor="quick-clock-name" className="text-surface-700 text-sm font-medium">
-                Nazwa zegara
-              </label>
-              <input
-                id="quick-clock-name"
-                value={quickClockName}
-                onChange={(event) => setQuickClockName(event.target.value)}
-                placeholder="Np. Eskalacja rytuału"
-                className="app-input text-surface-800 focus:border-primary-500 rounded-[1.1rem] px-3 py-2.5 text-sm focus:outline-none"
-                autoFocus
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label
-                htmlFor="quick-clock-segments"
-                className="text-surface-700 text-sm font-medium"
-              >
-                Segmenty
-              </label>
-              <select
-                id="quick-clock-segments"
-                value={quickClockSegments}
-                onChange={(event) => setQuickClockSegments(Number(event.target.value))}
-                className="app-input text-surface-800 focus:border-primary-500 rounded-[1.1rem] px-3 py-2.5 text-sm focus:outline-none"
-              >
-                {CLOCK_SEGMENTS.map((segments) => (
-                  <option key={segments} value={segments}>
-                    {segments}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setShowQuickClockModal(false)}
-                className="app-button-secondary rounded-full px-4 py-2 text-sm font-medium"
-              >
-                Anuluj
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleCreateQuickClock()}
-                disabled={!quickClockName.trim() || quickClockSaving}
-                className="app-button-primary rounded-full px-4 py-2 text-sm font-medium disabled:opacity-50"
-              >
-                {quickClockSaving ? 'Zapisywanie...' : 'Dodaj zegar'}
-              </button>
-            </div>
-          </div>
         </Modal>
       )}
 
@@ -991,6 +1109,28 @@ export function ThreatDetail() {
         destructive={false}
         onConfirm={handleConfirmReactivate}
         onCancel={() => setConfirmReactivate(false)}
+      />
+
+      <ConfirmDialog
+        open={unlinkConfirm !== null}
+        title={unlinkConfirm?.title ?? 'Usunąć powiązanie?'}
+        description={unlinkConfirm?.description ?? ''}
+        onConfirm={() => void handleConfirmUnlink()}
+        onCancel={() => setUnlinkConfirm(null)}
+      />
+
+      <ConfirmDialog
+        open={confirmRestorePillarIndex !== null}
+        title="Przywrócić filar?"
+        description="Czy na pewno chcesz przywrócić filar?"
+        confirmLabel="Przywróć"
+        destructive={false}
+        onConfirm={() => {
+          if (confirmRestorePillarIndex === null) return;
+          void handleSetPillarDestroyed(confirmRestorePillarIndex, false);
+          setConfirmRestorePillarIndex(null);
+        }}
+        onCancel={() => setConfirmRestorePillarIndex(null)}
       />
 
       {showThreadPicker && (

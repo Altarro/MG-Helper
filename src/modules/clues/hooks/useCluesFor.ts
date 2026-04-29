@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useCampaign } from '@shared/db/CampaignContext';
 import type { Relation } from '@shared/types/relation';
-import { isClue } from '../types';
+import { toClue } from '../types';
 import type { Clue } from '../types';
 
 export interface ClueRelationItem {
@@ -24,8 +24,10 @@ export function useCluesFor(parentId: string | undefined): ClueRelationItem[] | 
     const entities = await Promise.all(
       rels.map(async (relation) => {
         const entity = await db.entities.get(relation.sourceId);
-        if (!entity || !isClue(entity)) return null;
-        return { clue: entity, relation };
+        if (!entity) return null;
+        const clue = toClue(entity);
+        if (!clue) return null;
+        return { clue, relation };
       }),
     );
     return entities

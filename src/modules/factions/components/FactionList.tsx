@@ -1,15 +1,17 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Plus, Search, X, Flag } from 'lucide-react';
 import { useFactions } from '../hooks/useFactions';
 import { FactionCard } from './FactionCard';
 import { FactionForm } from './FactionForm';
+import { FilterCountBadge } from '@shared/components/FilterCountBadge';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { EmptyState } from '@shared/components/EmptyState';
 import { addEntity } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
 import type { FactionFormValues } from './FactionForm';
+import { getFactionLifecycleStatus } from '@shared/utils/entityData';
 
 export function FactionList() {
   const factions = useFactions();
@@ -18,13 +20,26 @@ export function FactionList() {
   const [query, setQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [hideDisbanded, setHideDisbanded] = useState(false);
 
   const lowerQuery = query.trim().toLowerCase();
-  const filtered = factions?.filter((f) =>
-    !lowerQuery ||
-    f.name.toLowerCase().includes(lowerQuery) ||
-    f.tags.some((t) => t.toLowerCase().includes(lowerQuery)),
+  const queryMatchedFactions = factions?.filter(
+    (f) =>
+      !lowerQuery ||
+      f.name.toLowerCase().includes(lowerQuery) ||
+      f.tags.some((t) => t.toLowerCase().includes(lowerQuery)),
   );
+  const filtered = queryMatchedFactions?.filter(
+    (f) => !hideDisbanded || getFactionLifecycleStatus({ data: f.data }) !== 'completed',
+  );
+
+  const disbandedMatchingQuery = useMemo(() => {
+    return (
+      queryMatchedFactions?.filter(
+        (f) => getFactionLifecycleStatus({ data: f.data }) === 'completed',
+      ).length ?? 0
+    );
+  }, [queryMatchedFactions]);
 
   async function handleCreate(values: FactionFormValues) {
     setSaving(true);
@@ -82,6 +97,17 @@ export function FactionList() {
           />
           {query && <button type="button" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-surface-500 transition-colors hover:text-primary-700"><X className="h-4 w-4" /></button>}
         </div>
+
+        <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm text-surface-700">
+          <input
+            type="checkbox"
+            checked={hideDisbanded}
+            onChange={(e) => setHideDisbanded(e.target.checked)}
+            className="border-surface-300 accent-primary-600 h-4 w-4 rounded"
+          />
+          <span>Ukryj rozbite</span>
+          <FilterCountBadge selected={hideDisbanded} count={disbandedMatchingQuery} />
+        </label>
       </section>
 
       {showForm && (

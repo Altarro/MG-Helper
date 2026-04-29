@@ -1,5 +1,6 @@
 import type { Entity } from '@shared/types/entity';
 import type { SessionEventData } from '@modules/sessions/types';
+import type { LifecycleStatus } from '@shared/types/entityLifecycle';
 
 export interface NpcData {
   instinct: string;
@@ -8,6 +9,9 @@ export interface NpcData {
   playStyle: string; // how to portray/play this NPC at the table
   isPC?: boolean;
   playerName?: string;
+  /** Stan fabularny (`completed` = nie żyje; encja zostaje w kampanii). */
+  status?: LifecycleStatus;
+  lifecycleReason?: string;
   imageId?: string | null; // reference to Asset (portrait blob)
   imageAlt?: string;
 }

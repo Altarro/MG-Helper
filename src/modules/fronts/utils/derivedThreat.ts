@@ -1,5 +1,6 @@
 import type { Clock } from '@modules/clocks/types';
 import type { Threat } from '../types';
+import { getThreatRadarArchetype, normalizeThreatPillars } from '../types';
 import type { ThreatFormValues } from '../components/ThreatForm';
 
 function normalizeFilledSegments(clock: Clock): number {
@@ -46,15 +47,18 @@ export function buildDerivedThreatDefaults(
   return {
     name: `${sourceThreat.name} - następstwo`,
     threatType: sourceThreat.data.threatType,
+    radarArchetype: getThreatRadarArchetype(sourceThreat.data),
     status: 'active',
     impulse: sourceThreat.data.impulse,
     trigger: '',
-    reasonOfDead: '',
+    completionReason: '',
     inheritanceNotes: buildDerivedThreatDescription(sourceThreat.name, clock),
     forkThreatId: sourceThreat.id,
     moves: [...sourceThreat.data.moves],
+    pillars: normalizeThreatPillars(sourceThreat.data.pillars),
     description: '',
     tags: [...sourceThreat.tags],
     clock: null,
+    completionOutcome: undefined,
   };
 }

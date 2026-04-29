@@ -5,6 +5,7 @@ import { useCampaign } from '@shared/db/CampaignContext';
 import { useNotesBySession } from '../hooks/useNotesBySession';
 import { toast } from 'sonner';
 import { nowISO } from '@shared/utils/date';
+import { formatPolishCharacterCount, formatPolishThreadCount } from '@shared/utils/polishPlural';
 
 interface QuickNotePanelProps {
   sessionId: string;
@@ -38,6 +39,7 @@ export function QuickNotePanel({
           content: trimmed,
           sessionId,
           createdAt: nowISO(),
+          cleanupDecision: 'pending',
         },
       });
 
@@ -71,8 +73,8 @@ export function QuickNotePanel({
 
   const contextParts: string[] = [];
   if (contextLocationId) contextParts.push('Lokacja');
-  if (contextNpcIds.length > 0) contextParts.push(`${contextNpcIds.length} NPC`);
-  if (contextThreadIds.length > 0) contextParts.push(`${contextThreadIds.length} wąt.`);
+  if (contextNpcIds.length > 0) contextParts.push(formatPolishCharacterCount(contextNpcIds.length));
+  if (contextThreadIds.length > 0) contextParts.push(formatPolishThreadCount(contextThreadIds.length));
 
   return (
     <div className="flex flex-col gap-3 rounded-[1.45rem] bg-transparent">

@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { Link } from 'react-router';
 import { Shield } from 'lucide-react';
+import { CardScrollBlock } from '@shared/components/CardScrollBlock';
 import { FRONT_CATEGORY_LABELS } from '../types';
 import type { Front } from '../types';
 
@@ -15,7 +16,7 @@ export const FrontCard = memo(function FrontCard({ front }: FrontCardProps) {
   return (
     <Link
       to={`/fronts/${front.id}`}
-      className="app-card flex min-h-44 flex-col gap-3 rounded-[1.35rem] p-5 transition-all hover:-translate-y-0.5"
+      className="app-card flex flex-col gap-3 rounded-[1.35rem] p-5 transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/35"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
@@ -30,15 +31,25 @@ export const FrontCard = memo(function FrontCard({ front }: FrontCardProps) {
       </div>
 
       {data.goal && (
-        <p className="line-clamp-2 text-sm font-medium leading-6 text-primary-800">{data.goal}</p>
+        <CardScrollBlock label="Cel frontu" contentClassName="pr-0.5" maxLines={5} remeasureKey={data.goal}>
+          <p className="text-sm leading-6 whitespace-pre-wrap text-surface-700">{data.goal}</p>
+        </CardScrollBlock>
       )}
 
       {data.stakes.length > 0 && (
-        <p className="line-clamp-3 text-sm leading-6 text-surface-700">
-          <span className="font-medium text-surface-800">Stawki:</span>{' '}
-          {data.stakes.slice(0, 2).join(' • ')}
-          {data.stakes.length > 2 ? ` +${data.stakes.length - 2}` : ''}
-        </p>
+        <CardScrollBlock
+          label="Stawki"
+          contentClassName="pr-0.5"
+          remeasureKey={data.stakes.join('\u0001')}
+        >
+          <ul className="list-inside list-disc text-sm leading-6 text-surface-700 [&>li+li]:mt-1">
+            {data.stakes.map((stake, index) => (
+              <li key={`${front.id}-stake-${index}`} className="marker:text-surface-400 pl-0.5">
+                {stake}
+              </li>
+            ))}
+          </ul>
+        </CardScrollBlock>
       )}
 
       {tags && tags.length > 0 && (

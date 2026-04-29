@@ -12,12 +12,20 @@ interface ClockCardProps {
 
 export const ClockCard = memo(function ClockCard({ clock, onClick, className = '' }: ClockCardProps) {
   const { segments, filled, isActive } = clock.data;
+  const kind = clock.data.kind ?? 'free';
   const completed = isCompleted(clock);
   const dead = isActive === false;
+  const kindLabel = kind === 'session' ? 'Sesyjny' : kind === 'threat' ? 'Zagrożenie' : 'Wolny';
+  const kindClassName =
+    kind === 'session'
+      ? 'bg-amber-100 text-amber-800'
+      : kind === 'threat'
+        ? 'bg-danger-100 text-danger-800'
+        : 'bg-surface-100 text-surface-700';
 
   return (
     <article
-      className={`app-card group flex cursor-pointer items-center gap-4 rounded-[1.35rem] p-5 transition-all hover:-translate-y-0.5 ${dead ? 'opacity-70' : ''} ${className}`}
+      className={`app-card group flex cursor-pointer items-center gap-4 rounded-[1.35rem] p-5 transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/35 ${dead ? 'opacity-70' : ''} ${className}`}
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
@@ -30,6 +38,9 @@ export const ClockCard = memo(function ClockCard({ clock, onClick, className = '
           <h3 className="truncate text-[1.02rem] font-semibold tracking-[-0.02em] text-surface-900 group-hover:text-primary-800">
             {clock.name}
           </h3>
+          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${kindClassName}`}>
+            {kindLabel}
+          </span>
           {completed && (
             <span className="app-pill rounded-full px-2.5 py-1 text-xs font-medium">
               Ukończony

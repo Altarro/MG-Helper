@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router';
-import { ArrowLeft, Edit2, Trash2, CheckCircle2, Circle } from 'lucide-react';
+import { ArrowLeft, Edit2, Trash2, CheckCircle2, Circle, Compass } from 'lucide-react';
 import { useClueById } from '../hooks/useClueById';
 import { ClueForm } from './ClueForm';
+import { DetailNotFound } from '@shared/components/DetailNotFound';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { RelationList } from '@shared/components/RelationList';
@@ -10,20 +11,22 @@ import { RelationPicker } from '@shared/components/RelationPicker';
 import { MarkdownExportButton } from '@shared/components/MarkdownExportButton';
 import { NarrativeLinksSection } from '@shared/components/NarrativeLinksSection';
 import { DetailSection } from '@shared/components/DetailSection';
+import { DetailScrollTopFab } from '@shared/components/DetailScrollTopFab';
+import { DetailTocBar } from '@shared/components/DetailTocBar';
 import { useRelatedEntities } from '@shared/hooks/useRelatedEntities';
 import { NotesList } from '@modules/notes/components/NotesList';
-import { deleteEntity, updateEntity } from '@shared/db/operations';
+import { deleteEntity, deleteRelation, updateEntity } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
+import { getCatalogLabelByValue } from '@modules/settings/campaignCatalogSettings';
 import { toast } from 'sonner';
 import { CLUE_STRENGTH_LABELS, getClueStrengthLabel } from '@shared/domain/storyContracts';
-import { CLUE_TYPE_LABELS } from '../types';
 import type { ClueFormValues } from './ClueForm';
 
 export function ClueDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { db } = useCampaign();
+  const { db, campaignId } = useCampaign();
   const { clue } = useClueById(id);
   const clueTargets = useRelatedEntities(id, {
     relationTypes: ['clues_for'],
@@ -34,6 +37,11 @@ export function ClueDetail() {
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showRelPicker, setShowRelPicker] = useState(false);
+  const [unlinkConfirm, setUnlinkConfirm] = useState<{
+    relationId: string;
+    title: string;
+    description: string;
+  } | null>(null);
   const [targetPickerType, setTargetPickerType] = useState<'thread' | 'threat' | 'front' | null>(
     null,
   );
@@ -47,16 +55,28 @@ export function ClueDetail() {
   const backPath = returnToSessionLive ? `/sessions/${returnToSessionLive}/live` : '/clues';
   const backLabel = returnToSessionLive ? 'Sesja na żywo' : 'Wskazówki';
 
+  const clueTocItems = useMemo(() => {
+    if (!clue || isEditing) return [];
+    return [
+      { id: 'clue-detail-kontekst', label: 'Kontekst' },
+      { id: 'clue-detail-prowadzi', label: 'Prowadzi do' },
+      { id: 'clue-detail-powiazania', label: 'Powiązania' },
+      { id: 'clue-detail-notatki', label: 'Notatki MG' },
+      { id: 'clue-detail-tagi', label: 'Tagi' },
+    ];
+  }, [clue, isEditing]);
+
   if (clue === undefined) return <LoadingSpinner />;
 
   if (!clue) {
     return (
-      <div className="p-6">
-        <p className="text-surface-500">Wskazówka nie istnieje.</p>
-        <Link to="/clues" className="text-primary-600 hover:underline">
-          ← Wróć do listy wskazówek
-        </Link>
-      </div>
+      <DetailNotFound
+        icon={Compass}
+        title="Wskazówka nie znaleziona"
+        description="Mogła zostać usunięta albo odnośnik jest nieaktualny."
+        to="/clues"
+        linkLabel="Wróć do listy wskazówek"
+      />
     );
   }
 
@@ -68,7 +88,8 @@ export function ClueDetail() {
         description: values.description,
         tags: values.tags,
         data: {
-          clueType: values.clueType,
+          clueTypes: values.clueTypes,
+          clueType: values.clueTypes[0],
           hint: values.hint,
           discovered: values.discovered,
         },
@@ -104,6 +125,17 @@ export function ClueDetail() {
     }
   }
 
+  async function handleConfirmUnlink() {
+    if (!unlinkConfirm) return;
+    try {
+      await deleteRelation(db, unlinkConfirm.relationId);
+      toast.success('Powiązanie usunięte');
+      setUnlinkConfirm(null);
+    } catch {
+      toast.error('Nie udało się usunąć powiązania');
+    }
+  }
+
   const resolvedClueTargets = clueTargets ?? [];
   const strongTargets = resolvedClueTargets.filter(
     (item) => item.relation.meta?.clueStrength === 'strong',
@@ -114,6 +146,8 @@ export function ClueDetail() {
   const weakTargets = resolvedClueTargets.filter(
     (item) => item.relation.meta?.clueStrength === 'weak',
   );
+  const hasStrengthBadges =
+    strongTargets.length > 0 || standardTargets.length > 0 || weakTargets.length > 0;
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
@@ -141,9 +175,11 @@ export function ClueDetail() {
               {clue.name}
             </h1>
             <div className="mt-3 flex flex-wrap gap-2">
-              <span className="inline-flex rounded-full border border-cyan-200/80 bg-cyan-100/75 px-3 py-1 text-xs font-semibold text-cyan-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.28)]">
-                {CLUE_TYPE_LABELS[clue.data.clueType]}
-              </span>
+              {clue.data.clueTypes.map((type) => (
+                <span key={type} className="inline-flex rounded-full border border-cyan-200/80 bg-cyan-100/75 px-3 py-1 text-xs font-semibold text-cyan-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.28)]">
+                  {getCatalogLabelByValue('clueType', type, campaignId)}
+                </span>
+              ))}
               <span
                 className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
                   clue.data.discovered
@@ -180,7 +216,7 @@ export function ClueDetail() {
               name: clue.name,
               description: clue.description,
               tags: clue.tags,
-              clueType: clue.data.clueType,
+              clueTypes: clue.data.clueTypes,
               hint: clue.data.hint,
               discovered: clue.data.discovered,
             }}
@@ -191,33 +227,34 @@ export function ClueDetail() {
         </div>
       ) : (
         <div className="flex flex-col gap-5">
+          <DetailTocBar ariaLabel="Sekcje karty wskazówki" items={clueTocItems} />
           <DetailSection
+            sectionId="clue-detail-kontekst"
             title="Kontekst wskazówki"
-            description="Status tropu, jego rdzeń i najkrótsza informacja, z której korzysta MG przy stole."
             tone="accent"
+            action={
+              <button
+                type="button"
+                onClick={handleToggleDiscovered}
+                className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                  clue.data.discovered
+                    ? 'border border-emerald-300/70 bg-emerald-100/80 text-emerald-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] hover:bg-emerald-100'
+                    : 'app-button-secondary'
+                }`}
+              >
+                {clue.data.discovered ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" /> Odkryta — kliknij, aby ukryć
+                  </>
+                ) : (
+                  <>
+                    <Circle className="h-4 w-4" /> Nieodkryta — kliknij, aby odkryć
+                  </>
+                )}
+              </button>
+            }
             contentClassName="flex flex-col gap-5 lg:gap-6"
           >
-            {/* Toggle discovered */}
-            <button
-              type="button"
-              onClick={handleToggleDiscovered}
-              className={`inline-flex w-fit items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition ${
-                clue.data.discovered
-                  ? 'border border-emerald-300/70 bg-emerald-100/80 text-emerald-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] hover:bg-emerald-100'
-                  : 'app-button-secondary'
-              }`}
-            >
-              {clue.data.discovered ? (
-                <>
-                  <CheckCircle2 className="h-4 w-4" /> Odkryta — kliknij, aby ukryć
-                </>
-              ) : (
-                <>
-                  <Circle className="h-4 w-4" /> Nieodkryta — kliknij, aby odkryć
-                </>
-              )}
-            </button>
-
             {/* Hint */}
             {clue.data.hint && (
               <div className="rounded-[1.45rem] border border-cyan-200/70 bg-[linear-gradient(180deg,rgba(223,247,250,0.96)_0%,rgba(208,240,245,0.98)_100%)] px-5 py-5 shadow-[0_14px_28px_rgba(18,45,66,0.06),inset_0_1px_0_rgba(255,255,255,0.24)]">
@@ -230,8 +267,8 @@ export function ClueDetail() {
 
             {/* Description */}
             {clue.description && (
-              <div>
-                <h2 className="text-surface-500 mb-1 text-xs font-semibold tracking-wide uppercase">
+              <div className="rounded-[1.45rem] border border-[rgba(86,93,94,0.16)] bg-[rgba(243,244,239,0.9)] px-5 py-5 shadow-[0_14px_28px_rgba(18,45,66,0.05),inset_0_1px_0_rgba(255,255,255,0.24)]">
+                <h2 className="text-surface-500 mb-2 text-xs font-semibold tracking-wide uppercase">
                   Opis
                 </h2>
                 <div
@@ -240,124 +277,100 @@ export function ClueDetail() {
                 />
               </div>
             )}
-
-            {/* Tags */}
-            {clue.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {clue.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="app-pill-muted rounded-full px-2.5 py-1 text-xs font-medium"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
           </DetailSection>
 
           <DetailSection
+            sectionId="clue-detail-prowadzi"
             title="Prowadzi do"
-            description="Docelowe byty fabularne oraz siła tropu dla każdego kierunku."
-            contentClassName="flex flex-col gap-5"
-          >
-            <div>
-              <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-surface-500 text-xs font-semibold tracking-wide uppercase">
-                    Prowadzi do
-                  </h2>
-                  <p className="text-surface-400 mt-1 text-sm">
-                    Określ, czy wskazówka prowadzi do wątku, zagrożenia albo frontu oraz jak mocny
-                    to trop.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setTargetPickerType('thread')}
-                    className="app-button-secondary rounded-full px-3 py-1.5 text-xs font-medium"
-                  >
-                    + Wątek
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTargetPickerType('threat')}
-                    className="app-button-secondary rounded-full px-3 py-1.5 text-xs font-medium"
-                  >
-                    + Zagrożenie
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTargetPickerType('front')}
-                    className="app-button-secondary rounded-full px-3 py-1.5 text-xs font-medium"
-                  >
-                    + Front
-                  </button>
-                </div>
-              </div>
-
-              {resolvedClueTargets.length > 0 && (
-                <div className="mb-3 flex flex-wrap gap-1.5">
-                  {strongTargets.length > 0 && (
-                    <span className="inline-flex rounded-full border border-cyan-200/80 bg-cyan-100/75 px-2.5 py-1 text-xs font-semibold text-cyan-800">
-                      {CLUE_STRENGTH_LABELS.strong}: {strongTargets.length}
-                    </span>
-                  )}
-                  {standardTargets.length > 0 && (
-                    <span className="app-pill-muted inline-flex rounded-full px-2.5 py-1 text-xs font-semibold">
-                      {CLUE_STRENGTH_LABELS.standard}: {standardTargets.length}
-                    </span>
-                  )}
-                  {weakTargets.length > 0 && (
-                    <span className="app-danger-pill inline-flex rounded-full px-2.5 py-1 text-xs font-semibold">
-                      {CLUE_STRENGTH_LABELS.weak}: {weakTargets.length}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              <NarrativeLinksSection
-                title="Cele wskazówki"
-                items={resolvedClueTargets}
-                emptyMessage="Ta wskazówka nie wskazuje jeszcze jawnie na front, zagrożenie ani wątek."
-                meta={(item) =>
-                  item.relation.meta?.clueStrength
-                    ? getClueStrengthLabel(item.relation.meta.clueStrength)
-                    : null
-                }
-              />
-            </div>
-          </DetailSection>
-
-          <DetailSection
-            title="Powiązania świata"
-            description="Relacje dodatkowe poza głównym kontraktem wskazówki."
-            action={null}
-          >
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-surface-500 text-xs font-semibold tracking-wide uppercase">
-                  Pozostałe powiązania
-                </h2>
+            action={
+              <div className="flex flex-wrap gap-1.5">
                 <button
-                  onClick={() => setShowRelPicker(true)}
+                  type="button"
+                  onClick={() => setTargetPickerType('thread')}
                   className="app-button-secondary rounded-full px-3 py-1.5 text-xs font-medium"
                 >
-                  + Dodaj
+                  + Wątek
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTargetPickerType('threat')}
+                  className="app-button-secondary rounded-full px-3 py-1.5 text-xs font-medium"
+                >
+                  + Zagrożenie
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTargetPickerType('front')}
+                  className="app-button-secondary rounded-full px-3 py-1.5 text-xs font-medium"
+                >
+                  + Front
                 </button>
               </div>
-              <RelationList
-                entityId={clue.id}
-                excludeRelationTypes={['clues_for']}
-                emptyMessage="Brak dodatkowych powiązań dla tej wskazówki."
-              />
-            </div>
+            }
+            contentClassName="flex flex-col gap-5"
+          >
+            {hasStrengthBadges && (
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {strongTargets.length > 0 && (
+                  <span className="inline-flex rounded-full border border-cyan-200/80 bg-cyan-100/75 px-2.5 py-1 text-xs font-semibold text-cyan-800">
+                    {CLUE_STRENGTH_LABELS.strong}: {strongTargets.length}
+                  </span>
+                )}
+                {standardTargets.length > 0 && (
+                  <span className="app-pill-muted inline-flex rounded-full px-2.5 py-1 text-xs font-semibold">
+                    {CLUE_STRENGTH_LABELS.standard}: {standardTargets.length}
+                  </span>
+                )}
+                {weakTargets.length > 0 && (
+                  <span className="app-danger-pill inline-flex rounded-full px-2.5 py-1 text-xs font-semibold">
+                    {CLUE_STRENGTH_LABELS.weak}: {weakTargets.length}
+                  </span>
+                )}
+              </div>
+            )}
+
+            <NarrativeLinksSection
+              title="Prowadzi do"
+              items={resolvedClueTargets}
+              emptyMessage="Ta wskazówka nie wskazuje jeszcze jawnie na front, zagrożenie ani wątek."
+              hideHeader
+              meta={(item) =>
+                item.relation.meta?.clueStrength
+                  ? getClueStrengthLabel(item.relation.meta.clueStrength)
+                  : null
+              }
+              onRemoveItem={(item) =>
+                setUnlinkConfirm({
+                  relationId: item.relation.id,
+                  title: 'Usunąć powiązanie?',
+                  description: `Czy na pewno chcesz usunąć powiązanie z „${item.entity.name}" z tego widoku wskazówki?`,
+                })}
+              removeAriaLabel={(item) => `Usuń powiązanie ${item.entity.name} z tego widoku`}
+            />
           </DetailSection>
 
           <DetailSection
+            sectionId="clue-detail-powiazania"
+            title="Powiązania świata"
+            action={
+              <button
+                onClick={() => setShowRelPicker(true)}
+                className="app-button-secondary rounded-full px-3 py-1.5 text-xs font-medium"
+              >
+                + Dodaj
+              </button>
+            }
+          >
+            <RelationList
+              entityId={clue.id}
+              excludeRelationTypes={['clues_for']}
+              emptyMessage="Brak dodatkowych powiązań dla tej wskazówki."
+            />
+          </DetailSection>
+
+          <DetailSection
+            sectionId="clue-detail-notatki"
             title="Notatki MG"
-            description="Zaplecze robocze dla prowadzącego, poza czystym tropem i jego celem."
           >
             <NotesList
               entityId={clue.id}
@@ -365,6 +378,22 @@ export function ClueDetail() {
               emptyMessage="Brak notatek podpiętych do tej wskazówki."
             />
           </DetailSection>
+
+          <DetailSection sectionId="clue-detail-tagi" title="Tagi">
+            {clue.tags.length === 0 ? (
+              <p className="text-surface-500 text-sm">Brak tagów — dodaj je w trybie edycji wskazówki.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {clue.tags.map((tag) => (
+                  <span key={tag} className="app-pill-muted rounded-full px-2.5 py-1 text-xs font-medium">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+          </DetailSection>
+
+          <DetailScrollTopFab enabled={clueTocItems.length > 0} />
         </div>
       )}
 
@@ -394,6 +423,14 @@ export function ClueDetail() {
         description={`Czy na pewno chcesz usunąć wskazówkę „${clue.name}"? Tej operacji nie można cofnąć.`}
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}
+      />
+
+      <ConfirmDialog
+        open={Boolean(unlinkConfirm)}
+        title={unlinkConfirm?.title ?? 'Usunąć powiązanie?'}
+        description={unlinkConfirm?.description ?? ''}
+        onConfirm={() => void handleConfirmUnlink()}
+        onCancel={() => setUnlinkConfirm(null)}
       />
     </div>
   );

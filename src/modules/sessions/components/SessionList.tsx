@@ -72,6 +72,10 @@ export function SessionList() {
           number: values.number,
           date: values.date,
           summary: values.summary,
+          status: 'cleanup_completed',
+          reportAvailable: false,
+          plannedDurationMin: values.plannedDurationMin,
+          scenes: values.scenes,
         },
       });
       toast.success(`Sesja ${values.number} utworzona`);

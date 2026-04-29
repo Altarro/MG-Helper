@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ArrowLeft, Zap, StopCircle, ChevronLeft } from 'lucide-react';
+import { ArrowLeft, BookOpen, Zap, StopCircle, ChevronLeft, ChevronUp } from 'lucide-react';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
 import type { NpcDragData } from '@shared/components/DraggableNpcChip';
@@ -12,23 +12,31 @@ import {
   setLiveSessionMarker,
   clearLiveSessionMarker,
   clearLiveSessionState,
+  getLiveSessionMarker,
 } from '../hooks/useLiveSessionState';
+import { DetailNotFound } from '@shared/components/DetailNotFound';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
+import { Modal } from '@shared/components/Modal';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { SceneCenter } from './SceneCenter';
 import type { SceneCenterHandle } from './SceneCenter';
 import { SpotlightTracker } from './SpotlightTracker';
+import { SessionNowPlayingPanel } from './SessionNowPlayingPanel';
 import { SessionTimeline } from './SessionTimeline';
 import { SessionNpcPanel } from './SessionNpcPanel';
 import { ThreadTreePanel } from './ThreadTreePanel';
 import { ActiveThreatsPanel } from './ActiveThreatsPanel';
 import { LocationPickerModal } from './LocationPickerModal';
 import { SessionSearchPanel } from './SessionSearchPanel';
+import { SessionCluesPanel } from './SessionCluesPanel';
+import { SessionInspirationsPanel } from './SessionInspirationsPanel';
 import { QuickNotePanel } from '@modules/notes/components/QuickNotePanel';
 import { useCurrentSceneNpcIds } from '../hooks/useLiveSessionQueries';
 import { toast } from 'sonner';
 import { ensureEntityAppearsInSession, moveNpcToLocation } from '../utils/liveSessionCommands';
+import { addEntity, addRelation, updateEntity } from '@shared/db/operations';
+import { getSessionLifecycleStatus, type SessionData } from '../types';
 
 const DEFAULT_SPOTLIGHT: SpotlightState = {
   mgActive: false,
@@ -38,6 +46,21 @@ const DEFAULT_SPOTLIGHT: SpotlightState = {
   isPaused: false,
   sessionStarted: false,
 };
+
+function timerNowSec(timer: { elapsed: number; startedAt: string | null }): number {
+  if (!timer.startedAt) return timer.elapsed;
+  return timer.elapsed + Math.max(0, Math.floor((Date.now() - Date.parse(timer.startedAt)) / 1000));
+}
+
+const RAIL_SECTIONS = [
+  ['threats', 'Zagrożenia'],
+  ['notes', 'Notatki'],
+  ['npcs', 'Postacie'],
+  ['threads', 'Wątki'],
+  ['clues', 'Wskazówki'],
+  ['inspirations', 'Inspiracje'],
+  ['search', 'Wyszukaj'],
+] as const;
 
 export function SessionLive() {
   const { id } = useParams<{ id: string }>();
@@ -59,10 +82,21 @@ export function SessionLive() {
   const [activeNpcDrag, setActiveNpcDrag] = useState<NpcDragData | null>(null);
   const sceneCenterRef = useRef<SceneCenterHandle>(null);
   const [openSection, setOpenSection] = useState<
-    'npcs' | 'threads' | 'threats' | 'notes' | 'search' | null
+    'npcs' | 'threads' | 'threats' | 'notes' | 'clues' | 'inspirations' | 'search' | null
   >(null);
   const [locationPickerOpen, setLocationPickerOpen] = useState(false);
   const [railHovered, setRailHovered] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const [sessionClockModalOpen, setSessionClockModalOpen] = useState(false);
+  const [sessionClockName, setSessionClockName] = useState('');
+  const [sessionClockSegments, setSessionClockSegments] = useState<4 | 6>(4);
+  const [sessionClockSaving, setSessionClockSaving] = useState(false);
+  const [lifecycleUndoStack, setLifecycleUndoStack] = useState<
+    Array<Array<{ entityId: string; prevData: Record<string, unknown> }>>
+  >([]);
+  const panelScrollRef = useRef<HTMLDivElement | null>(null);
+  const panelDragRef = useRef<{ startY: number; scrollTop: number } | null>(null);
+  const railButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const sessionIdForHooks = session?.id ?? id ?? '';
 
   const sceneNpcIds = useCurrentSceneNpcIds(sessionIdForHooks, currentLocationId);
@@ -72,12 +106,51 @@ export function SessionLive() {
       const entities = await db.entities.where('id').anyOf(openCardIds).toArray();
       return entities.filter((entity) => entity.type === 'thread').map((entity) => entity.id);
     }, [db, openCardIds]) ?? [];
+  const blockingCleanupSession = useLiveQuery(async () => {
+    const all = await db.entities.where('type').equals('session').toArray();
+    return all.find(
+      (entity) =>
+        entity.id !== (session?.id ?? id) &&
+        getSessionLifecycleStatus(entity.data as unknown as SessionData) === 'cleanup_pending',
+    );
+  }, [db, id, session?.id]);
 
   useEffect(() => {
     if (!session || !id) return;
     const title = session.name || `Sesja ${session.data.number}`;
     setLiveSessionMarker({ sessionId: id, sessionName: title, isPaused: false, campaignId });
   }, [campaignId, id, session]);
+
+  useEffect(() => {
+    if (session !== null || !id) return;
+    const marker = getLiveSessionMarker();
+    if (marker?.sessionId !== id) return;
+    clearLiveSessionMarker();
+    clearLiveSessionState(id);
+  }, [session, id]);
+
+  useEffect(() => {
+    if (!session || !id) return;
+    if (blockingCleanupSession) {
+      const blockedTitle =
+        blockingCleanupSession.name ||
+        `Sesja ${(blockingCleanupSession.data as { number?: number }).number ?? '?'}`;
+      toast.error(
+        `Dokończ najpierw sprzątanie: ${blockedTitle}. Start nowej sesji na żywo jest zablokowany.`,
+      );
+      void navigate(`/sessions/${blockingCleanupSession.id}/cleanup`);
+      return;
+    }
+
+    if (getSessionLifecycleStatus(session.data as SessionData) !== 'live') {
+      void updateEntity(db, session.id, {
+        data: {
+          ...session.data,
+          status: 'live',
+        },
+      });
+    }
+  }, [blockingCleanupSession, db, id, navigate, session]);
 
   useEffect(() => {
     function handleEscape(event: KeyboardEvent) {
@@ -128,22 +201,123 @@ export function SessionLive() {
   }
 
   async function handleEndSession() {
-    if (!id) return;
+    if (!id || !session) return;
+    const spotlightSnapshot = spotlightState ?? DEFAULT_SPOTLIGHT;
+    await updateEntity(db, session.id, {
+      data: {
+        ...session.data,
+        status: 'cleanup_pending',
+        liveRunEndedAt: new Date().toISOString(),
+        spotlightSummary: {
+          capturedAt: new Date().toISOString(),
+          mgTotalActiveSec: timerNowSec(spotlightSnapshot.mgTotalActiveTimer),
+          mgWaitSec: timerNowSec(spotlightSnapshot.mgTimer),
+          players: spotlightSnapshot.players.map((player) => ({
+            id: player.id,
+            name: player.name,
+            playerName: player.playerName,
+            totalActiveSec: timerNowSec(player.totalActiveTimer),
+            waitSec: timerNowSec(player.waitTimer),
+          })),
+        },
+      },
+    });
     clearLiveSessionMarker();
     clearLiveSessionState(id);
     navigate(`/sessions/${id}/cleanup`);
   }
 
+  async function handleUndoLifecycleChange() {
+    const snapshotBatch = lifecycleUndoStack[lifecycleUndoStack.length - 1];
+    if (!snapshotBatch || snapshotBatch.length === 0) return;
+    try {
+      for (let i = snapshotBatch.length - 1; i >= 0; i -= 1) {
+        const snapshot = snapshotBatch[i];
+        if (!snapshot) continue;
+        await updateEntity(db, snapshot.entityId, {
+          data: snapshot.prevData,
+        });
+      }
+      setLifecycleUndoStack((prev) => prev.slice(0, -1));
+      toast.success('Cofnięto ostatnią zmianę lifecycle.');
+    } catch {
+      toast.error('Nie udało się cofnąć zmiany lifecycle.');
+    }
+  }
+
+  async function handleCreateSessionClock() {
+    if (!session || !id) return;
+    const trimmed = sessionClockName.trim();
+    if (!trimmed) return;
+    setSessionClockSaving(true);
+    try {
+      const clock = await addEntity(db, {
+        type: 'clock',
+        name: trimmed,
+        description: '',
+        tags: ['sesyjny'],
+        data: {
+          kind: 'session',
+          segments: sessionClockSegments,
+          filled: 0,
+          tickLabels: [],
+          isActive: true,
+        },
+      });
+      await addRelation(db, { type: 'appears_in', sourceId: clock.id, targetId: id });
+      toast.success(`Dodano zegar sesyjny: ${trimmed}`);
+      setSessionClockModalOpen(false);
+      setSessionClockName('');
+      setSessionClockSegments(4);
+    } catch {
+      toast.error('Nie udało się dodać zegara sesyjnego.');
+    } finally {
+      setSessionClockSaving(false);
+    }
+  }
+
+  const handlePanelPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const element = panelScrollRef.current;
+    if (!element) return;
+    if (
+      event.target instanceof Element &&
+      event.target.closest('button, a, input, textarea, select, label, [role="button"]')
+    ) {
+      return;
+    }
+    element.setPointerCapture(event.pointerId);
+    panelDragRef.current = { startY: event.clientY, scrollTop: element.scrollTop };
+  }, []);
+
+  const handlePanelPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const element = panelScrollRef.current;
+    if (!element || !panelDragRef.current) return;
+    element.scrollTop = panelDragRef.current.scrollTop - (event.clientY - panelDragRef.current.startY);
+  }, []);
+
+  const handlePanelPointerUp = useCallback(() => {
+    panelDragRef.current = null;
+  }, []);
+
+  const handlePanelScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
+    setShowScrollTop(event.currentTarget.scrollTop > 180);
+  }, []);
+
+  const handleScrollToTop = useCallback(() => {
+    panelScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
   if (session === undefined) return <LoadingSpinner />;
 
   if (!session) {
     return (
-      <div className="p-6">
-        <p className="text-surface-500">Sesja nie znaleziona.</p>
-        <Link to="/sessions" className="text-primary-600 hover:underline">
-          ← Powrót do sesji
-        </Link>
-      </div>
+      <DetailNotFound
+        icon={BookOpen}
+        title="Sesja nie znaleziona"
+        description="Mogła zostać usunięta albo odnośnik jest nieaktualny."
+        to="/sessions"
+        linkLabel="Wróć do listy sesji"
+      />
     );
   }
 
@@ -152,6 +326,8 @@ export function SessionLive() {
   function panelTitle(section: NonNullable<typeof openSection>): string {
     if (section === 'npcs') return 'Postacie';
     if (section === 'threads') return 'Wątki';
+    if (section === 'clues') return 'Wskazówki';
+    if (section === 'inspirations') return 'Inspiracje';
     if (section === 'threats') return 'Zagrożenia';
     if (section === 'notes') return 'Notatki';
     return 'Wyszukaj';
@@ -178,6 +354,10 @@ export function SessionLive() {
           sessionId={sessionId}
           currentLocationId={currentLocationId}
           onRequestNameScene={() => sceneCenterRef.current?.openNameScene()}
+          onLifecycleSnapshotsCaptured={(snapshots) => {
+            if (snapshots.length === 0) return;
+            setLifecycleUndoStack((prev) => [...prev, snapshots]);
+          }}
         />
       );
     }
@@ -191,45 +371,72 @@ export function SessionLive() {
         />
       );
     }
-    return <SessionSearchPanel sessionId={sessionId} />;
+    if (section === 'clues') return <SessionCluesPanel sessionId={sessionId} />;
+    if (section === 'inspirations') {
+      return <SessionInspirationsPanel sessionId={sessionId} currentLocationId={currentLocationId} />;
+    }
+    return (
+      <SessionSearchPanel
+        sessionId={sessionId}
+        canUndoLifecycle={lifecycleUndoStack.length > 0}
+        onUndoLastLifecycleChange={() => void handleUndoLifecycleChange()}
+        onLifecycleSnapshotsCaptured={(snapshots) => {
+          if (snapshots.length === 0) return;
+          setLifecycleUndoStack((prev) => [...prev, snapshots]);
+        }}
+      />
+    );
   }
 
   function closeRightPanel() {
     setOpenSection(null);
     setRailHovered(false);
+    setShowScrollTop(false);
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-transparent">
-      <div className="shrink-0 px-4 pt-3 pb-3">
-        <div className="app-panel-strong flex items-center gap-3 rounded-[1.8rem] px-5 py-4">
-          <Link
-            to={`/sessions/${id}`}
-            className="text-surface-600 hover:text-primary-800 flex h-10 w-10 items-center justify-center rounded-2xl bg-[rgba(223,225,218,0.72)] transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[rgba(242,196,88,0.14)] text-[#9a6710]">
-            <Zap className="h-4 w-4" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-surface-500 text-[11px] font-semibold tracking-[0.18em] uppercase">
-              Tryb na żywo
-            </p>
-            <h1 className="text-primary-900 truncate text-xl font-semibold tracking-[-0.03em]">
-              {title}
-            </h1>
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
+      <section className="app-panel-strong shrink-0 rounded-[2rem] px-6 py-5 lg:px-8">
+        <div className="mb-4 inline-flex items-center rounded-full border border-[rgba(33,71,102,0.16)] bg-[rgba(111,146,164,0.12)] px-3 py-1 text-[11px] font-semibold tracking-[0.18em] text-primary-700 uppercase">
+          Sesja na żywo
+        </div>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0 flex items-center gap-3">
+            <Link
+              to={`/sessions/${id}`}
+              className="app-button-secondary text-surface-600 hover:text-primary-800 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[rgba(242,196,88,0.14)] text-[#9a6710]">
+              <Zap className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-primary-900 truncate text-2xl font-semibold tracking-[-0.03em]">
+                {title}
+              </h1>
+              <p className="text-surface-700 mt-1 text-sm leading-6">
+                Operacyjny widok scen, postaci i zagrożeń podczas prowadzenia sesji.
+              </p>
+            </div>
           </div>
           <button
             type="button"
+            onClick={() => setSessionClockModalOpen(true)}
+            className="inline-flex items-center gap-2 rounded-2xl border border-[rgba(33,71,102,0.24)] bg-[rgba(111,146,164,0.1)] px-4 py-3 text-sm font-semibold text-primary-800 transition-colors hover:bg-[rgba(111,146,164,0.16)]"
+          >
+            + Zegar sesyjny
+          </button>
+          <button
+            type="button"
             onClick={() => setConfirmEnd(true)}
-            className="text-danger-700 inline-flex items-center gap-2 rounded-2xl border border-[rgba(176,108,103,0.32)] bg-[rgba(176,108,103,0.08)] px-4 py-3 text-sm font-medium transition-colors hover:bg-[rgba(176,108,103,0.14)]"
+            className="inline-flex items-center gap-2 rounded-2xl border border-[rgba(176,108,103,0.32)] bg-[rgba(176,108,103,0.08)] px-4 py-3 text-sm font-semibold text-danger-700 transition-colors hover:bg-[rgba(176,108,103,0.14)]"
           >
             <StopCircle className="h-4 w-4" />
             Zakończ sesję
           </button>
         </div>
-      </div>
+      </section>
 
       <DndContext
         onDragStart={(event) => {
@@ -239,7 +446,7 @@ export function SessionLive() {
         onDragEnd={(event) => void handleDragEnd(event)}
         onDragCancel={() => setActiveNpcDrag(null)}
       >
-        <div className="grid flex-1 grid-cols-[300px_minmax(0,1fr)] gap-4 overflow-hidden px-4 pb-4">
+        <div className="grid min-h-0 flex-1 grid-cols-[300px_minmax(0,1fr)] gap-4 overflow-hidden px-1 pb-1">
           <aside className="flex min-h-0 flex-col gap-4">
             <div className="app-panel min-h-0 flex-[1.88] overflow-hidden rounded-[1.65rem]">
               <SessionTimeline sessionId={session.id} />
@@ -248,6 +455,11 @@ export function SessionLive() {
               className="app-panel min-h-0 flex-[1.12] overflow-y-auto rounded-[1.65rem] p-3"
               style={{ scrollbarWidth: 'none' }}
             >
+              <SessionNowPlayingPanel
+                scenes={Array.isArray(session.data.scenes) ? session.data.scenes : []}
+                plannedDurationMin={session.data.plannedDurationMin}
+                isPaused={(spotlightState ?? DEFAULT_SPOTLIGHT).isPaused}
+              />
               <SpotlightTracker
                 sessionId={session.id}
                 state={spotlightState ?? DEFAULT_SPOTLIGHT}
@@ -271,7 +483,7 @@ export function SessionLive() {
 
         <div
           className={`fixed top-1/2 z-[35] -translate-y-1/2 transition-all duration-300 ease-out ${
-            openSection ? 'right-[348px]' : 'right-0'
+            openSection ? 'right-[min(26rem,42vw)]' : 'right-0'
           }`}
           onMouseEnter={() => setRailHovered(true)}
           onMouseLeave={() => {
@@ -288,7 +500,7 @@ export function SessionLive() {
                 setRailHovered(true);
               }}
               aria-label="Rozwiń menu boczne"
-              className="text-surface-500 hover:text-primary-700 flex h-12 w-6 items-center justify-center rounded-l-full border border-r-0 border-[rgba(86,93,94,0.14)] bg-[rgba(223,225,218,0.94)] shadow-[0_10px_24px_rgba(18,45,66,0.14)]"
+              className="app-button-secondary text-surface-500 hover:text-primary-700 flex h-12 w-6 items-center justify-center rounded-l-full border-r-0 shadow-[0_10px_24px_rgba(18,45,66,0.14)]"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
             </button>
@@ -296,20 +508,33 @@ export function SessionLive() {
 
           {(openSection || railHovered) && (
             <div className="flex flex-col gap-2.5">
-              {(
-                [
-                  ['threats', 'Zagrożenia'],
-                  ['notes', 'Notatki'],
-                  ['npcs', 'Postacie'],
-                  ['threads', 'Wątki'],
-                  ['search', 'Wyszukaj'],
-                ] as const
-              ).map(([sectionId, label]) => {
+              {RAIL_SECTIONS.map(([sectionId, label], index) => {
                 const active = openSection === sectionId;
                 return (
                   <button
                     key={sectionId}
+                    ref={(node) => {
+                      railButtonRefs.current[index] = node;
+                    }}
                     type="button"
+                    aria-pressed={active}
+                    onKeyDown={(event) => {
+                      if (event.key === 'ArrowDown') {
+                        event.preventDefault();
+                        railButtonRefs.current[(index + 1) % RAIL_SECTIONS.length]?.focus();
+                      } else if (event.key === 'ArrowUp') {
+                        event.preventDefault();
+                        railButtonRefs.current[
+                          (index - 1 + RAIL_SECTIONS.length) % RAIL_SECTIONS.length
+                        ]?.focus();
+                      } else if (event.key === 'Home') {
+                        event.preventDefault();
+                        railButtonRefs.current[0]?.focus();
+                      } else if (event.key === 'End') {
+                        event.preventDefault();
+                        railButtonRefs.current[RAIL_SECTIONS.length - 1]?.focus();
+                      }
+                    }}
                     onClick={() => {
                       if (active) {
                         closeRightPanel();
@@ -317,13 +542,19 @@ export function SessionLive() {
                       }
                       setOpenSection(sectionId);
                     }}
-                    className={`relative flex h-9 w-[7.5rem] items-center justify-center rounded-l-full border border-r-0 px-3 text-center text-[11px] font-semibold tracking-[0.01em] transition-all ${
+                    className={`group relative flex h-9 w-[7.5rem] items-center justify-center overflow-hidden rounded-l-full border border-r-0 px-3 text-center text-[11px] font-semibold tracking-[0.01em] transition-all ${
                       active
                         ? 'border-[rgba(18,45,66,0.2)] bg-[linear-gradient(180deg,var(--color-primary-600)_0%,var(--color-primary-700)_100%)] text-[#f7f3e8] shadow-[0_14px_28px_rgba(18,45,66,0.2)]'
-                        : 'text-surface-700 hover:text-primary-800 border-[rgba(86,93,94,0.14)] bg-[rgba(223,225,218,0.94)] shadow-[0_8px_18px_rgba(18,45,66,0.08)] hover:bg-[rgba(229,231,223,0.98)]'
+                        : 'app-pill-muted text-surface-700 hover:text-primary-800 border-[rgba(86,93,94,0.14)] bg-[rgba(223,225,218,0.94)] shadow-[0_8px_18px_rgba(18,45,66,0.08)] hover:bg-[rgba(229,231,223,0.98)]'
                     }`}
                   >
-                    {label}
+                    {!active && (
+                      <span
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(111,146,164,0.04)_0%,rgba(111,146,164,0.16)_100%)] opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+                      />
+                    )}
+                    <span className="relative z-[1]">{label}</span>
                   </button>
                 );
               })}
@@ -341,7 +572,7 @@ export function SessionLive() {
         )}
 
         <div
-          className={`fixed top-[5.5rem] right-0 bottom-14 z-[34] w-[348px] max-w-[36vw] overflow-hidden rounded-l-[1.8rem] border border-r-0 border-[rgba(86,93,94,0.14)] bg-[linear-gradient(180deg,rgba(223,225,218,0.96)_0%,rgba(210,212,203,0.98)_100%)] shadow-[0_28px_52px_rgba(18,45,66,0.18)] transition-transform duration-300 ease-out ${
+          className={`fixed top-[5.5rem] right-0 bottom-6 z-[34] flex w-[min(26rem,42vw)] min-w-[21.5rem] max-w-[calc(100vw-1.25rem)] flex-col overflow-hidden rounded-l-[1.8rem] border border-r-0 border-[rgba(86,93,94,0.14)] bg-[linear-gradient(180deg,rgba(223,225,218,0.96)_0%,rgba(210,212,203,0.98)_100%)] shadow-[0_28px_52px_rgba(18,45,66,0.18)] transition-transform duration-300 ease-out ${
             openSection ? 'translate-x-0' : 'translate-x-full'
           } ${openSection ? 'pointer-events-auto' : 'pointer-events-none'}`}
         >
@@ -360,9 +591,28 @@ export function SessionLive() {
                   Zamknij
                 </button>
               </div>
-              <div className="h-full overflow-y-auto p-3">
+              <div
+                ref={panelScrollRef}
+                className="rail-scroll min-h-0 flex-1 overflow-y-auto px-3.5 py-3.5 pb-10"
+                onScroll={handlePanelScroll}
+                onPointerDown={handlePanelPointerDown}
+                onPointerMove={handlePanelPointerMove}
+                onPointerUp={handlePanelPointerUp}
+                onPointerCancel={handlePanelPointerUp}
+                onPointerLeave={handlePanelPointerUp}
+              >
                 {renderPanelContent(openSection, session.id)}
               </div>
+              {showScrollTop && (
+                <button
+                  type="button"
+                  onClick={handleScrollToTop}
+                  aria-label="Przewiń na górę"
+                  className="app-button-secondary text-surface-700 absolute right-4 bottom-4 inline-flex h-10 w-10 items-center justify-center rounded-full border-[rgba(33,71,102,0.2)] bg-[rgba(223,225,218,0.9)] shadow-[0_12px_24px_rgba(18,45,66,0.18)]"
+                >
+                  <ChevronUp className="h-4 w-4" />
+                </button>
+              )}
             </>
           )}
         </div>
@@ -395,6 +645,59 @@ export function SessionLive() {
         onConfirm={() => void handleEndSession()}
         onCancel={() => setConfirmEnd(false)}
       />
+      {sessionClockModalOpen && (
+        <Modal title="Nowy zegar sesyjny" onClose={() => setSessionClockModalOpen(false)} size="md">
+          <div className="space-y-3">
+            <p className="text-sm text-surface-600">
+              Zegar sesyjny działa tylko w bieżącej sesji live (wariant 4 lub 6 segmentów).
+            </p>
+            <div className="space-y-1">
+              <label htmlFor="session-clock-name" className="text-sm font-medium text-surface-700">
+                Nazwa zegara
+              </label>
+              <input
+                id="session-clock-name"
+                value={sessionClockName}
+                onChange={(event) => setSessionClockName(event.target.value)}
+                placeholder="Np. Pościg przez dzielnicę portową"
+                className="app-input w-full rounded-xl px-3 py-2 text-sm"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="session-clock-segments" className="text-sm font-medium text-surface-700">
+                Segmenty
+              </label>
+              <select
+                id="session-clock-segments"
+                value={sessionClockSegments}
+                onChange={(event) => setSessionClockSegments(Number(event.target.value) as 4 | 6)}
+                className="app-input w-full rounded-xl px-3 py-2 text-sm"
+              >
+                <option value={4}>4</option>
+                <option value={6}>6</option>
+              </select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setSessionClockModalOpen(false)}
+                className="app-button-secondary rounded-xl px-3 py-2 text-sm"
+              >
+                Anuluj
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleCreateSessionClock()}
+                disabled={!sessionClockName.trim() || sessionClockSaving}
+                className="app-button-primary rounded-xl px-3 py-2 text-sm disabled:opacity-40"
+              >
+                {sessionClockSaving ? 'Zapisywanie...' : 'Dodaj zegar'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

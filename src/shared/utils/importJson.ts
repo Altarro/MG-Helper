@@ -12,6 +12,8 @@ import {
 } from '@shared/utils/validation';
 import { BACKUP_FORMAT_VERSION, type BackupPayload } from './backupContract';
 import { extractImageId } from '@shared/db/assets';
+import { normalizeImportedEntityLifecycle } from '@shared/types/entityLifecycle';
+import type { Entity } from '@shared/types/entity';
 
 export interface ImportResult {
   ok: boolean;
@@ -36,6 +38,8 @@ function migrateLegacyBackup(legacy: ImportedDb): BackupPayload {
     campaignMeta: null,
     entities: legacy.entities,
     relations: legacy.relations,
+    generatorPacks: [],
+    generatorRollLogs: [],
   };
 }
 
@@ -164,7 +168,7 @@ export async function importJson(
     };
   }
 
-  const { entities, relations } = normalized.payload;
+  const { entities, relations, generatorPacks, generatorRollLogs } = normalized.payload;
 
   // Validate relation references
   const entitiesById = new Map(entities.map((entity) => [entity.id, entity] as const));
@@ -266,12 +270,29 @@ export async function importJson(
     };
   });
 
-  await db.transaction('rw', db.entities, db.relations, db.assets, async () => {
+  const lifecycleNormalized = sanitizedForStore.map((e) =>
+    normalizeImportedEntityLifecycle(e as Entity),
+  );
+
+  await db.transaction(
+    'rw',
+    [db.entities, db.relations, db.assets, db.generatorPacks, db.generatorRollLogs],
+    async () => {
     await db.entities.clear();
     await db.relations.clear();
     await db.assets.clear();
-    await db.entities.bulkAdd(sanitizedForStore as Parameters<typeof db.entities.bulkAdd>[0]);
+    await db.generatorPacks.clear();
+    await db.generatorRollLogs.clear();
+    await db.entities.bulkAdd(lifecycleNormalized as Parameters<typeof db.entities.bulkAdd>[0]);
     await db.relations.bulkAdd(relations as Parameters<typeof db.relations.bulkAdd>[0]);
+    if (generatorPacks.length > 0) {
+      await db.generatorPacks.bulkAdd(generatorPacks as Parameters<typeof db.generatorPacks.bulkAdd>[0]);
+    }
+    if (generatorRollLogs.length > 0) {
+      await db.generatorRollLogs.bulkAdd(
+        generatorRollLogs as Parameters<typeof db.generatorRollLogs.bulkAdd>[0],
+      );
+    }
   });
 
   return {

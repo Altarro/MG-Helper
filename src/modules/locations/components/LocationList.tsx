@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Plus, Search, X } from 'lucide-react';
 import { useLocations } from '../hooks/useLocations';
 import { LocationCard } from './LocationCard';
 import { LocationForm } from './LocationForm';
+import { FilterCountBadge } from '@shared/components/FilterCountBadge';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { EmptyState } from '@shared/components/EmptyState';
 import { addEntity, assignContainment } from '@shared/db/operations';
@@ -12,6 +13,7 @@ import { toast } from 'sonner';
 import { createLocationData, LOCATION_TYPE_LABELS } from '../types';
 import type { LocationType } from '../types';
 import type { LocationFormValues } from './LocationForm';
+import { getLocationLifecycleStatus } from '@shared/utils/entityData';
 
 type FilterType = 'all' | LocationType;
 
@@ -21,18 +23,46 @@ export function LocationList() {
   const { db } = useCampaign();
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<FilterType>('all');
+  const [hideDestroyed, setHideDestroyed] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const lowerQuery = query.trim().toLowerCase();
-  const filtered = locations?.filter((loc) => {
+  const queryMatchedLocations = locations?.filter((loc) => {
     const matchesQuery =
       !lowerQuery ||
       loc.name.toLowerCase().includes(lowerQuery) ||
       loc.tags.some((t) => t.toLowerCase().includes(lowerQuery));
-    const matchesType = typeFilter === 'all' || loc.data.locationType === typeFilter;
-    return matchesQuery && matchesType;
+    return matchesQuery;
   });
+  const queryDestroyMatched = queryMatchedLocations?.filter(
+    (loc) =>
+      !hideDestroyed || getLocationLifecycleStatus({ data: loc.data }) !== 'completed',
+  );
+  const filtered = queryMatchedLocations?.filter((loc) => {
+    const matchesType = typeFilter === 'all' || loc.data.locationType === typeFilter;
+    const matchesDestroyed =
+      !hideDestroyed || getLocationLifecycleStatus({ data: loc.data }) !== 'completed';
+    return matchesType && matchesDestroyed;
+  });
+
+  const typeCounts = useMemo(() => {
+    const list = queryDestroyMatched ?? [];
+    const counts: Partial<Record<FilterType, number>> = { all: list.length };
+    for (const type of Object.keys(LOCATION_TYPE_LABELS) as LocationType[]) {
+      counts[type] = list.filter((loc) => loc.data.locationType === type).length;
+    }
+    return counts as Record<FilterType, number>;
+  }, [queryDestroyMatched]);
+
+  const destroyedInTypeSelection = useMemo(() => {
+    const list =
+      queryMatchedLocations?.filter(
+        (loc) => typeFilter === 'all' || loc.data.locationType === typeFilter,
+      ) ?? [];
+    return list.filter((loc) => getLocationLifecycleStatus({ data: loc.data }) === 'completed')
+      .length;
+  }, [queryMatchedLocations, typeFilter]);
 
   async function handleCreate(values: LocationFormValues) {
     setSaving(true);
@@ -116,7 +146,8 @@ export function LocationList() {
             onClick={() => setTypeFilter('all')}
             className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${typeFilter === 'all' ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'}`}
           >
-            Wszystkie
+            <span>Wszystkie</span>
+            <FilterCountBadge selected={typeFilter === 'all'} count={typeCounts.all} />
           </button>
           {(Object.entries(LOCATION_TYPE_LABELS) as [LocationType, string][]).map(([type, label]) => (
             <button
@@ -125,9 +156,20 @@ export function LocationList() {
               onClick={() => setTypeFilter(typeFilter === type ? 'all' : type)}
               className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${typeFilter === type ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'}`}
             >
-              {label}
+              <span>{label}</span>
+              <FilterCountBadge selected={typeFilter === type} count={typeCounts[type] ?? 0} />
             </button>
           ))}
+          <button
+            type="button"
+            onClick={() => setHideDestroyed((v) => !v)}
+            className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${
+              hideDestroyed ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+            }`}
+          >
+            <span>Ukryj zniszczone</span>
+            <FilterCountBadge selected={hideDestroyed} count={destroyedInTypeSelection} />
+          </button>
         </div>
       </section>
 
@@ -151,12 +193,12 @@ export function LocationList() {
           <EmptyState
             title="Brak lokacji"
             description={
-              lowerQuery || typeFilter !== 'all'
+              lowerQuery || typeFilter !== 'all' || hideDestroyed
                 ? 'Brak wyników dla podanych filtrów.'
                 : 'Utwórz pierwszą lokację klikając „Nowa lokacja”.'
             }
             action={
-              !lowerQuery && typeFilter === 'all' ? (
+              !lowerQuery && typeFilter === 'all' && !hideDestroyed ? (
                 <button type="button" onClick={() => setShowForm(true)} className="app-button-primary rounded-2xl px-4 py-3 text-sm font-medium">
                   Nowa lokacja
                 </button>

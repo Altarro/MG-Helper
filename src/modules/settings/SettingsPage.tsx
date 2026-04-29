@@ -1,5 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import { Download, Upload, CheckCircle, AlertCircle, Loader2, Sparkles, Trash2, Archive, FolderArchive, Eraser, HardDrive } from 'lucide-react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import {
+  Download,
+  Upload,
+  CheckCircle,
+  AlertCircle,
+  Loader2,
+  Sparkles,
+  Trash2,
+  Archive,
+  FolderArchive,
+  Eraser,
+  HardDrive,
+  Settings,
+} from 'lucide-react';
 import { exportJson } from '@shared/utils/exportJson';
 import { importJson } from '@shared/utils/importJson';
 import { exportFull } from '@shared/utils/exportFull';
@@ -9,6 +23,24 @@ import { seedDemoData } from '@shared/db/seedCampaign';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { listCampaigns } from '@shared/db/campaignStore';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
+import { GENERATOR_SYSTEM_TABLE_TYPES } from '@modules/generator/contracts';
+import {
+  deleteGeneratorPack,
+  ensureDefaultGeneratorPack,
+  seedGeneratorDemoPacks,
+} from '@modules/generator/repository';
+import {
+  listGeneratorMigrationBackups,
+  restoreGeneratorFromMigrationBackup,
+} from '@modules/generator/dataHealth';
+import { buildGeneratorAiPrompt } from '@modules/generator/aiPrompt';
+import { downloadGeneratorPackJson, downloadGeneratorTableCsv } from '@modules/generator/io';
+import { REQUIRED_AI_KEYWORDS } from '@modules/generator/releaseContract';
+import { getGeneratorTelemetryInsights } from '@modules/generator/telemetry';
+import type { GeneratorPack, GeneratorTable } from '@modules/generator/contracts';
+import { GeneratorSettingsPanel } from './components/GeneratorSettingsPanel';
+import { ThreatRadarSettingsPanel } from './components/ThreatRadarSettingsPanel';
+import { CampaignSettingsPanel } from './components/CampaignSettingsPanel';
 import { toast } from 'sonner';
 
 type ImportResultView =
@@ -17,15 +49,34 @@ type ImportResultView =
 
 export function SettingsPage() {
   const { db, campaignId } = useCampaign();
+  const [activeTab, setActiveTab] = useState<'system' | 'campaign' | 'generator' | 'threat_radar'>('system');
   const jsonInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
+  const [generatorBootstrapping, setGeneratorBootstrapping] = useState(false);
+  const [generatorDemoSeeding, setGeneratorDemoSeeding] = useState(false);
+  const [generatorAiTopic, setGeneratorAiTopic] = useState('dark fantasy city intrigue');
+  const [editingPackId, setEditingPackId] = useState<string | null>(null);
   const [fileToImport, setFileToImport] = useState<File | null>(null);
   const [importMode, setImportMode] = useState<'json' | 'full'>('json');
   const [confirmImport, setConfirmImport] = useState(false);
   const [lastImportResult, setLastImportResult] = useState<ImportResultView | null>(null);
   const [cleaningOrphans, setCleaningOrphans] = useState(false);
   const [storageEstimate, setStorageEstimate] = useState<{ usage?: number; quota?: number } | null>(null);
+  const [restoringMigrationBackup, setRestoringMigrationBackup] = useState(false);
+  const generatorPacks = useLiveQuery(
+    () =>
+      db.generatorPacks
+        .where('campaignId')
+        .equals(campaignId)
+        .toArray(),
+    [db, campaignId],
+  );
+  const telemetryInsights = getGeneratorTelemetryInsights();
+  const migrationBackups = useLiveQuery(
+    () => listGeneratorMigrationBackups(db, campaignId),
+    [db, campaignId],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -138,15 +189,136 @@ export function SettingsPage() {
     }
   }
 
+  async function handleRestoreLatestGeneratorMigrationBackup() {
+    const latest = migrationBackups?.[0];
+    if (!latest) {
+      toast.error('Brak backupu migracyjnego generatora do odtworzenia.');
+      return;
+    }
+    setRestoringMigrationBackup(true);
+    try {
+      const result = await restoreGeneratorFromMigrationBackup(db, campaignId, latest.id);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(
+        `Przywrócono backup migracyjny generatora (${result.restoredPacks} paczek, ${result.restoredLogs} logów).`,
+      );
+    } catch {
+      toast.error('Nie udało się przywrócić backupu migracyjnego.');
+    } finally {
+      setRestoringMigrationBackup(false);
+    }
+  }
+
+  async function handleBootstrapGenerator() {
+    setGeneratorBootstrapping(true);
+    try {
+      const pack = await ensureDefaultGeneratorPack(db, campaignId);
+      toast.success(`Generator gotowy: ${pack.name}`);
+    } catch {
+      toast.error('Nie udało się przygotować generatora');
+    } finally {
+      setGeneratorBootstrapping(false);
+    }
+  }
+
+  async function handleDeleteGeneratorPack(packId: string, packName: string) {
+    try {
+      await deleteGeneratorPack(db, packId);
+      toast.success(`Usunięto zestaw: ${packName}`);
+    } catch {
+      toast.error('Nie udało się usunąć zestawu generatora');
+    }
+  }
+
+  async function handleSeedGeneratorDemo() {
+    setGeneratorDemoSeeding(true);
+    try {
+      const packs = await seedGeneratorDemoPacks(db, campaignId);
+      toast.success(`Dodano paczki demo: ${packs.length}`);
+    } catch {
+      toast.error('Nie udało się dodać paczek demo');
+    } finally {
+      setGeneratorDemoSeeding(false);
+    }
+  }
+
+  async function handleCopyGeneratorAiPrompt() {
+    try {
+      await navigator.clipboard.writeText(buildGeneratorAiPrompt(generatorAiTopic));
+      toast.success('Prompt AI skopiowany');
+    } catch {
+      toast.error('Nie udało się skopiować promptu');
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6 p-6">
-      <h1 className="text-xl font-bold text-surface-900">Ustawienia</h1>
+      <section className="app-panel-strong rounded-[2rem] px-6 py-7 lg:px-8 lg:py-8">
+        <div className="text-primary-700 mb-3 inline-flex items-center gap-2 rounded-full border border-[rgba(33,71,102,0.16)] bg-[rgba(111,146,164,0.12)] px-3 py-1 text-[11px] font-semibold tracking-[0.18em] uppercase">
+          <Settings className="h-3.5 w-3.5" aria-hidden />
+          Konfiguracja
+        </div>
+        <h1 className="text-primary-900 text-3xl font-semibold tracking-[-0.04em] lg:text-[2.2rem]">Ustawienia</h1>
+        <p className="text-surface-700 mt-2 max-w-[62ch] text-sm leading-7 lg:text-[0.98rem]">
+          Kopie zapasowe, import, generator tabel i radar zagrożeń — wszystko dla bieżącej kampanii, lokalnie w
+          przeglądarce.
+        </p>
+      </section>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setActiveTab('system')}
+          className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${
+            activeTab === 'system' ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+          }`}
+        >
+          Ustawienia systemowe
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('campaign')}
+          className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${
+            activeTab === 'campaign'
+              ? 'app-pill'
+              : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+          }`}
+        >
+          Ustawienia kampanii
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('generator')}
+          className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${
+            activeTab === 'generator'
+              ? 'app-pill'
+              : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+          }`}
+        >
+          Ustawienia generatora
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('threat_radar')}
+          className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${
+            activeTab === 'threat_radar'
+              ? 'app-pill'
+              : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+          }`}
+        >
+          Ustawienia radaru zagrożeń
+        </button>
+      </div>
 
+      {activeTab === 'system' && (
+        <>
       <section className="rounded-xl border border-surface-200 bg-white p-6 shadow-sm">
         <h2 className="mb-1 text-base font-semibold text-surface-800">Kopie zapasowe</h2>
         <p className="mb-5 text-sm text-surface-500">
           Wszystkie dane przechowywane są lokalnie w przeglądarce (IndexedDB). Lekki backup JSON zawiera
-          tylko dane encji (bez obrazków), pełny backup ZIP zawiera także pliki obrazków.
+          encje, relacje i konfigurację generatora (bez obrazków), pełny backup ZIP zawiera także pliki obrazków.
         </p>
 
         <div className="grid gap-3 md:grid-cols-2">
@@ -217,6 +389,14 @@ export function SettingsPage() {
             {cleaningOrphans ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eraser className="h-4 w-4" />}
             Sprzątnij osierocone obrazki
           </button>
+          <button
+            onClick={() => void handleRestoreLatestGeneratorMigrationBackup()}
+            disabled={restoringMigrationBackup || !migrationBackups || migrationBackups.length === 0}
+            className="flex items-center gap-2 rounded-md border border-surface-300 px-4 py-2 text-sm font-medium text-surface-700 hover:bg-surface-50 disabled:opacity-50"
+          >
+            {restoringMigrationBackup ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderArchive className="h-4 w-4" />}
+            Przywróć ostatni backup migracyjny generatora
+          </button>
         </div>
 
         {storageEstimate && (
@@ -263,6 +443,197 @@ export function SettingsPage() {
         </p>
         <DeleteAllSection />
       </section>
+        </>
+      )}
+
+      {activeTab === 'generator' && (
+        <section className="app-panel rounded-[1.8rem] p-6">
+          <h2 className="text-primary-900 text-base font-semibold tracking-[-0.02em]">
+            Ustawienia generatora
+          </h2>
+          <p className="text-surface-700 mt-2 max-w-[72ch] text-sm leading-7">
+            Sekcja pod konfiguracje tabel losowych i slownikow dla panelu Inspiracje. W tym etapie
+            przygotowujemy foundation: import list, tabele systemowe (postac/lokacja/event) oraz
+            tabele wlasne uzytkownika.
+          </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <div className="app-input-shell rounded-[1.15rem] p-4 text-sm text-surface-700">
+              <p className="text-surface-500 mb-1 text-xs font-semibold tracking-[0.14em] uppercase">
+                Zakres MVP
+              </p>
+              Postac (imie/przydomek/nazwisko), lokacja (typ/nazwa), tabela zdarzen i tabele
+              niestandardowe.
+            </div>
+            <div className="app-input-shell rounded-[1.15rem] p-4 text-sm text-surface-700">
+              <p className="text-surface-500 mb-1 text-xs font-semibold tracking-[0.14em] uppercase">
+                Kolejny krok
+              </p>
+              Podlaczyc dane generatora do panelu Inspiracje i dodac faktyczne losowanie oraz zapis
+              wynikow.
+            </div>
+          </div>
+          <div className="mt-4">
+            <p className="text-surface-500 mb-2 text-xs font-semibold tracking-[0.14em] uppercase">
+              Tabele systemowe (foundation)
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {GENERATOR_SYSTEM_TABLE_TYPES.map((type) => (
+                <span key={type} className="app-pill-muted rounded-full px-3 py-1 text-xs font-semibold">
+                  {type}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handleBootstrapGenerator()}
+              disabled={generatorBootstrapping}
+              className="app-button-primary inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50"
+            >
+              {generatorBootstrapping ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Przygotuj domyslny zestaw
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleSeedGeneratorDemo()}
+              disabled={generatorDemoSeeding}
+              className="app-button-secondary inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50"
+            >
+              {generatorDemoSeeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Dodaj paczki demo PL/EN
+            </button>
+          </div>
+
+          <div className="app-input-shell mt-4 rounded-[1.15rem] p-4">
+            <p className="text-surface-500 mb-1 text-xs font-semibold tracking-[0.14em] uppercase">
+              Od AI? Prompt bazowy
+            </p>
+            <p className="mb-2 text-xs text-surface-600">
+              Kontrakt AI: opis paczki musi zawierac keywordy: {REQUIRED_AI_KEYWORDS.join(', ')}.
+            </p>
+            <div className="flex flex-col gap-2 md:flex-row md:items-center">
+              <input
+                value={generatorAiTopic}
+                onChange={(event) => setGeneratorAiTopic(event.target.value)}
+                placeholder="Temat pakietu..."
+                className="app-input flex-1 rounded-xl px-3 py-2 text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => void handleCopyGeneratorAiPrompt()}
+                className="app-button-secondary rounded-xl px-3 py-2 text-xs font-semibold"
+              >
+                Kopiuj prompt AI
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-2.5">
+            <p className="text-surface-500 text-xs font-semibold tracking-[0.14em] uppercase">
+              Zestawy generatora w kampanii
+            </p>
+            {!generatorPacks || generatorPacks.length === 0 ? (
+              <div className="app-input-shell rounded-[1.15rem] border-dashed px-4 py-3 text-sm text-surface-600">
+                Brak zestawow. Utworz domyslny zestaw, aby uruchomic persistence w Dexie.
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {generatorPacks
+                  .slice()
+                  .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+                  .map((pack) => (
+                    <div key={pack.id} className="app-input-shell rounded-[1.1rem] px-3 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-surface-800 truncate text-sm font-semibold">{pack.name}</p>
+                          <p className="text-surface-500 truncate text-xs">
+                            Tabele: {pack.tables.length} · Aktualizacja: {new Date(pack.updatedAt).toLocaleString('pl-PL')}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setEditingPackId((prev) => (prev === pack.id ? null : pack.id))}
+                          className="app-button-secondary rounded-lg px-2 py-1 text-xs font-medium"
+                        >
+                          {editingPackId === pack.id ? 'Zakoncz edycje' : 'Edytuj'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => downloadGeneratorPackJson(pack as unknown as GeneratorPack)}
+                          className="app-button-secondary rounded-lg px-2 py-1 text-xs font-medium"
+                        >
+                          Eksport JSON
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const firstTable = pack.tables[0];
+                            if (!firstTable) {
+                              toast.error('Brak tabel do eksportu CSV');
+                              return;
+                            }
+                            downloadGeneratorTableCsv(firstTable as unknown as GeneratorTable);
+                          }}
+                          className="app-button-secondary rounded-lg px-2 py-1 text-xs font-medium"
+                        >
+                          Eksport CSV (1. tabela)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleDeleteGeneratorPack(pack.id, pack.name)}
+                          className="app-button-secondary text-danger-700 rounded-lg px-2 py-1 text-xs font-medium"
+                        >
+                          Usuń
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+          {editingPackId && (
+            <GeneratorSettingsPanel
+              db={db}
+              campaignId={campaignId}
+              generatorPacks={generatorPacks ?? []}
+              initialPackId={editingPackId}
+              onClose={() => setEditingPackId(null)}
+            />
+          )}
+          <div className="app-input-shell mt-4 rounded-[1.15rem] p-4">
+            <p className="text-surface-500 mb-2 text-xs font-semibold tracking-[0.14em] uppercase">
+              Insighty telemetryczne (lokalne)
+            </p>
+            <div className="grid gap-2 text-xs text-surface-700 md:grid-cols-2">
+              <p>Losowania: <strong>{telemetryInsights.totalRolls}</strong></p>
+              <p>Konwersje: <strong>{telemetryInsights.conversionCount}</strong> ({Math.round(telemetryInsights.conversionRate * 100)}%)</p>
+              <p>Custom table użycia: <strong>{telemetryInsights.customTableRollCount}</strong></p>
+              <p>Porzucone importy: <strong>{telemetryInsights.abandonedImports}</strong></p>
+              <p>Feedbacków: <strong>{telemetryInsights.feedbackCount}</strong></p>
+              <p>Śr. ocena: <strong>{telemetryInsights.avgFeedbackRating.toFixed(2)}</strong></p>
+            </div>
+            {telemetryInsights.topPacks.length > 0 && (
+              <div className="mt-2 text-xs text-surface-700">
+                <p className="mb-1 font-semibold">Najczęściej wybierane zestawy:</p>
+                <ul className="list-disc pl-4">
+                  {telemetryInsights.topPacks.map((item) => (
+                    <li key={item.packId}>{item.packId}: {item.rolls}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {activeTab === 'campaign' && (
+        <CampaignSettingsPanel campaignId={campaignId} />
+      )}
+
+      {activeTab === 'threat_radar' && (
+        <ThreatRadarSettingsPanel campaignId={campaignId} />
+      )}
     </div>
   );
 }

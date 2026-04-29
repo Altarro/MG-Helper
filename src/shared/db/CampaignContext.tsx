@@ -6,6 +6,8 @@ import {
   setActiveCampaignId,
 } from './campaignStore';
 import { migrateLegacyDb } from './migrateLegacyDb';
+import { ensureGeneratorDataIntegrity } from '@modules/generator/dataHealth';
+import { trackGeneratorEvent } from '@modules/generator/telemetry';
 import { toast } from 'sonner';
 
 // ── Context shape ──────────────────────────────────────────────────────────────
@@ -47,6 +49,44 @@ export function CampaignProvider({ children }: CampaignProviderProps) {
     });
 
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function validateGeneratorData() {
+      try {
+        const result = await ensureGeneratorDataIntegrity(db, campaignId);
+        trackGeneratorEvent({
+          name: 'generator_integrity_check',
+          campaignId,
+          repaired: result.repaired,
+          droppedPacks: result.droppedPacks,
+          droppedLogs: result.droppedLogs,
+        });
+        if (cancelled || !result.repaired) return;
+        const notices: string[] = [];
+        if (result.droppedPacks > 0) notices.push(`usunieto paczki: ${result.droppedPacks}`);
+        if (result.droppedLogs > 0) notices.push(`usunieto logi: ${result.droppedLogs}`);
+        const suffix = notices.length > 0 ? ` (${notices.join(', ')})` : '';
+        toast.warning(`Naprawiono niespójne dane generatora${suffix}.`);
+      } catch {
+        if (!cancelled) {
+          trackGeneratorEvent({
+            name: 'generator_integrity_check',
+            campaignId,
+            repaired: false,
+            droppedPacks: 0,
+            droppedLogs: 0,
+            error: 'startup_integrity_check_failed',
+          });
+          toast.error('Nie udało się zweryfikować danych generatora po starcie.');
+        }
+      }
+    }
+    void validateGeneratorData();
+    return () => {
+      cancelled = true;
+    };
+  }, [db, campaignId]);
 
   const campaignName =
     listCampaigns().find((c) => c.id === campaignId)?.name ?? '';

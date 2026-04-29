@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link, useSearchParams, useLocation } from 'react-router';
-import { ArrowLeft, Edit2, Trash2, X, Plus, AlertTriangle, Shield, Search } from 'lucide-react';
+import { ArrowLeft, Edit2, Trash2, X, Plus, AlertTriangle, Shield, Search, ChevronRight } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useFrontById } from '../hooks/useFrontById';
 import { useFronts } from '../hooks/useFronts';
@@ -11,21 +11,27 @@ import { ThreatForm } from './ThreatForm';
 import { ThreatCard } from './ThreatCard';
 import { ThreatGenealogySection } from './ThreatGenealogySection';
 import { ClockWidget } from '@modules/clocks/components/ClockWidget';
+import { markClockLinkedToThreat, markClockUnlinkedFromThreat } from '@modules/clocks/threatClockLink';
 import { TickProgress } from '@shared/components/TickProgress';
 import { ClueSection } from '@shared/components/ClueSection';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
+import { DetailNotFound } from '@shared/components/DetailNotFound';
 import { EmptyState } from '@shared/components/EmptyState';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { NarrativeLinksSection } from '@shared/components/NarrativeLinksSection';
 import { RelationList } from '@shared/components/RelationList';
 import { RelationPicker } from '@shared/components/RelationPicker';
 import { DetailSection } from '@shared/components/DetailSection';
+import { DetailScrollTopFab } from '@shared/components/DetailScrollTopFab';
+import { DetailTocBar } from '@shared/components/DetailTocBar';
+import { EntityTypeBadge } from '@shared/components/EntityTypeBadge';
 import { NotesList } from '@modules/notes/components/NotesList';
 import {
   addEntity,
   addRelation,
   assignBelongsTo,
   deleteEntity,
+  deleteRelation,
   updateEntity,
 } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
@@ -33,9 +39,16 @@ import { useRelatedEntities } from '@shared/hooks/useRelatedEntities';
 import { useThreatDetailPath } from '@shared/hooks/useThreatDetailPath';
 import { isClock } from '@modules/clocks/types';
 import { toast } from 'sonner';
-import { FRONT_CATEGORY_LABELS, THREAT_TYPE_LABELS } from '../types';
-import { getThreatStatus } from '@shared/utils/entityData';
+import {
+  FRONT_CATEGORY_LABELS,
+  THREAT_TYPE_LABELS,
+  inferThreatCompletionOutcomeFromClock,
+  getThreatRadarArchetype,
+  normalizeThreatPillars,
+} from '../types';
+import { getThreatStatus, getClockData } from '@shared/utils/entityData';
 import { normalizeThreatLifecycle } from '@shared/utils/threatLifecycle';
+import { formatPolishThreatCount } from '@shared/utils/polishPlural';
 import type { FrontFormValues } from './FrontForm';
 import type { ThreatFormValues } from './ThreatForm';
 
@@ -87,7 +100,7 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
   async function handleUpdate(values: ThreatFormValues) {
     setSaving(true);
     try {
-      const lifecycle = normalizeThreatLifecycle(values.status, values.reasonOfDead);
+      const lifecycle = normalizeThreatLifecycle(values.status, values.completionReason);
 
       await updateEntity(db, threatId, {
         name: values.name,
@@ -96,38 +109,69 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
         data: {
           ...threat!.data,
           threatType: values.threatType,
+          radarArchetype: values.radarArchetype,
           impulse: values.impulse,
           moves: values.moves,
+          pillars: values.pillars,
           trigger: values.trigger,
           inheritanceNotes: values.inheritanceNotes,
           forkThreatId: values.forkThreatId,
           ...lifecycle,
+          ...(lifecycle.status === 'completed'
+            ? {
+                completionOutcome:
+                  values.completionOutcome ??
+                  threat!.data.completionOutcome ??
+                  inferThreatCompletionOutcomeFromClock(linkedClock ?? undefined),
+              }
+            : { completionOutcome: undefined }),
         },
       });
 
-      if (linkedClock) {
+      if (linkedClock && values.clock) {
+        const clockData = getClockData(linkedClock);
+        const seg = values.clock.segments;
+        const rawLabels = (values.clock.tickLabels ?? []).slice(0, seg);
+        const tickLabels = [...rawLabels];
+        while (tickLabels.length < seg) tickLabels.push('');
         await updateEntity(db, linkedClock.id, {
+          name: values.clock.name,
           data: {
-            ...linkedClock.data,
+            ...clockData,
+            segments: seg,
+            filled: Math.min(clockData.filled, seg),
+            tickLabels: tickLabels.map((line) => line.slice(0, 300)),
             isActive: lifecycle.status !== 'completed',
           },
         });
-      }
-
-      if (values.clock && !linkedClock) {
+      } else if (linkedClock && !values.clock) {
+        const rel = await db.relations
+          .where('sourceId')
+          .equals(threatId)
+          .filter((r) => r.type === 'tracks')
+          .first();
+        if (rel) await deleteRelation(db, rel.id);
+        await markClockUnlinkedFromThreat(db, linkedClock.id);
+      } else if (values.clock && !linkedClock) {
+        const seg = values.clock.segments;
+        const rawLabels = (values.clock.tickLabels ?? []).slice(0, seg);
+        const tickLabels = [...rawLabels];
+        while (tickLabels.length < seg) tickLabels.push('');
         const clockEntity = await addEntity(db, {
           type: 'clock',
           name: values.clock.name,
           description: '',
           tags: [],
           data: {
-            segments: values.clock.segments,
+            kind: 'threat',
+            segments: seg,
             filled: 0,
-            tickLabels: [],
+            tickLabels: tickLabels.map((line) => line.slice(0, 300)),
             isActive: lifecycle.status !== 'completed',
           },
         });
         await addRelation(db, { type: 'tracks', sourceId: threatId, targetId: clockEntity.id });
+        await markClockLinkedToThreat(db, clockEntity.id);
       }
 
       toast.success('Zagrożenie zaktualizowane');
@@ -183,20 +227,31 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
               defaultValues={{
                 name: threat.name,
                 threatType: threat.data.threatType,
+                radarArchetype: getThreatRadarArchetype(threat.data),
                 status: getThreatStatus(threat),
                 impulse: threat.data.impulse,
                 trigger: threat.data.trigger ?? '',
-                reasonOfDead: threat.data.reasonOfDead ?? '',
+                completionReason: threat.data.completionReason ?? threat.data.reasonOfDead ?? '',
+                completionOutcome:
+                  threat.data.completionOutcome ??
+                  (getThreatStatus(threat) === 'completed'
+                    ? inferThreatCompletionOutcomeFromClock(linkedClock ?? undefined)
+                    : undefined),
                 inheritanceNotes:
                   typeof threat.data.inheritanceNotes === 'string'
                     ? threat.data.inheritanceNotes
                     : '',
                 forkThreatId: threat.data.forkThreatId,
                 moves: threat.data.moves,
+                pillars: normalizeThreatPillars(threat.data.pillars),
                 description: threat.description,
                 tags: threat.tags,
                 clock: linkedClock
-                  ? { name: linkedClock.name, segments: linkedClock.data.segments }
+                  ? {
+                      name: linkedClock.name,
+                      segments: linkedClock.data.segments,
+                      tickLabels: [...(linkedClock.data.tickLabels ?? [])],
+                    }
                   : null,
               }}
               onSubmit={handleUpdate}
@@ -244,11 +299,17 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
               {threat.data.trigger && (
                 <div>
                   <h3 className="text-surface-500 mb-1 text-xs font-semibold tracking-wide uppercase">
-                    Trigger tykania
+                    Zegar tyka, gdy
                   </h3>
-                  <p className="text-surface-700 text-sm whitespace-pre-wrap">
-                    {threat.data.trigger}
-                  </p>
+                  <ul className="list-inside list-disc space-y-1 text-sm text-surface-700">
+                    {threat.data.trigger
+                      .split(/\r?\n/)
+                      .map((line) => line.trim())
+                      .filter(Boolean)
+                      .map((line, index) => (
+                        <li key={`${threat.id}-trigger-${index}`}>{line}</li>
+                      ))}
+                  </ul>
                 </div>
               )}
 
@@ -270,13 +331,13 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
                 </div>
               )}
 
-              {threat.data.reasonOfDead && (
+              {(threat.data.completionReason ?? threat.data.reasonOfDead) && (
                 <div className="app-danger-card rounded-[1.2rem] px-4 py-3">
                   <h3 className="text-surface-500 mb-1 text-xs font-semibold tracking-wide uppercase">
                     Powód wygaszenia / śmierci
                   </h3>
                   <p className="text-surface-700 text-sm whitespace-pre-wrap">
-                    {threat.data.reasonOfDead}
+                    {threat.data.completionReason ?? threat.data.reasonOfDead}
                   </p>
                 </div>
               )}
@@ -304,6 +365,24 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
                     {threat.data.moves.map((move, index) => (
                       <li key={index} className="text-surface-700 text-sm">
                         {move}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {normalizeThreatPillars(threat.data.pillars).length > 0 && (
+                <div>
+                  <h3 className="text-surface-500 mb-2 text-xs font-semibold tracking-wide uppercase">
+                    Filary zagrożenia
+                  </h3>
+                  <ul className="list-inside list-disc space-y-1">
+                    {normalizeThreatPillars(threat.data.pillars).map((pillar, index) => (
+                      <li
+                        key={index}
+                        className={`text-surface-700 text-sm ${pillar.destroyed ? 'line-through opacity-70' : ''}`}
+                      >
+                        {pillar.label}
                       </li>
                     ))}
                   </ul>
@@ -426,7 +505,18 @@ export function FrontDetail() {
   const [existingThreatQuery, setExistingThreatQuery] = useState('');
   const [assigningThreatId, setAssigningThreatId] = useState<string | null>(null);
   const [showRelPicker, setShowRelPicker] = useState(false);
+  const [showFactionPicker, setShowFactionPicker] = useState(false);
+  const [unlinkConfirm, setUnlinkConfirm] = useState<{
+    relationId: string;
+    title: string;
+    description: string;
+  } | null>(null);
   const selectedThreatId = searchParams.get('threat');
+  const relatedFactions = useRelatedEntities(id ?? '', {
+    relationTypes: ['related_to'],
+    direction: 'both',
+    otherTypes: ['faction'],
+  });
 
   const returnToSessionLive =
     typeof location.state === 'object' &&
@@ -457,6 +547,15 @@ export function FrontDetail() {
       ),
     [threatFrontRelations],
   );
+  const threatFrontRelationByThreatId = useMemo(
+    () =>
+      new Map(
+        (threatFrontRelations ?? [])
+          .filter((relation) => relation.targetId === front?.id)
+          .map((relation) => [relation.sourceId, relation.id]),
+      ),
+    [threatFrontRelations, front?.id],
+  );
 
   const frontNameById = useMemo(
     () => new Map((fronts ?? []).map((frontEntity) => [frontEntity.id, frontEntity.name])),
@@ -471,23 +570,44 @@ export function FrontDetail() {
 
       return (
         threatEntity.name.toLowerCase().includes(normalizedQuery) ||
-        THREAT_TYPE_LABELS[threatEntity.data.threatType].toLowerCase().includes(normalizedQuery) ||
+        (THREAT_TYPE_LABELS[threatEntity.data.threatType] ?? threatEntity.data.threatType)
+          .toLowerCase()
+          .includes(normalizedQuery) ||
         threatEntity.data.impulse.toLowerCase().includes(normalizedQuery) ||
         threatEntity.tags.some((tag) => tag.toLowerCase().includes(normalizedQuery))
       );
     });
   }, [allThreats, existingThreatQuery]);
 
+  const frontTocItems = useMemo(() => {
+    if (!front || isEditing) return [];
+    const items: { id: string; label: string }[] = [];
+    if (front.data.goal) items.push({ id: 'front-detail-kontekst', label: 'Kontekst' });
+    if (front.data.stakes.length > 0) items.push({ id: 'front-detail-stawki', label: 'Stawki' });
+    if (front.description) items.push({ id: 'front-detail-opis', label: 'Opis' });
+    items.push({ id: 'front-detail-zagrozenia', label: 'Zagrożenia' });
+    if (threats && threats.length > 0) {
+      items.push({ id: 'front-detail-genealogia', label: 'Genealogia' });
+    }
+    items.push(
+      { id: 'front-detail-powiazania', label: 'Powiązania' },
+      { id: 'front-detail-notatki', label: 'Notatki MG' },
+      { id: 'front-detail-tagi', label: 'Tagi' },
+    );
+    return items;
+  }, [front, isEditing, id, threats]);
+
   if (front === undefined) return <LoadingSpinner />;
 
   if (!front) {
     return (
-      <div className="p-6">
-        <p className="text-surface-500">Front nie znaleziony.</p>
-        <Link to="/fronts" className="text-primary-700 hover:underline">
-          ← Powrót do frontów
-        </Link>
-      </div>
+      <DetailNotFound
+        icon={Shield}
+        title="Front nie znaleziony"
+        description="Mógł zostać usunięty albo odnośnik jest nieaktualny."
+        to="/fronts"
+        linkLabel="Wróć do listy frontów"
+      />
     );
   }
 
@@ -531,7 +651,7 @@ export function FrontDetail() {
   async function handleAddThreat(values: ThreatFormValues) {
     setSavingThreat(true);
     try {
-      const lifecycle = normalizeThreatLifecycle(values.status, values.reasonOfDead);
+      const lifecycle = normalizeThreatLifecycle(values.status, values.completionReason);
 
       const entity = await addEntity(db, {
         type: 'threat',
@@ -540,32 +660,43 @@ export function FrontDetail() {
         tags: values.tags,
         data: {
           threatType: values.threatType,
+          radarArchetype: values.radarArchetype,
           impulse: values.impulse,
           moves: values.moves,
+          pillars: values.pillars,
           trigger: values.trigger,
           inheritanceNotes: values.inheritanceNotes,
           forkThreatId: values.forkThreatId,
           ...lifecycle,
+          ...(lifecycle.status === 'completed'
+            ? { completionOutcome: values.completionOutcome ?? 'resolved_early' }
+            : { completionOutcome: undefined }),
         },
       });
 
       await addRelation(db, { type: 'belongs_to', sourceId: entity.id, targetId: front!.id });
 
       if (values.clock) {
+        const seg = values.clock.segments;
+        const raw = (values.clock.tickLabels ?? []).slice(0, seg);
+        const tickLabels = [...raw];
+        while (tickLabels.length < seg) tickLabels.push('');
         const clockEntity = await addEntity(db, {
           type: 'clock',
           name: values.clock.name,
           description: '',
           tags: [],
           data: {
-            segments: values.clock.segments,
+            kind: 'threat',
+            segments: seg,
             filled: 0,
-            tickLabels: [],
+            tickLabels: tickLabels.map((line) => line.slice(0, 300)),
             isActive: lifecycle.status !== 'completed',
           },
         });
 
         await addRelation(db, { type: 'tracks', sourceId: entity.id, targetId: clockEntity.id });
+        await markClockLinkedToThreat(db, clockEntity.id);
       }
 
       toast.success(`Zagrożenie "${values.name}" dodane`);
@@ -611,6 +742,28 @@ export function FrontDetail() {
     }
   }
 
+  function openAttachThreatPanel() {
+    setThreatComposerMode('existing');
+    setShowThreatForm(true);
+    requestAnimationFrame(() => {
+      document.getElementById('front-detail-zagrozenia')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
+  }
+
+  async function handleConfirmUnlink() {
+    if (!unlinkConfirm) return;
+    try {
+      await deleteRelation(db, unlinkConfirm.relationId);
+      toast.success('Usunięto powiązanie z tego widoku');
+      setUnlinkConfirm(null);
+    } catch {
+      toast.error('Nie udało się usunąć powiązania');
+    }
+  }
+
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
       <Link
@@ -633,9 +786,18 @@ export function FrontDetail() {
               <h1 className="text-primary-900 text-3xl font-semibold tracking-[-0.04em] lg:text-[2.2rem]">
                 {front.name}
               </h1>
-              <span className="text-surface-600 mt-2 inline-flex rounded-full border border-[rgba(86,93,94,0.14)] bg-[rgba(223,225,218,0.72)] px-3 py-1 text-sm">
-                {FRONT_CATEGORY_LABELS[front.data.category]}
-              </span>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="text-surface-600 inline-flex rounded-full border border-[rgba(86,93,94,0.14)] bg-[rgba(223,225,218,0.72)] px-3 py-1 text-sm">
+                  {FRONT_CATEGORY_LABELS[front.data.category]}
+                </span>
+                {threats !== undefined && (
+                  <span className="text-surface-500 text-sm">
+                    {threats.length === 0
+                      ? 'Brak podpiętych zagrożeń'
+                      : formatPolishThreatCount(threats.length)}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -665,6 +827,10 @@ export function FrontDetail() {
           </div>
         </div>
       </section>
+
+      {!isEditing && (
+        <DetailTocBar ariaLabel="Sekcje karty frontu" items={frontTocItems} className="shrink-0" />
+      )}
 
       {isEditing ? (
         <div className="app-panel rounded-[1.8rem] p-5 lg:p-6">
@@ -703,76 +869,161 @@ export function FrontDetail() {
         </div>
       ) : (
         <>
-          {front.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {front.tags.map((tag) => (
-                <span key={tag} className="app-pill rounded-full px-2.5 py-1 text-xs">
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
+          <DetailSection sectionId="front-detail-kontekst" title="Kontekst frontu" tone="accent">
+            <div className="flex flex-col gap-6">
+              {front.data.goal && (
+                <div className="rounded-[1.2rem] border border-[rgba(163,122,201,0.3)] bg-[rgba(163,122,201,0.12)] px-5 py-4">
+                  <h2 className="text-primary-700 mb-2 text-xs font-semibold tracking-wide uppercase">
+                    Cel frontu
+                  </h2>
+                  <p className="text-surface-800 text-sm whitespace-pre-wrap">{front.data.goal}</p>
+                </div>
+              )}
 
-          {front.data.goal && (
-            <DetailSection
-              title="Kontekst frontu"
-              description="Główna oś kampanii i najważniejszy cel, wokół którego porządkujesz zagrożenia."
-              tone="accent"
-            >
-              <h2 className="text-primary-600 mb-2 text-xs font-semibold tracking-wide uppercase">
-                Cel frontu
-              </h2>
-              <p className="text-surface-800 text-sm whitespace-pre-wrap">{front.data.goal}</p>
-            </DetailSection>
-          )}
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="app-panel rounded-[1.3rem] p-4">
+                  <NarrativeLinksSection
+                    title="Powiązane frakcje"
+                    items={relatedFactions}
+                    emptyMessage="Ten front nie ma jeszcze podpiętych frakcji."
+                    actionLabel="+ Dodaj frakcję"
+                    onAction={() => setShowFactionPicker(true)}
+                    onRemoveItem={(item) =>
+                      setUnlinkConfirm({
+                        relationId: item.relation.id,
+                        title: 'Usunąć powiązaną frakcję?',
+                        description: `Czy na pewno chcesz usunąć frakcję „${item.entity.name}" z tego widoku frontu?`,
+                      })}
+                    removeAriaLabel={(item) => `Usuń frakcję ${item.entity.name} z tego widoku`}
+                  />
+                </div>
+
+                <div className="app-panel rounded-[1.3rem] p-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <h2 className="text-surface-500 text-xs font-semibold tracking-wide uppercase">
+                      Powiązane zagrożenia
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={openAttachThreatPanel}
+                      className="app-button-secondary rounded-full px-3 py-1.5 text-xs font-medium"
+                    >
+                      + Dodaj zagrożenie
+                    </button>
+                  </div>
+                  {!threats || threats.length === 0 ? (
+                    <p className="text-surface-500 text-sm">
+                      Brak podpiętych zagrożeń.
+                    </p>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {threats.slice(0, 3).map((threat) => {
+                        const relationId = threatFrontRelationByThreatId.get(threat.id);
+                        return (
+                          <div
+                            key={threat.id}
+                            className="app-input-shell flex min-w-0 items-stretch overflow-hidden rounded-[1.2rem]"
+                          >
+                            <button
+                              type="button"
+                              onClick={() =>
+                                navigate(`/threats/${threat.id}`, {
+                                  state: returnToSessionLive ? { returnToSessionLive } : undefined,
+                                })
+                              }
+                              className="hover:border-primary-300 flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[rgba(229,231,223,0.98)]"
+                            >
+                              <span className="flex flex-wrap items-center gap-2">
+                                <span className="text-surface-800 truncate font-medium">{threat.name}</span>
+                                <EntityTypeBadge type="threat" size="sm" />
+                              </span>
+                              <ChevronRight className="text-surface-300 ml-auto h-4 w-4 shrink-0" />
+                            </button>
+                            <div className="flex shrink-0 items-center self-stretch border-l border-[rgba(86,93,94,0.14)] bg-transparent px-2">
+                              {relationId ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setUnlinkConfirm({
+                                      relationId,
+                                      title: 'Usunąć powiązane zagrożenie?',
+                                      description: `Czy na pewno chcesz usunąć zagrożenie „${threat.name}" z tego widoku frontu?`,
+                                    })}
+                                  className="text-surface-400 hover:text-danger-700 hover:bg-danger-50 rounded-full p-1 transition-colors"
+                                  aria-label={`Usuń zagrożenie ${threat.name} z tego widoku`}
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {id && (
+                <div className="app-panel rounded-[1.3rem] p-4">
+                  <ClueSection
+                    parentId={id}
+                    title="Wskazówki frontu"
+                    onRemoveRelation={(item) =>
+                      setUnlinkConfirm({
+                        relationId: item.relation.id,
+                        title: 'Usunąć wskazówkę z widoku?',
+                        description: `Czy na pewno chcesz usunąć wskazówkę „${item.clue.name}" z tego widoku frontu?`,
+                      })}
+                  />
+                </div>
+              )}
+            </div>
+          </DetailSection>
 
           {front.data.stakes.length > 0 && (
             <DetailSection
+              sectionId="front-detail-stawki"
               title="Stawki"
-              description="Pytania i ryzyka, które ten front stawia przed kampanią."
             >
-              <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
-                Stawki
-              </h2>
-              <ul className="list-inside list-disc space-y-1.5">
-                {front.data.stakes.map((stake, index) => (
-                  <li key={index} className="text-surface-700 text-sm">
-                    {stake}
-                  </li>
-                ))}
-              </ul>
+              <div className="app-panel rounded-[1.5rem] p-5 shadow-[0_12px_24px_rgba(18,45,66,0.06)] lg:p-6">
+                <ul className="m-0 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2 xl:grid-cols-2">
+                  {front.data.stakes.map((stake, index) => (
+                    <li
+                      key={index}
+                      className="app-input-shell flex min-h-full min-w-0 gap-3 rounded-[1.25rem] border px-4 py-4 shadow-[0_12px_24px_rgba(18,45,66,0.04)]"
+                    >
+                      <span className="app-pill-muted inline-flex h-fit shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold tabular-nums">
+                        {index + 1}
+                      </span>
+                      <p className="text-surface-800 min-w-0 flex-1 text-sm leading-6 break-words">{stake}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </DetailSection>
           )}
 
           {front.description && (
             <DetailSection
+              sectionId="front-detail-opis"
               title="Opis"
-              description="Pełny opis frontu i jego roli w strukturze kampanii."
             >
-              <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
-                Opis
-              </h2>
-              <div
-                className="prose prose-sm text-surface-700 max-w-none"
-                dangerouslySetInnerHTML={{ __html: front.description }}
-              />
+              <div className="app-panel min-w-0 w-full rounded-[1.5rem] p-5 lg:p-6">
+                <div
+                  className="prose prose-sm prose-headings:text-surface-800 prose-p:text-surface-800 prose-li:text-surface-800 prose-a:text-primary-700 min-w-0 w-full max-w-none text-pretty text-surface-800 [&_*]:max-w-none"
+                  dangerouslySetInnerHTML={{ __html: front.description }}
+                />
+              </div>
             </DetailSection>
           )}
 
-          {id && (
-            <DetailSection
-              title="Wskazówki frontu"
-              description="Tropy i sekrety, które prowadzą bezpośrednio do głównej osi kampanii."
-            >
-              <ClueSection parentId={id} title="Wskazówki frontu" />
-            </DetailSection>
-          )}
         </>
       )}
 
       <DetailSection
+        sectionId="front-detail-zagrozenia"
         title="Zagrożenia frontu"
-        description="Główne presje podpięte do tej osi kampanii."
       >
         <div>
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -996,7 +1247,7 @@ export function FrontDetail() {
               }
             />
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {threats.map((threat) => (
                 <ThreatCard
                   key={threat.id}
@@ -1015,8 +1266,8 @@ export function FrontDetail() {
 
       {!isEditing && threats && threats.length > 0 && (
         <DetailSection
+          sectionId="front-detail-genealogia"
           title="Genealogia zagrożeń"
-          description="Łańcuch eskalacji: źródła, zagrożenia wynikające i ich dalsze konsekwencje."
         >
           <ThreatGenealogySection threats={threats} returnToSessionLive={returnToSessionLive} />
         </DetailSection>
@@ -1032,14 +1283,26 @@ export function FrontDetail() {
         />
       )}
 
+      {showFactionPicker && (
+        <RelationPicker
+          sourceId={front.id}
+          sourceType="front"
+          initialTargetType="faction"
+          initialRelationType="related_to"
+          lockTargetType
+          lockRelationType
+          onClose={() => setShowFactionPicker(false)}
+        />
+      )}
+
       <DetailSection
+        sectionId="front-detail-powiazania"
         title="Powiązania świata"
-        description="Relacje dodatkowe poza główną osią fabularną i przypiętymi zagrożeniami."
         action={
           <button
             type="button"
             onClick={() => setShowRelPicker(true)}
-            className="text-primary-700 text-xs hover:underline"
+            className="app-button-secondary rounded-full px-3 py-1.5 text-xs font-medium"
           >
             + Dodaj
           </button>
@@ -1053,8 +1316,8 @@ export function FrontDetail() {
       </DetailSection>
 
       <DetailSection
+        sectionId="front-detail-notatki"
         title="Notatki MG"
-        description="Zaplecze robocze dla prowadzącego, oddzielone od głównej osi i jej tropów."
       >
         <NotesList
           entityId={front.id}
@@ -1063,12 +1326,36 @@ export function FrontDetail() {
         />
       </DetailSection>
 
+      <DetailSection sectionId="front-detail-tagi" title="Tagi">
+        {front.tags.length === 0 ? (
+          <p className="text-surface-500 text-sm">Brak tagów — dodaj je w trybie edycji frontu.</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {front.tags.map((tag) => (
+              <span key={tag} className="app-pill rounded-full px-2.5 py-1 text-xs font-medium">
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+      </DetailSection>
+
+      <DetailScrollTopFab enabled={!isEditing && frontTocItems.length > 0} />
+
       <ConfirmDialog
         open={confirmDelete}
         title="Usuń front"
         description={`Czy na pewno chcesz usunąć front "${front.name}"? Ta operacja jest nieodwracalna.`}
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}
+      />
+
+      <ConfirmDialog
+        open={unlinkConfirm !== null}
+        title={unlinkConfirm?.title ?? 'Usunąć powiązanie?'}
+        description={unlinkConfirm?.description ?? ''}
+        onConfirm={() => void handleConfirmUnlink()}
+        onCancel={() => setUnlinkConfirm(null)}
       />
     </div>
   );

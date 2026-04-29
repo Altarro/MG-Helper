@@ -399,10 +399,6 @@ export function SpotlightTracker({ sessionId, state, onChange }: SpotlightTracke
         </div>
       )}
 
-      {spotlight.isPaused && (
-        <p className="text-center text-xs text-surface-400 italic">⏸ Pauza</p>
-      )}
-
       {previewNpcId && (
         <NpcPreviewModal npcId={previewNpcId} sessionId={sessionId} onClose={() => setPreviewNpcId(null)} />
       )}

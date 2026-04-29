@@ -1,8 +1,9 @@
 import React from 'react';
-import { MapPin } from 'lucide-react';
+import { MapPin, OctagonAlert } from 'lucide-react';
 import { LOCATION_TYPE_LABELS } from '../types';
 import type { Location } from '../types';
 import { useAssetUrl } from '@shared/hooks/useAssetUrl';
+import { getLocationLifecycleStatus } from '@shared/utils/entityData';
 
 const DANGER_LABELS = ['Bezpieczna', 'Spokojnie', 'Umiarkowane', 'Niebezpiecznie', 'Śmiertelnie', 'Apokaliptyczne'];
 
@@ -13,13 +14,16 @@ interface LocationCardProps {
 
 export const LocationCard = React.memo(function LocationCard({ location, onClick }: LocationCardProps) {
   const { locationType, danger } = location.data;
+  const isDestroyed = getLocationLifecycleStatus({ data: location.data }) === 'completed';
   const thumbUrl = useAssetUrl(location.data.imageId ?? null, { thumb: true });
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className="app-card flex w-full flex-col gap-3 rounded-[1.35rem] p-5 text-left transition-all hover:-translate-y-0.5"
+      className={`app-card flex w-full flex-col gap-3 rounded-[1.35rem] p-5 text-left transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/35 ${
+        isDestroyed ? 'opacity-90' : ''
+      }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
@@ -36,9 +40,17 @@ export const LocationCard = React.memo(function LocationCard({ location, onClick
           )}
           <p className="truncate text-[1.02rem] font-semibold tracking-[-0.02em] text-surface-900">{location.name}</p>
         </div>
-        <span className="app-pill-muted shrink-0 rounded-full px-2.5 py-1 text-xs">
-          {LOCATION_TYPE_LABELS[locationType]}
-        </span>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+          {isDestroyed && (
+            <span className="inline-flex items-center gap-0.5 rounded-full border border-danger-300/50 bg-danger-50 px-2 py-0.5 text-[10px] font-semibold text-danger-800">
+              <OctagonAlert className="h-3 w-3" aria-hidden />
+              Zniszczona
+            </span>
+          )}
+          <span className="app-pill-muted rounded-full px-2.5 py-1 text-xs">
+            {LOCATION_TYPE_LABELS[locationType]}
+          </span>
+        </div>
       </div>
 
       {danger > 0 && (

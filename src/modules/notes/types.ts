@@ -5,6 +5,8 @@ export interface NoteData {
   content: string;
   sessionId: string;
   createdAt: string;
+  cleanupDecision?: 'keep' | 'archive' | 'delete' | 'pending';
+  cleanupDecidedAt?: string;
 }
 
 export interface Note extends Entity {

@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode, type RefObject } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { Backdrop } from './Backdrop';
@@ -81,7 +81,7 @@ export function Modal({
     return () => document.removeEventListener('keydown', handleKey);
   }, [onClose]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     restoreFocusRef.current = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
@@ -89,9 +89,13 @@ export function Modal({
     const el = panelRef.current;
     if (!el) return;
     const preferredFocus = initialFocusRef?.current;
+    const autofocusTarget = el.querySelector<HTMLElement>('[autofocus]');
+    const formControlTarget = el.querySelector<HTMLElement>(
+      'input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [contenteditable="true"]',
+    );
     const firstFocusable = getFocusableElements(el)[0];
 
-    (preferredFocus ?? firstFocusable ?? el).focus();
+    (preferredFocus ?? autofocusTarget ?? formControlTarget ?? firstFocusable ?? el).focus();
 
     return () => {
       if (restoreFocusRef.current?.isConnected) {
@@ -119,7 +123,7 @@ export function Modal({
         <div
           ref={panelRef}
           tabIndex={-1}
-          className={`app-panel-strong relative ${SIZE_CLASSES[size]} max-h-[90vh] overflow-y-auto rounded-[1.75rem] shadow-2xl`}
+          className={`app-panel-strong relative ${SIZE_CLASSES[size]} max-h-[90vh] overflow-visible rounded-[1.75rem] shadow-2xl`}
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
@@ -142,10 +146,10 @@ export function Modal({
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <div className="p-5 lg:p-6">{children}</div>
+              <div className="max-h-[calc(90vh-4.5rem)] overflow-y-auto p-5 lg:p-6">{children}</div>
             </>
           )}
-          {title === undefined && children}
+          {title === undefined && <div className="max-h-[90vh] overflow-y-auto">{children}</div>}
         </div>
       </div>
     </>,

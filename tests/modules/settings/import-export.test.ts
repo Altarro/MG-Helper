@@ -5,6 +5,7 @@ import { importJson } from '@shared/utils/importJson';
 import { createExportPayload } from '@shared/utils/exportJson';
 import { exportEntityMarkdown } from '@shared/utils/exportMarkdown';
 import { BACKUP_FORMAT_VERSION } from '@shared/utils/backupContract';
+import { saveGeneratorPack, appendGeneratorRollLog } from '@modules/generator/repository';
 
 // Mock DOMPurify in test environment (it requires a real DOM)
 vi.mock('dompurify', () => ({
@@ -17,6 +18,8 @@ describe('Import/Export', () => {
   beforeEach(async () => {
     await db.entities.clear();
     await db.relations.clear();
+    await db.generatorPacks.clear();
+    await db.generatorRollLogs.clear();
   });
 
   it('export + import roundtrip preserves entities', async () => {
@@ -59,6 +62,44 @@ describe('Import/Export', () => {
     expect(restoredNpc).toBeDefined();
     expect(restoredNpc!.name).toBe('Gandalf');
     expect(restoredNpc!.tags).toEqual(['wizard']);
+  });
+
+  it('export + import roundtrip preserves generator packs and roll logs', async () => {
+    await saveGeneratorPack(db, {
+      id: 'pack-rt',
+      campaignId: 'camp-rt',
+      name: 'Pack RT',
+      description: '',
+      isActive: true,
+      tables: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    await appendGeneratorRollLog(db, {
+      campaignId: 'camp-rt',
+      sessionId: 'session-rt',
+      packId: 'pack-rt',
+      kind: 'eventTable',
+      resultText: 'Test',
+      sourceTableIds: [],
+    });
+
+    const exportData = await createExportPayload(db);
+    expect(exportData.generatorPacks.length).toBe(1);
+    expect(exportData.generatorRollLogs.length).toBe(1);
+
+    await db.entities.clear();
+    await db.relations.clear();
+    await db.generatorPacks.clear();
+    await db.generatorRollLogs.clear();
+
+    const result = await importJson(db, exportData);
+    expect(result.ok).toBe(true);
+
+    const restoredPacks = await db.generatorPacks.toArray();
+    const restoredLogs = await db.generatorRollLogs.toArray();
+    expect(restoredPacks).toHaveLength(1);
+    expect(restoredLogs).toHaveLength(1);
   });
 
   it('import with invalid JSON schema returns errors', async () => {

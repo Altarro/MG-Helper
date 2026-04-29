@@ -1,4 +1,6 @@
 export * from './date';
+export * from './scrollToAnchor';
+export * from './polishPlural';
 export * from './id';
 export * from './imagePipeline';
 export * from './sanitize';

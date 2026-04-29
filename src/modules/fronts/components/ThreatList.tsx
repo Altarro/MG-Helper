@@ -6,12 +6,15 @@ import { useThreats } from '../hooks/useThreats';
 import { useFronts } from '../hooks/useFronts';
 import { ThreatCard } from './ThreatCard';
 import { ThreatForm } from './ThreatForm';
+import { FilterCountBadge } from '@shared/components/FilterCountBadge';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { EmptyState } from '@shared/components/EmptyState';
 import { addEntity, addRelation } from '@shared/db/operations';
+import { markClockLinkedToThreat } from '@modules/clocks/threatClockLink';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { getThreatStatus } from '@shared/utils/entityData';
 import { normalizeThreatLifecycle } from '@shared/utils/threatLifecycle';
+import { formatPolishThreatCount } from '@shared/utils/polishPlural';
 import { toast } from 'sonner';
 import type { ThreatFormValues } from './ThreatForm';
 
@@ -51,7 +54,7 @@ export function ThreatList() {
   }, [fronts, parentFrontEntries]);
 
   const lowerQuery = query.trim().toLowerCase();
-  const filteredThreats = threats?.filter((threat) => {
+  const queryMatchedThreats = threats?.filter((threat) => {
     const parentFront = parentFrontMap.get(threat.id);
     const matchesQuery =
       !lowerQuery ||
@@ -60,17 +63,19 @@ export function ThreatList() {
       threat.data.moves.some((move) => move.toLowerCase().includes(lowerQuery)) ||
       threat.tags.some((tag) => tag.toLowerCase().includes(lowerQuery)) ||
       parentFront?.name.toLowerCase().includes(lowerQuery);
-
+    return matchesQuery;
+  });
+  const ownershipFilteredThreats = queryMatchedThreats?.filter((threat) => {
     const isFronted = parentFrontMap.has(threat.id);
-    const matchesOwnership =
+    return (
       ownershipFilter === 'all' ||
       (ownershipFilter === 'fronted' && isFronted) ||
-      (ownershipFilter === 'free' && !isFronted);
-
+      (ownershipFilter === 'free' && !isFronted)
+    );
+  });
+  const filteredThreats = ownershipFilteredThreats?.filter((threat) => {
     const threatStatus = getThreatStatus(threat);
-    const matchesStatus = statusFilter === 'all' || threatStatus === statusFilter;
-
-    return matchesQuery && matchesOwnership && matchesStatus;
+    return statusFilter === 'all' || threatStatus === statusFilter;
   });
 
   const frontSections = useMemo(() => {
@@ -95,11 +100,23 @@ export function ThreatList() {
     () => (filteredThreats ?? []).filter((threat) => !parentFrontMap.has(threat.id)),
     [filteredThreats, parentFrontMap],
   );
+  const statusStats = useMemo(() => {
+    const list = ownershipFilteredThreats ?? [];
+    const active = list.filter((threat) => getThreatStatus(threat) === 'active').length;
+    const completed = list.length - active;
+    return { total: list.length, active, completed };
+  }, [ownershipFilteredThreats]);
+  const ownershipStats = useMemo(() => {
+    const list = queryMatchedThreats ?? [];
+    const fronted = list.filter((threat) => parentFrontMap.has(threat.id)).length;
+    const free = list.length - fronted;
+    return { total: list.length, fronted, free };
+  }, [queryMatchedThreats, parentFrontMap]);
 
   async function handleCreate(values: ThreatFormValues) {
     setSaving(true);
     try {
-      const lifecycle = normalizeThreatLifecycle(values.status, values.reasonOfDead);
+      const lifecycle = normalizeThreatLifecycle(values.status, values.completionReason);
       const entity = await addEntity(db, {
         type: 'threat',
         name: values.name,
@@ -107,12 +124,17 @@ export function ThreatList() {
         tags: values.tags,
         data: {
           threatType: values.threatType,
+          radarArchetype: values.radarArchetype,
           impulse: values.impulse,
           moves: values.moves,
+          pillars: values.pillars,
           trigger: values.trigger,
           inheritanceNotes: values.inheritanceNotes,
           forkThreatId: values.forkThreatId,
           ...lifecycle,
+          ...(lifecycle.status === 'completed'
+            ? { completionOutcome: values.completionOutcome ?? 'resolved_early' }
+            : { completionOutcome: undefined }),
         },
       });
 
@@ -125,19 +147,25 @@ export function ThreatList() {
       }
 
       if (values.clock) {
+        const seg = values.clock.segments;
+        const raw = (values.clock.tickLabels ?? []).slice(0, seg);
+        const tickLabels = [...raw];
+        while (tickLabels.length < seg) tickLabels.push('');
         const clockEntity = await addEntity(db, {
           type: 'clock',
           name: values.clock.name,
           description: '',
           tags: [],
           data: {
-            segments: values.clock.segments,
+            kind: 'threat',
+            segments: seg,
             filled: 0,
-            tickLabels: [],
+            tickLabels: tickLabels.map((line) => line.slice(0, 300)),
             isActive: lifecycle.status !== 'completed',
           },
         });
         await addRelation(db, { type: 'tracks', sourceId: entity.id, targetId: clockEntity.id });
+        await markClockLinkedToThreat(db, clockEntity.id);
       }
 
       toast.success(`Zagrożenie "${values.name}" utworzone`);
@@ -159,7 +187,7 @@ export function ThreatList() {
       <section className="app-panel-strong rounded-[2rem] px-6 py-7 lg:px-8 lg:py-8">
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div className="max-w-3xl">
-            <div className="mb-3 inline-flex items-center rounded-full border border-[rgba(210,166,67,0.42)] bg-[rgba(242,196,88,0.12)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c6416]">
+            <div className="text-primary-700 mb-3 inline-flex items-center rounded-full border border-[rgba(33,71,102,0.16)] bg-[rgba(111,146,164,0.12)] px-3 py-1 text-[11px] font-semibold tracking-[0.18em] uppercase">
               Presja fabularna
             </div>
             <h1 className="text-3xl font-semibold tracking-[-0.04em] text-primary-900 lg:text-[2.2rem]">
@@ -173,7 +201,7 @@ export function ThreatList() {
           <button
             type="button"
             onClick={() => setShowForm(true)}
-            className="app-accent flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-transform hover:-translate-y-0.5"
+            className="app-button-primary flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-transform hover:-translate-y-0.5"
           >
             <Plus className="h-4 w-4" />
             Nowe zagrożenie
@@ -186,13 +214,13 @@ export function ThreatList() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Szukaj zagrożeń, impulsów albo frontów..."
-            className="app-input w-full rounded-2xl py-3 pl-11 pr-10 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+            className="app-input text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:ring-primary-500/20 w-full rounded-2xl py-3 pr-10 pl-11 text-sm focus:ring-2 focus:outline-none"
           />
           {query && (
             <button
               type="button"
               onClick={() => setQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-surface-500 transition-colors hover:text-primary-700"
+              className="text-surface-500 hover:text-primary-700 absolute top-1/2 right-3 -translate-y-1/2 rounded-full p-1 transition-colors"
               aria-label="Wyczyść wyszukiwanie zagrożeń"
             >
               <X className="h-4 w-4" />
@@ -213,11 +241,21 @@ export function ThreatList() {
                 onClick={() => setOwnershipFilter(value)}
                 className={`rounded-full px-4 py-2 text-xs font-semibold tracking-[0.01em] transition-all ${
                   ownershipFilter === value
-                    ? 'app-danger-pill'
+                    ? 'app-pill'
                     : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
                 }`}
               >
-                {label}
+                <span>{label}</span>
+                <FilterCountBadge
+                  selected={ownershipFilter === value}
+                  count={
+                    value === 'all'
+                      ? ownershipStats.total
+                      : value === 'fronted'
+                        ? ownershipStats.fronted
+                        : ownershipStats.free
+                  }
+                />
               </button>
             ))}
           </div>
@@ -240,7 +278,17 @@ export function ThreatList() {
                     : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
                 }`}
               >
-                {label}
+                <span>{label}</span>
+                <FilterCountBadge
+                  selected={statusFilter === value}
+                  count={
+                    value === 'all'
+                      ? statusStats.total
+                      : value === 'active'
+                        ? statusStats.active
+                        : statusStats.completed
+                  }
+                />
               </button>
             ))}
           </div>
@@ -310,7 +358,7 @@ export function ThreatList() {
               <button
                 type="button"
                 onClick={() => setShowForm(true)}
-                className="app-accent flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold"
+                className="app-button-primary flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold"
               >
                 <Plus className="h-4 w-4" />
                 Nowe zagrożenie
@@ -324,7 +372,7 @@ export function ThreatList() {
             <section key={section.front.id} className="app-panel rounded-[1.85rem] p-4 lg:p-5">
               <div className="mb-5 flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-surface-500">
+                  <p className="text-surface-500 text-[11px] font-semibold tracking-[0.18em] uppercase">
                     Front
                   </p>
                   <Link
@@ -335,11 +383,11 @@ export function ThreatList() {
                   </Link>
                 </div>
                 <span className="app-pill-muted shrink-0 rounded-full px-3 py-1 text-xs">
-                  {section.threats.length} zag.
+                  {formatPolishThreatCount(section.threats.length)}
                 </span>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {section.threats.map((threat) => (
                   <ThreatCard
                     key={threat.id}
@@ -355,19 +403,22 @@ export function ThreatList() {
             <section className="app-panel rounded-[1.85rem] p-4 lg:p-5">
               <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8c6416]">
-                    Wolne zagrożenia
+                  <p className="text-surface-500 text-[11px] font-semibold tracking-[0.18em] uppercase">
+                    Bez frontu
                   </p>
-                  <p className="mt-2 max-w-[58ch] text-sm leading-7 text-surface-700">
+                  <h2 className="text-primary-900 mt-2 text-lg font-semibold tracking-[-0.03em]">
+                    Wolne zagrożenia
+                  </h2>
+                  <p className="mt-1 max-w-[58ch] text-sm leading-7 text-surface-700">
                     Presje fabularne, które nie są jeszcze podpięte do żadnego frontu.
                   </p>
                 </div>
-                <span className="app-danger-pill shrink-0 rounded-full px-3 py-1 text-xs">
-                  {freeThreats.length} szt.
+                <span className="app-pill-muted shrink-0 rounded-full px-3 py-1 text-xs">
+                  {formatPolishThreatCount(freeThreats.length)}
                 </span>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {freeThreats.map((threat) => (
                   <ThreatCard
                     key={threat.id}

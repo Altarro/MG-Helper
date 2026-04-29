@@ -1,4 +1,5 @@
 import type { Entity } from '@shared/types/entity';
+import { deriveLifecycleStatus, type LifecycleStatus } from '@shared/types/entityLifecycle';
 import type { ClockData } from '@modules/clocks/types';
 import type { ClueData } from '@modules/clues/types';
 import type { FactionData } from '@modules/factions/types';
@@ -23,12 +24,22 @@ export function getNpcData(entity: EntityDataTarget): NpcData {
   return readData<NpcData>(entity);
 }
 
+export function getNpcLifecycleStatus(entity: EntityDataTarget): LifecycleStatus {
+  const d = getNpcData(entity);
+  return deriveLifecycleStatus(d.status);
+}
+
 export function isPlayerNpc(entity: EntityDataTarget & { isPC?: boolean }): boolean {
   return getNpcData(entity).isPC === true || entity.isPC === true;
 }
 
 export function getLocationData(entity: EntityDataTarget): LocationData {
   return readData<LocationData>(entity);
+}
+
+export function getLocationLifecycleStatus(entity: EntityDataTarget): LifecycleStatus {
+  const d = getLocationData(entity);
+  return deriveLifecycleStatus(d.status);
 }
 
 export function getFrontData(entity: EntityDataTarget): FrontData {
@@ -43,6 +54,7 @@ export function getThreatStatus(entity: EntityDataTarget): ThreatStatus {
   const data = getThreatData(entity);
   return deriveThreatStatus(
     data.status && THREAT_STATUSES.includes(data.status) ? data.status : undefined,
+    data.completionReason,
     data.reasonOfDead,
   );
 }
@@ -63,8 +75,18 @@ export function getFactionData(entity: EntityDataTarget): FactionData {
   return readData<FactionData>(entity);
 }
 
+export function getFactionLifecycleStatus(entity: EntityDataTarget): LifecycleStatus {
+  const d = getFactionData(entity);
+  return deriveLifecycleStatus(d.status);
+}
+
 export function getItemData(entity: EntityDataTarget): ItemData {
   return readData<ItemData>(entity);
+}
+
+export function getItemLifecycleStatus(entity: EntityDataTarget): LifecycleStatus {
+  const d = getItemData(entity);
+  return deriveLifecycleStatus(d.status);
 }
 
 export function getClueData(entity: EntityDataTarget): ClueData {

@@ -5,11 +5,12 @@ import { Plus, X } from 'lucide-react';
 import { TagInput } from '@shared/components/TagInput';
 import { RichTextEditor } from '@shared/components/RichTextEditor';
 import { ImagePicker } from '@shared/components/ImagePicker';
-import { ITEM_TYPES, ITEM_TYPE_LABELS } from '../types';
+import { useCampaign } from '@shared/db/CampaignContext';
+import { getActiveCatalogOptions, getCatalogLabelByValue } from '@modules/settings/campaignCatalogSettings';
 
 const itemFormSchema = z.object({
   name: z.string().min(1, 'Nazwa jest wymagana').max(200),
-  itemType: z.enum(ITEM_TYPES),
+  itemType: z.string().min(1),
   properties: z.array(z.object({ value: z.string() })),
   description: z.string().max(100_000),
   tags: z.array(z.string()).max(50),
@@ -21,7 +22,7 @@ type ItemFormRaw = z.infer<typeof itemFormSchema>;
 
 export interface ItemFormValues {
   name: string;
-  itemType: (typeof ITEM_TYPES)[number];
+  itemType: import('../types').ItemType;
   properties: string[];
   description: string;
   tags: string[];
@@ -44,6 +45,12 @@ export function ItemForm({
   isSaving = false,
   onCancel,
 }: ItemFormProps) {
+  const { campaignId } = useCampaign();
+  const currentItemType = defaultValues?.itemType ?? 'misc';
+  const itemTypeBase = getActiveCatalogOptions(campaignId, 'itemType');
+  const itemTypeOptions = itemTypeBase.some((x) => x.id === currentItemType)
+    ? itemTypeBase
+    : [...itemTypeBase, { id: currentItemType, label: getCatalogLabelByValue('itemType', currentItemType, campaignId) }];
   const {
     register,
     control,
@@ -71,6 +78,7 @@ export function ItemForm({
   function handleValidSubmit(raw: ItemFormRaw) {
     return onSubmit({
       ...raw,
+      itemType: raw.itemType as import('../types').ItemType,
       properties: raw.properties.map((p) => p.value).filter(Boolean),
       imageId: raw.imageId ?? null,
       imageAlt: raw.imageAlt ?? '',
@@ -101,8 +109,8 @@ export function ItemForm({
             {...register('itemType')}
             className="app-input rounded-2xl px-3.5 py-3 text-sm text-surface-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           >
-            {ITEM_TYPES.map((t) => (
-              <option key={t} value={t}>{ITEM_TYPE_LABELS[t]}</option>
+            {itemTypeOptions.map((t) => (
+              <option key={t.id} value={t.id}>{t.label}</option>
             ))}
           </select>
         </div>

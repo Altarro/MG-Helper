@@ -1,6 +1,7 @@
 import type { Entity } from '@shared/types/entity';
+import type { LifecycleStatus } from '@shared/types/entityLifecycle';
 
-export const LOCATION_TYPES = [
+export const DEFAULT_LOCATION_TYPES = [
   'region',
   'city',
   'ruins',
@@ -9,10 +10,12 @@ export const LOCATION_TYPES = [
   'building',
   'room',
 ] as const;
+export const LOCATION_TYPES = DEFAULT_LOCATION_TYPES;
 
-export type LocationType = (typeof LOCATION_TYPES)[number];
+export type DefaultLocationType = (typeof DEFAULT_LOCATION_TYPES)[number];
+export type LocationType = DefaultLocationType | `custom:${string}`;
 
-export const LOCATION_TYPE_LABELS: Record<LocationType, string> = {
+export const LOCATION_TYPE_LABELS: Record<string, string> = {
   region: 'Region',
   city: 'Miasto',
   ruins: 'Ruiny',
@@ -21,6 +24,13 @@ export const LOCATION_TYPE_LABELS: Record<LocationType, string> = {
   building: 'Budynek',
   room: 'Pomieszczenie',
 };
+
+export function getLocationTypeLabel(locationType: LocationType): string {
+  if ((LOCATION_TYPES as readonly string[]).includes(locationType)) {
+    return LOCATION_TYPE_LABELS[locationType as DefaultLocationType] ?? locationType;
+  }
+  return locationType.startsWith('custom:') ? locationType.slice('custom:'.length) : locationType;
+}
 
 export interface LocationSenses {
   see: string;
@@ -47,6 +57,11 @@ export interface LocationData extends Record<string, unknown> {
   danger: number; // 0–5
   senses: LocationSenses;
   isDraft?: boolean;
+  /** Stan fabularny (`completed` = zniszczona; encja zostaje w kampanii). */
+  status?: LifecycleStatus;
+  lifecycleReason?: string;
+  survivedParentDestruction?: boolean;
+  destroyedByParentId?: string | null;
   imageId?: string | null; // reference to Asset (cover blob)
   imageAlt?: string;
 }

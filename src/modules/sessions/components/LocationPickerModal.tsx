@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { ArrowDown, ChevronLeft, ChevronRight, MapPin, Plus } from 'lucide-react';
 import { createLocationData, isNamedLocation } from '@modules/locations/types';
+import { getLocationLifecycleStatus } from '@shared/utils/entityData';
 import { Modal } from '@shared/components/Modal';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { addEntity, addRelation, assignContainment } from '@shared/db/operations';
@@ -99,6 +100,8 @@ function LocationTile({ entity, variant, isActive, onClick, onAddChild }: TilePr
   const [childName, setChildName] = useState('');
   const [savingChild, setSavingChild] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const locationDestroyed =
+    entity.type === 'location' ? getLocationLifecycleStatus({ data: entity.data }) === 'completed' : false;
 
   const base =
     'flex cursor-pointer select-none flex-col items-center gap-2 rounded-[1.35rem] border px-4 py-4 text-center transition-all shadow-[0_12px_24px_rgba(18,45,66,0.08)]';
@@ -179,11 +182,18 @@ function LocationTile({ entity, variant, isActive, onClick, onAddChild }: TilePr
       <button type="button" onClick={onClick} className={`${base} ${styles[variant]}`}>
         <MapPin className={`shrink-0 ${iconSize[variant]}`} />
         <span className={`leading-tight ${textSize[variant]}`}>{entity.name}</span>
-        {isActive && (
-          <span className="rounded-full border border-emerald-300/70 bg-emerald-100/80 px-2.5 py-0.5 text-[9px] font-semibold tracking-wide text-emerald-800 uppercase">
-            aktywna
-          </span>
-        )}
+        <span className="flex flex-wrap items-center justify-center gap-1">
+          {isActive && (
+            <span className="rounded-full border border-emerald-300/70 bg-emerald-100/80 px-2.5 py-0.5 text-[9px] font-semibold tracking-wide text-emerald-800 uppercase">
+              aktywna
+            </span>
+          )}
+          {locationDestroyed && (
+            <span className="rounded-full border border-danger-300/60 bg-danger-50 px-2 py-0.5 text-[9px] font-semibold tracking-wide text-danger-800 uppercase">
+              zniszczona
+            </span>
+          )}
+        </span>
       </button>
 
       {variant === 'focused' && onAddChild && (

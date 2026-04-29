@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route } from 'react-router';
+import { Routes, Route, Navigate } from 'react-router';
 import { LoadingPage } from '@shared/components/LoadingSpinner';
 import { ErrorBoundary } from '@shared/components/ErrorBoundary';
 import { RequireCampaign } from './RequireCampaign';
@@ -83,8 +83,8 @@ const ThreadList = lazy(() =>
 const ThreadDetail = lazy(() =>
   import('@modules/threads').then((m) => ({ default: m.ThreadDetail })),
 );
-const TimelinePage = lazy(() =>
-  import('@modules/timeline').then((m) => ({ default: m.TimelinePage })),
+const BackstagePage = lazy(() =>
+  import('@modules/backstage').then((m) => ({ default: m.BackstagePage })),
 );
 const NoteList = lazy(() =>
   import('@modules/notes').then((m) => ({ default: m.NoteList })),
@@ -147,7 +147,8 @@ export function AppRouter() {
                   <Route path="/clues/:id" element={<ErrorBoundary name="Wskazówki"><ClueDetail /></ErrorBoundary>} />
                   <Route path="/threads" element={<ErrorBoundary name="Wątki"><ThreadList /></ErrorBoundary>} />
                   <Route path="/threads/:id" element={<ErrorBoundary name="Wątki"><ThreadDetail /></ErrorBoundary>} />
-                  <Route path="/timeline" element={<ErrorBoundary name="Oś czasu"><TimelinePage /></ErrorBoundary>} />
+                  <Route path="/timeline" element={<Navigate to="/backstage" replace />} />
+                  <Route path="/backstage" element={<ErrorBoundary name="Za kulisami"><BackstagePage /></ErrorBoundary>} />
                   <Route path="/notes" element={<ErrorBoundary name="Notatki"><NoteList /></ErrorBoundary>} />
                   <Route path="/notes/:id" element={<ErrorBoundary name="Notatki"><NoteDetail /></ErrorBoundary>} />
                   <Route path="/search" element={<ErrorBoundary name="Wyszukiwanie"><SearchResultsPage /></ErrorBoundary>} />

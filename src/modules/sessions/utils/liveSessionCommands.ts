@@ -59,6 +59,8 @@ export async function removeEntityFromSession(
   if (!relation) return false;
 
   await deleteRelation(db, relation.id);
+  // Entity removed from session should not stay pinned to any scene/location.
+  await removeContainment(db, entityId);
   return true;
 }
 

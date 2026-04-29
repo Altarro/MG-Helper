@@ -5,6 +5,8 @@ import { useCampaign } from '@shared/db/CampaignContext';
 import { Modal } from '@shared/components/Modal';
 import type { EntityType } from '@shared/types/entity';
 import { getEntityDetailPath, getEntityTypeLabel } from '@shared/utils/entityTypeMeta';
+import { normalizeClueTypes } from '@modules/clues/types';
+import { getCatalogLabelByValue } from '@modules/settings/campaignCatalogSettings';
 
 interface EntityPreviewModalProps {
   entityId: string;
@@ -13,7 +15,11 @@ interface EntityPreviewModalProps {
   onClose: () => void;
 }
 
-function renderTypeDetails(entityType: EntityPreviewModalProps['entityType'], data: Record<string, unknown>) {
+function renderTypeDetails(
+  entityType: EntityPreviewModalProps['entityType'],
+  data: Record<string, unknown>,
+  campaignId: string,
+) {
   if (entityType === 'thread') {
     const status = typeof data.status === 'string' ? data.status : 'active';
     const kind = typeof data.kind === 'string' ? data.kind : 'side';
@@ -29,13 +35,17 @@ function renderTypeDetails(entityType: EntityPreviewModalProps['entityType'], da
     );
   }
   if (entityType === 'clue') {
-    const clueType = typeof data.clueType === 'string' ? data.clueType : null;
+    const clueTypes = normalizeClueTypes(
+      Array.isArray(data.clueTypes) ? data.clueTypes : data.clueType,
+    );
     const discovered = data.discovered === true;
     return (
       <div className="flex flex-wrap gap-1">
-        {clueType && (
-          <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs text-cyan-700">{clueType}</span>
-        )}
+        {clueTypes.map((type) => (
+          <span key={type} className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs text-cyan-700">
+            {getCatalogLabelByValue('clueType', type, campaignId)}
+          </span>
+        ))}
         <span className={`rounded-full px-2 py-0.5 text-xs ${discovered ? 'bg-green-100 text-green-700' : 'bg-surface-100 text-surface-600'}`}>
           {discovered ? 'Odkryta' : 'Nieodkryta'}
         </span>
@@ -67,12 +77,12 @@ function renderTypeDetails(entityType: EntityPreviewModalProps['entityType'], da
 }
 
 export function EntityPreviewModal({ entityId, entityType, sessionId, onClose }: EntityPreviewModalProps) {
-  const { db } = useCampaign();
+  const { db, campaignId } = useCampaign();
   const entity = useLiveQuery(() => db.entities.get(entityId), [db, entityId]);
   if (!entity || entity.type !== entityType) return null;
 
   const detailPath = getEntityDetailPath(entity.type, entity.id);
-  const details = renderTypeDetails(entityType, entity.data as Record<string, unknown>);
+  const details = renderTypeDetails(entityType, entity.data as Record<string, unknown>, campaignId);
 
   return (
     <Modal title={entity.name} size="md" onClose={onClose}>

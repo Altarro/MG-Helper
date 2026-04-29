@@ -1,16 +1,16 @@
 import { z } from 'zod';
 import { ENTITY_TYPES, RELATION_TYPES } from '@shared/types';
-import { CLUE_TYPES } from '@modules/clues/types';
-import { FRONT_CATEGORIES, THREAT_TYPES } from '@modules/fronts/types';
-import { THREAT_STATUSES } from '@modules/fronts/types';
-import { ITEM_TYPES } from '@modules/items/types';
-import { LOCATION_TYPES } from '@modules/locations/types';
+import {
+  FRONT_CATEGORIES,
+  THREAT_STATUSES,
+} from '@modules/fronts/types';
 import {
   THREAD_KINDS,
   THREAD_PRIORITIES,
   THREAD_STATUSES,
 } from '@modules/threads/types';
 import { BACKUP_FORMAT_VERSION } from './backupContract';
+import { LIFECYCLE_STATUSES } from '@shared/types/entityLifecycle';
 import {
   CLUE_STRENGTH_OPTIONS,
   THREAD_DERIVATION_KIND_OPTIONS,
@@ -49,13 +49,14 @@ export const npcSchema = baseEntitySchema.extend({
     playStyle: z.string().max(1000).default(''),
     isPC: z.boolean().default(false),
     playerName: z.string().max(200).default(''),
+    status: z.enum(LIFECYCLE_STATUSES).optional(),
     ...imageRefFields,
   }).default({}),
 });
 
 export const locationSchema = baseEntitySchema.extend({
   data: z.object({
-    locationType: z.enum(LOCATION_TYPES).default('region'),
+    locationType: z.string().min(1).default('region'),
     danger: z.number().int().min(0).max(5).default(0),
     senses: z.object({
       see: z.string().max(300).default(''),
@@ -64,6 +65,7 @@ export const locationSchema = baseEntitySchema.extend({
       feel: z.string().max(300).default(''),
     }).default({}),
     isDraft: z.boolean().optional(),
+    status: z.enum(LIFECYCLE_STATUSES).optional(),
     ...imageRefFields,
   }).default({}),
 });
@@ -78,11 +80,13 @@ export const frontSchema = baseEntitySchema.extend({
 
 export const threatSchema = baseEntitySchema.extend({
   data: z.object({
-    threatType: z.enum(THREAT_TYPES).default('dark_entity'),
+    threatType: z.string().min(1).default('dark_entity'),
+    radarArchetype: z.string().min(1).default('living_world'),
     status: z.enum(THREAT_STATUSES).default('active'),
     impulse: z.string().max(500).default(''),
     moves: z.array(z.string().max(500)).max(20).default([]),
     trigger: z.string().max(500).default(''),
+    completionReason: z.string().max(1000).default(''),
     reasonOfDead: z.string().max(1000).default(''),
     forkThreatId: z.string().min(1).optional(),
     inheritanceNotes: z.string().max(4000).default(''),
@@ -91,12 +95,17 @@ export const threatSchema = baseEntitySchema.extend({
 
 export const clockSchema = baseEntitySchema.extend({
   data: z.object({
+    kind: z.enum(['session', 'free', 'threat']).default('free'),
     segments: z.union([
       z.literal(4), z.literal(6), z.literal(8), z.literal(10), z.literal(12),
     ]).default(6),
     filled: z.number().int().min(0).default(0),
     tickLabels: z.array(z.string().max(300)).max(12).default([]),
     isActive: z.boolean().default(true),
+    sessionClockEndMode: z.enum(['manual_stopped', 'completed']).optional(),
+    sessionClockEndedAt: z.string().min(1).optional(),
+    lastAdvanceSessionId: z.string().min(1).optional(),
+    lastAdvanceAt: z.string().min(1).optional(),
   }).default({}),
 });
 
@@ -105,6 +114,14 @@ export const sessionSchema = baseEntitySchema.extend({
     number: z.number().int().min(1).default(1),
     date: z.string().default(''),
     summary: z.string().max(5000).default(''),
+    plannedDurationMin: z.number().int().min(1).max(24 * 60).optional(),
+    scenes: z.array(
+      z.object({
+        name: z.string().max(30).default(''),
+        goal: z.string().max(1000).default(''),
+        estimatedDurationMin: z.number().int().min(5).max(24 * 60).default(15),
+      }),
+    ).max(50).default([]),
     sortOrder: z.number().int().min(0).optional(),
   }).default({}),
 });
@@ -113,24 +130,44 @@ export const factionSchema = baseEntitySchema.extend({
   data: z.object({
     goals: z.array(z.string().max(500)).max(10).default([]),
     resources: z.array(z.string().max(500)).max(20).default([]),
+    status: z.enum(LIFECYCLE_STATUSES).optional(),
     ...imageRefFields,
   }).default({}),
 });
 
 export const itemSchema = baseEntitySchema.extend({
   data: z.object({
-    itemType: z.enum(ITEM_TYPES).default('misc'),
+    itemType: z.string().min(1).default('misc'),
     properties: z.array(z.string().max(300)).max(20).default([]),
+    status: z.enum(LIFECYCLE_STATUSES).optional(),
     ...imageRefFields,
   }).default({}),
 });
 
-export const clueSchema = baseEntitySchema.extend({
-  data: z.object({
-    clueType: z.enum(CLUE_TYPES).default('event'),
+const clueDataSchema = z
+  .object({
+    clueTypes: z.array(z.string().min(1)).max(6).optional(),
+    clueType: z.string().min(1).optional(),
     hint: z.string().max(2000).default(''),
     discovered: z.boolean().default(false),
-  }).default({}),
+  })
+  .transform((data) => {
+    const fromArray = Array.isArray(data.clueTypes) ? data.clueTypes : [];
+    const normalized = [...new Set(fromArray)].filter(
+      (value) => !value.startsWith('custom:') || value.length > 'custom:'.length,
+    );
+    const fallback = data.clueType && data.clueType.length > 0 ? [data.clueType] : ['event'];
+    const clueTypes = normalized.length > 0 ? normalized : fallback;
+    return {
+      clueTypes,
+      clueType: clueTypes[0],
+      hint: data.hint,
+      discovered: data.discovered,
+    };
+  });
+
+export const clueSchema = baseEntitySchema.extend({
+  data: clueDataSchema.default({}),
 });
 
 export type ClueFormValues = z.infer<typeof clueSchema>;
@@ -240,6 +277,46 @@ export const importedRelationSchema = z.object({
   createdAt: z.string(),
 });
 
+const importedGeneratorEntrySchema = z.object({
+  id: z.string().min(1),
+  value: z.string().min(1),
+  weight: z.number().finite().positive(),
+  tags: z.array(z.string()).default([]),
+  isActive: z.boolean(),
+});
+
+const importedGeneratorTableSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  type: z.string().min(1),
+  entries: z.array(importedGeneratorEntrySchema),
+  isActive: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+const importedGeneratorPackSchema = z.object({
+  id: z.string().min(1),
+  campaignId: z.string().min(1),
+  name: z.string().min(1),
+  description: z.string(),
+  isActive: z.boolean(),
+  tables: z.array(importedGeneratorTableSchema),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+const importedGeneratorRollLogSchema = z.object({
+  id: z.string().min(1),
+  campaignId: z.string().min(1),
+  sessionId: z.string().nullable().optional(),
+  packId: z.string().min(1),
+  kind: z.string().min(1),
+  resultText: z.string().min(1),
+  sourceTableIds: z.array(z.string()),
+  createdAt: z.string(),
+});
+
 export const importedDbSchema = z.object({
   entities: z.array(importedEntitySchema),
   relations: z.array(importedRelationSchema),
@@ -259,6 +336,8 @@ export const versionedBackupSchema = z.object({
   }).nullable(),
   entities: z.array(importedEntitySchema),
   relations: z.array(importedRelationSchema),
+  generatorPacks: z.array(importedGeneratorPackSchema).default([]),
+  generatorRollLogs: z.array(importedGeneratorRollLogSchema).default([]),
 });
 
 export type VersionedBackup = z.infer<typeof versionedBackupSchema>;

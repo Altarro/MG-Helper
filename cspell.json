@@ -1,0 +1,43 @@
+{
+  "$schema": "https://raw.githubusercontent.com/streetsidesoftware/cspell/main/cspell.schema.json",
+  "version": "0.2",
+  "language": "en,pl",
+  "import": ["@cspell/dict-pl_pl"],
+  "useGitignore": true,
+  "files": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}", "*.md", "AGENTS.md", "e2e/**/*.{ts,tsx}"],
+  "ignorePaths": [
+    "node_modules",
+    "dist",
+    "build",
+    "coverage",
+    "playwright-report",
+    "test-results",
+    "blob-report",
+    "pnpm-lock.yaml",
+    "*.snap",
+    "public/mockServiceWorker.js"
+  ],
+  "dictionaryDefinitions": [
+    {
+      "name": "mg-helper-terms",
+      "path": "./cspell-words.txt",
+      "description": "Terminy gry i techniczne — utrzymywane ręcznie"
+    },
+    {
+      "name": "mg-helper-project",
+      "path": "./cspell-words-project.txt",
+      "description": "Tokeny zebrane z repozytorium (skrypt scripts/cspell-collect-words.mjs)"
+    }
+  ],
+  "dictionaries": ["pl-pl", "mg-helper-terms", "mg-helper-project"],
+  "ignoreRegExpList": [
+    "/className=\"[^\"]*\"/",
+    "/className=\\{`[^`]*`\\}/",
+    "/from ['\"][^'\"]+['\"]/",
+    "/import\\s+[^;]+;/",
+    "/https?:\\/\\/[^\\s)\"']+/g",
+    "/rgba?\\([^)]+\\)/gi",
+    "/#[0-9a-fA-F]{3,8}\\b/g",
+    "/\\{\\{[^}]+\\}\\}/g"
+  ]
+}

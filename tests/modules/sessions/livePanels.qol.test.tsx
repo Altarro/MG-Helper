@@ -8,13 +8,26 @@ import { openCampaignDb } from '@shared/db/database';
 import { addEntity, addRelation } from '@shared/db/operations';
 import { createLocationData } from '@modules/locations/types';
 import { SessionNpcPanel } from '@modules/sessions/components/SessionNpcPanel';
-import { SessionHudTray } from '@modules/sessions/components/SessionHudTray';
+import { ThreadTreePanel } from '@modules/sessions/components/ThreadTreePanel';
 import { SessionSearchPanel } from '@modules/sessions/components/SessionSearchPanel';
-import type { SpotlightState } from '@modules/sessions/types';
 import { getSessionNpcPanelData } from '@modules/sessions/utils/liveSessionData';
 
 const TEST_ID = '__session-live-panels-qol__';
 const db = openCampaignDb(TEST_ID);
+
+async function getContainsRelation(sourceId: string, targetId: string) {
+  const relations = await db.relations.toArray();
+  return relations.find(
+    (item) => item.type === 'contains' && item.sourceId === sourceId && item.targetId === targetId,
+  );
+}
+
+async function getAppearsInRelation(sourceId: string, targetId: string) {
+  const relations = await db.relations.toArray();
+  return relations.find(
+    (item) => item.type === 'appears_in' && item.sourceId === sourceId && item.targetId === targetId,
+  );
+}
 
 function renderInCampaign(ui: React.ReactElement) {
   return render(
@@ -22,17 +35,6 @@ function renderInCampaign(ui: React.ReactElement) {
       <MemoryRouter>{ui}</MemoryRouter>
     </CampaignProvider>,
   );
-}
-
-function createSpotlightState(): SpotlightState {
-  return {
-    mgActive: false,
-    mgTimer: { elapsed: 0, startedAt: null },
-    mgTotalActiveTimer: { elapsed: 0, startedAt: null },
-    players: [],
-    isPaused: false,
-    sessionStarted: false,
-  };
 }
 
 describe('Session live panels QoL regressions', () => {
@@ -91,11 +93,7 @@ describe('Session live panels QoL regressions', () => {
     await user.click(unpinButton);
 
     await waitFor(async () => {
-      const relation = await db.relations
-        .where('sourceId')
-        .equals(location.id)
-        .filter((item) => item.type === 'contains' && item.targetId === npc.id)
-        .first();
+      const relation = await getContainsRelation(location.id, npc.id);
       expect(relation).toBeUndefined();
     });
 
@@ -103,11 +101,7 @@ describe('Session live panels QoL regressions', () => {
     await user.click(pinButton);
 
     await waitFor(async () => {
-      const relation = await db.relations
-        .where('sourceId')
-        .equals(location.id)
-        .filter((item) => item.type === 'contains' && item.targetId === npc.id)
-        .first();
+      const relation = await getContainsRelation(location.id, npc.id);
       expect(relation).toBeDefined();
     });
 
@@ -128,15 +122,13 @@ describe('Session live panels QoL regressions', () => {
       throw new Error('Missing quick-added NPC entity.');
     }
 
-    const appearsRelation = await db.relations
-      .where('sourceId')
-      .equals(kira.id)
-      .filter((item) => item.type === 'appears_in' && item.targetId === session.id)
-      .first();
-    expect(appearsRelation).toBeUndefined();
+    await waitFor(async () => {
+      const appearsRelation = await getAppearsInRelation(kira.id, session.id);
+      expect(appearsRelation).toBeUndefined();
+    });
   });
 
-  it('covers add/remove and status change in SessionHudTray threads panel with aria labels', async () => {
+  it('covers thread list add/remove in ThreadTreePanel (zastąpiło SessionHudTray)', async () => {
     const user = userEvent.setup();
 
     const session = await addEntity(db, {
@@ -157,34 +149,15 @@ describe('Session live panels QoL regressions', () => {
     await addRelation(db, { type: 'appears_in', sourceId: thread.id, targetId: session.id });
 
     renderInCampaign(
-      <SessionHudTray
-        sessionId={session.id}
-        currentLocationId={null}
-        onLocationChange={() => {}}
-        spotlightState={createSpotlightState()}
-        onSpotlightChange={() => {}}
-      />,
+      <ThreadTreePanel sessionId={session.id} openCardIds={[]} onOpenCard={() => {}} onCloseCard={() => {}} />,
     );
 
-    await user.click(screen.getByRole('button', { name: 'Wątki' }));
     await screen.findByText('Czarna Nić');
-
-    expect(screen.getByRole('link', { name: 'Otwórz detal wątku: Czarna Nić' })).toBeInTheDocument();
-
-    const statusButton = screen.getByRole('button', { name: 'Oznacz jako zakończony: Czarna Nić' });
-    statusButton.focus();
-    await user.keyboard('{Enter}');
-
-    await waitFor(async () => {
-      const updated = await db.entities.get(thread.id);
-      const status = updated?.data && typeof updated.data === 'object'
-        ? (updated.data as { status?: string }).status
-        : undefined;
-      expect(status).toBe('completed');
-    });
+    const detailLink = screen.getByRole('link', { name: 'Czarna Nić' });
+    expect(detailLink).toHaveAttribute('href', `/threads/${thread.id}`);
 
     await user.click(screen.getByRole('button', { name: 'Dodaj do sesji' }));
-    await user.type(screen.getByPlaceholderText('Nazwa wątku do sesji...'), 'Nowy Trop{Enter}');
+    await user.type(screen.getByPlaceholderText('Nazwa wątku...'), 'Nowy Trop{Enter}');
 
     const removeNewThread = await screen.findByRole('button', { name: 'Usuń z sesji: Nowy Trop' });
     removeNewThread.focus();
@@ -200,12 +173,10 @@ describe('Session live panels QoL regressions', () => {
       throw new Error('Missing quick-added thread entity.');
     }
 
-    const appearsRelation = await db.relations
-      .where('sourceId')
-      .equals(newThread.id)
-      .filter((item) => item.type === 'appears_in' && item.targetId === session.id)
-      .first();
-    expect(appearsRelation).toBeUndefined();
+    await waitFor(async () => {
+      const appearsRelation = await getAppearsInRelation(newThread.id, session.id);
+      expect(appearsRelation).toBeUndefined();
+    });
   });
 
   it('covers pin/unpin and quick preview in SessionSearchPanel, including Escape close', async () => {
@@ -259,6 +230,44 @@ describe('Session live panels QoL regressions', () => {
       const raw = sessionStorage.getItem(`session-live-${session.id}`);
       const parsed = raw ? (JSON.parse(raw) as { openCardIds?: string[] }) : null;
       expect(parsed?.openCardIds ?? []).not.toContain(thread.id);
+    });
+  });
+
+  it('supports search scope session/campaign and hides event type from filters', async () => {
+    const user = userEvent.setup();
+    const session = await addEntity(db, {
+      type: 'session',
+      name: 'Sesja Scope',
+      description: '',
+      tags: [],
+      data: { number: 34, date: '2026-04-20', summary: '' },
+    });
+    const inSessionNote = await addEntity(db, {
+      type: 'note',
+      name: 'Notatka sesyjna',
+      description: '',
+      tags: [],
+      data: { content: '' },
+    });
+    await addEntity(db, {
+      type: 'note',
+      name: 'Notatka kampanijna',
+      description: '',
+      tags: [],
+      data: { content: '' },
+    });
+    await addRelation(db, { type: 'appears_in', sourceId: inSessionNote.id, targetId: session.id });
+
+    renderInCampaign(<SessionSearchPanel sessionId={session.id} />);
+
+    await screen.findByText('Notatka sesyjna');
+    expect(screen.queryByText('Notatka kampanijna')).not.toBeInTheDocument();
+    expect(screen.queryByText('Zdarzenie')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'W kampanii' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Notatka kampanijna')).toBeInTheDocument();
     });
   });
 });

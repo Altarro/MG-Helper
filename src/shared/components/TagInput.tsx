@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useTags } from '@shared/hooks/useTags';
 
@@ -13,6 +14,12 @@ export function TagInput({ value, onChange, placeholder = 'Dodaj tag...' }: TagI
   const [input, setInput] = useState('');
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputShellRef = useRef<HTMLDivElement>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<{ top: number; left: number; width: number }>({
+    top: 0,
+    left: 0,
+    width: 0,
+  });
 
   const suggestions = allTags.filter(
     (t) => t.toLowerCase().includes(input.toLowerCase()) && !value.includes(t),
@@ -52,9 +59,31 @@ export function TagInput({ value, onChange, placeholder = 'Dodaj tag...' }: TagI
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  useEffect(() => {
+    function updateDropdownPosition() {
+      const anchor = inputShellRef.current;
+      if (!anchor) return;
+      const rect = anchor.getBoundingClientRect();
+      setDropdownStyle({
+        top: rect.bottom + 8,
+        left: rect.left,
+        width: rect.width,
+      });
+    }
+
+    if (!open) return;
+    updateDropdownPosition();
+    window.addEventListener('resize', updateDropdownPosition);
+    window.addEventListener('scroll', updateDropdownPosition, true);
+    return () => {
+      window.removeEventListener('resize', updateDropdownPosition);
+      window.removeEventListener('scroll', updateDropdownPosition, true);
+    };
+  }, [open, value.length, input]);
+
   return (
     <div ref={containerRef} className="relative">
-      <div className="app-input-shell flex min-h-12 flex-wrap gap-2 rounded-2xl px-3 py-2 focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/20">
+      <div ref={inputShellRef} className="app-input-shell flex min-h-12 flex-wrap gap-2 rounded-2xl px-3 py-2 focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/20">
         {value.map((tag) => (
           <span
             key={tag}
@@ -87,30 +116,37 @@ export function TagInput({ value, onChange, placeholder = 'Dodaj tag...' }: TagI
         />
       </div>
 
-      {open && suggestions.length > 0 && (
-        <ul
-          role="listbox"
-          aria-label="Sugestie tagów"
-          className="app-panel-strong absolute z-10 mt-2 max-h-48 w-full overflow-auto rounded-2xl py-1.5"
-        >
-          {suggestions.map((tag) => (
-            <li key={tag}>
-              <button
-                type="button"
-                role="option"
-                aria-selected={false}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  addTag(tag);
-                }}
-                className="w-full px-3 py-2 text-left text-sm text-surface-800 transition-colors hover:bg-[rgba(223,225,218,0.72)]"
-              >
-                {tag}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      {open && suggestions.length > 0 &&
+        createPortal(
+          <ul
+            role="listbox"
+            aria-label="Sugestie tagów"
+            className="app-panel-strong fixed z-[80] max-h-48 overflow-auto rounded-2xl py-1.5"
+            style={{
+              top: dropdownStyle.top,
+              left: dropdownStyle.left,
+              width: dropdownStyle.width,
+            }}
+          >
+            {suggestions.map((tag) => (
+              <li key={tag}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={false}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    addTag(tag);
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm text-surface-800 transition-colors hover:bg-[rgba(223,225,218,0.72)]"
+                >
+                  {tag}
+                </button>
+              </li>
+            ))}
+          </ul>,
+          document.body,
+        )}
     </div>
   );
 }

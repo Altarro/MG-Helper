@@ -16,6 +16,7 @@ import {
   ensureEntitiesAppearInSession,
   removeEntityFromSession,
 } from '../utils/liveSessionCommands';
+import { recordSessionSignal } from '../utils/sessionSignals';
 import { toast } from 'sonner';
 
 interface ThreadTreePanelProps {
@@ -408,6 +409,19 @@ export function ThreadTreePanel({
       }
 
       await Promise.all(operations);
+      await recordSessionSignal(db, {
+        sessionId,
+        signalType: 'thread_created_in_session',
+        entityType: thread.type,
+        entityId: thread.id,
+        entityName: thread.name,
+        metadata: {
+          mode: addingMode ?? 'root',
+          parentThreadId: addingMode === 'child' ? parentThreadId : null,
+          kind: newKind,
+          derivationKind: addingMode === 'child' ? newDerivationKind : null,
+        },
+      });
       toast.success(`Wątek „${trimmed}” dodany`);
       resetAddForm();
     } catch {
@@ -450,10 +464,10 @@ export function ThreadTreePanel({
     return (
       <li
         key={thread.id}
-        className={`group flex items-center gap-2 px-3 py-2.5 transition-colors hover:bg-[rgba(229,231,223,0.98)] ${
+        className={`group flex items-center gap-1.5 px-2 py-2.5 transition-colors hover:bg-[rgba(229,231,223,0.98)] ${
           isCompleted ? 'opacity-70' : ''
         }`}
-        style={{ paddingLeft: `${12 + depth * 14}px` }}
+        style={{ paddingLeft: `${8 + depth * 12}px` }}
       >
         {hasChildren ? (
           <button
@@ -474,12 +488,10 @@ export function ThreadTreePanel({
               isCollapsed ? `Rozwiń podwątki: ${thread.name}` : `Zwiń podwątki: ${thread.name}`
             }
           >
-            <ChevronRight
-              className={`h-3.5 w-3.5 transition-transform ${!isCollapsed ? 'rotate-90' : ''}`}
-            />
+            <ChevronRight className={`h-3 w-3 transition-transform ${!isCollapsed ? 'rotate-90' : ''}`} />
           </button>
         ) : (
-          <span aria-hidden="true" className="h-4 w-4 shrink-0" />
+          <span aria-hidden="true" className="h-3 w-3 shrink-0" />
         )}
 
         <button
@@ -499,7 +511,7 @@ export function ThreadTreePanel({
         <Link
           to={`/threads/${thread.id}`}
           state={{ returnToSessionLive: sessionId }}
-          className="text-surface-800 hover:text-primary-700 min-w-0 flex-1 truncate text-sm font-medium"
+          className="text-surface-800 hover:text-primary-700 min-w-0 flex-1 truncate pr-1 text-sm font-medium"
         >
           {thread.name}
         </Link>
@@ -544,7 +556,7 @@ export function ThreadTreePanel({
   }
 
   return (
-    <div className="app-panel flex h-full flex-col overflow-hidden rounded-[1.45rem]">
+    <div className="app-panel flex flex-col overflow-hidden rounded-[1.45rem]">
       <div className="border-b border-[rgba(86,93,94,0.12)] bg-[rgba(223,225,218,0.56)] px-4 py-4">
         <div className="mb-2 flex items-center gap-2">
           <span className="text-surface-500 text-xs font-semibold tracking-[0.18em] uppercase">
@@ -689,7 +701,7 @@ export function ThreadTreePanel({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto">
+      <div>
         {!groupedRows.hasAnyRows ? (
           <div className="p-4">
             <div className="app-input-shell text-surface-500 rounded-[1.25rem] border-dashed px-4 py-5 text-center text-sm">
@@ -699,46 +711,42 @@ export function ThreadTreePanel({
         ) : (
           <div className="space-y-3 p-3">
             {groupedRows.threatSections.map((section) => (
-              <section
-                key={section.threat.id}
-                className="app-panel overflow-hidden rounded-[1.25rem]"
-              >
-                <div className="flex items-center justify-between border-b border-[rgba(210,166,67,0.22)] bg-[rgba(242,196,88,0.12)] px-3 py-2.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCollapsedGroups((prev) => {
-                        const next = new Set(prev);
-                        const key = `threat:${section.threat.id}`;
-                        if (next.has(key)) next.delete(key);
-                        else next.add(key);
-                        return next;
-                      });
-                    }}
-                    className="flex min-w-0 items-center gap-1.5"
-                  >
-                    <ChevronRight
-                      className={`text-surface-400 h-3.5 w-3.5 transition-transform ${
-                        collapsedGroups.has(`threat:${section.threat.id}`) ? '' : 'rotate-90'
-                      }`}
-                    />
-                    <span className="text-surface-600 text-xs font-semibold tracking-[0.16em] uppercase">
-                      Zagrożenie
-                    </span>
-                  </button>
-
-                  <div className="ml-2 flex min-w-0 items-center gap-2">
-                    <Link
-                      to={`/threats/${section.threat.id}`}
-                      state={{ returnToSessionLive: sessionId }}
-                      className="truncate text-xs font-semibold tracking-[0.16em] text-orange-700 uppercase hover:underline"
+              <section key={section.threat.id} className="app-panel overflow-hidden rounded-[1.25rem]">
+                <div className="border-b border-[rgba(210,166,67,0.22)] bg-[rgba(242,196,88,0.12)] px-3 py-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCollapsedGroups((prev) => {
+                          const next = new Set(prev);
+                          const key = `threat:${section.threat.id}`;
+                          if (next.has(key)) next.delete(key);
+                          else next.add(key);
+                          return next;
+                        });
+                      }}
+                      className="flex min-w-0 items-center gap-1.5"
                     >
-                      {section.threat.name}
-                    </Link>
+                      <ChevronRight
+                        className={`text-surface-400 h-3.5 w-3.5 transition-transform ${
+                          collapsedGroups.has(`threat:${section.threat.id}`) ? '' : 'rotate-90'
+                        }`}
+                      />
+                      <span className="text-surface-600 text-xs font-semibold tracking-[0.14em] uppercase">
+                        Zagrożenie
+                      </span>
+                    </button>
                     <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] font-semibold text-orange-700 ring-1 ring-orange-200 ring-inset">
                       {section.rows.length}
                     </span>
                   </div>
+                  <Link
+                    to={`/threats/${section.threat.id}`}
+                    state={{ returnToSessionLive: sessionId }}
+                    className="mt-1 block truncate pl-5 text-sm font-semibold text-orange-700 hover:underline"
+                  >
+                    {section.threat.name}
+                  </Link>
                 </div>
 
                 {!collapsedGroups.has(`threat:${section.threat.id}`) && (

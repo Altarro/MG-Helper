@@ -1,17 +1,26 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link, useLocation } from 'react-router';
-import { ArrowLeft, Edit2, Trash2, X, Package } from 'lucide-react';
+import { ArrowLeft, Edit2, Trash2, X, Package, OctagonAlert, Plus } from 'lucide-react';
 import { useItemById } from '../hooks/useItemById';
 import { ItemForm } from './ItemForm';
+import { DetailNotFound } from '@shared/components/DetailNotFound';
+import { DetailScrollTopFab } from '@shared/components/DetailScrollTopFab';
+import { DetailTocBar } from '@shared/components/DetailTocBar';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { EntityDetailPortrait } from '@shared/components/EntityDetailPortrait';
+import { DetailSection } from '@shared/components/DetailSection';
 import { NotesList } from '@modules/notes/components/NotesList';
+import { RelationList } from '@shared/components/RelationList';
+import { RelationPicker } from '@shared/components/RelationPicker';
 import { deleteEntity, updateEntity } from '@shared/db/operations';
 import { deleteAsset } from '@shared/db/assets';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
 import { ITEM_TYPE_LABELS } from '../types';
+import { getItemLifecycleStatus } from '@shared/utils/entityData';
+import { withLifecycleStatus } from '@shared/types/entityLifecycle';
+import { recordEntityMutationInSession } from '@modules/sessions/utils/sessionSignals';
 import type { ItemFormValues } from './ItemForm';
 
 export function ItemDetail() {
@@ -24,6 +33,8 @@ export function ItemDetail() {
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmDestroy, setConfirmDestroy] = useState(false);
+  const [showRelationPicker, setShowRelationPicker] = useState(false);
   const returnToSessionLive =
     typeof location.state === 'object' &&
     location.state !== null &&
@@ -34,19 +45,27 @@ export function ItemDetail() {
   const backPath = returnToSessionLive ? `/sessions/${returnToSessionLive}/live` : '/items';
   const backLabel = returnToSessionLive ? 'Sesja na żywo' : 'Przedmioty';
 
+  const itemTocItems = useMemo(() => {
+    if (!item || isEditing) return [];
+    const hasContext = Boolean(item.description) || item.data.properties.length > 0;
+    const items: { id: string; label: string }[] = [];
+    if (hasContext) items.push({ id: 'item-detail-kontekst', label: 'Kontekst przedmiotu' });
+    items.push({ id: 'item-detail-relacje', label: 'Relacje' });
+    items.push({ id: 'item-detail-notatki', label: 'Notatki MG' });
+    items.push({ id: 'item-detail-tagi', label: 'Tagi' });
+    return items;
+  }, [item, isEditing]);
+
   if (item === undefined) return <LoadingSpinner />;
   if (!item) {
     return (
-      <div className="mx-auto flex max-w-5xl flex-col gap-4 p-6">
-        <p className="text-surface-500">Przedmiot nie znaleziony.</p>
-        <Link
-          to="/items"
-          className="text-surface-500 hover:text-primary-700 flex w-fit items-center gap-1.5 text-sm transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Przedmioty
-        </Link>
-      </div>
+      <DetailNotFound
+        icon={Package}
+        title="Przedmiot nie znaleziony"
+        description="Mógł zostać usunięty albo odnośnik jest nieaktualny."
+        to="/items"
+        linkLabel="Wróć do listy przedmiotów"
+      />
     );
   }
 
@@ -59,12 +78,15 @@ export function ItemDetail() {
         name: values.name,
         description: values.description,
         tags: values.tags,
-        data: {
-          itemType: values.itemType,
-          properties: values.properties,
-          imageId: nextImageId,
-          imageAlt: values.imageAlt ?? '',
-        },
+        data: withLifecycleStatus(
+          {
+            itemType: values.itemType,
+            properties: values.properties,
+            imageId: nextImageId,
+            imageAlt: values.imageAlt ?? '',
+          },
+          getItemLifecycleStatus({ data: item!.data }),
+        ) as unknown as Record<string, unknown>,
       });
       if (previousImageId && previousImageId !== nextImageId) {
         await deleteAsset(db, previousImageId).catch(() => undefined);
@@ -88,6 +110,35 @@ export function ItemDetail() {
     }
   }
 
+  async function applyItemDestroyed(nextDestroyed: boolean) {
+    try {
+      await updateEntity(db, item!.id, {
+        data: withLifecycleStatus(item!.data, nextDestroyed ? 'completed' : 'active') as unknown as Record<string, unknown>,
+      });
+      if (returnToSessionLive) {
+        await recordEntityMutationInSession(db, {
+          sessionId: returnToSessionLive,
+          entityType: 'item',
+          entityId: item!.id,
+          entityName: item!.name,
+          changedFields: ['status'],
+          source: 'item-detail/toggle-destroyed',
+          extra: { status: nextDestroyed ? 'completed' : 'active' },
+        });
+      }
+      toast.success(
+        nextDestroyed
+          ? 'Przedmiot oznaczony jako zniszczony lub zgubiony (karta zostaje w kampanii)'
+          : 'Przedmiot przywrócony',
+      );
+      setConfirmDestroy(false);
+    } catch {
+      toast.error('Nie udało się zapisać stanu przedmiotu');
+    }
+  }
+
+  const itemIsDestroyed = getItemLifecycleStatus({ data: item!.data }) === 'completed';
+
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
       <Link
@@ -97,7 +148,11 @@ export function ItemDetail() {
         <ArrowLeft className="h-4 w-4" /> {backLabel}
       </Link>
 
-      <div className="app-panel-strong flex flex-col gap-5 rounded-[1.9rem] border border-white/40 px-6 py-6 shadow-[0_28px_60px_rgba(18,45,66,0.12)] lg:flex-row lg:items-start lg:justify-between lg:px-7">
+      <div
+        className={`app-panel-strong flex flex-col gap-5 rounded-[1.9rem] border border-white/40 px-6 py-6 shadow-[0_28px_60px_rgba(18,45,66,0.12)] lg:flex-row lg:items-start lg:justify-between lg:px-7 ${
+          itemIsDestroyed ? 'opacity-90' : ''
+        }`}
+      >
         <div className="flex items-center gap-4">
           {!isEditing && item.data.imageId ? (
             <EntityDetailPortrait
@@ -111,9 +166,17 @@ export function ItemDetail() {
             </div>
           )}
           <div>
-            <h1 className="text-surface-900 text-3xl font-semibold tracking-[-0.03em]">
-              {item.name}
-            </h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-surface-900 text-3xl font-semibold tracking-[-0.03em]">
+                {item.name}
+              </h1>
+              {itemIsDestroyed && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-danger-300/60 bg-danger-50 px-2.5 py-1 text-xs font-semibold text-danger-800">
+                  <OctagonAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  Zniszczony / zgubiony
+                </span>
+              )}
+            </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <span className="app-danger-pill rounded-full px-3 py-1 text-xs font-semibold">
                 {ITEM_TYPE_LABELS[item.data.itemType]}
@@ -136,6 +199,25 @@ export function ItemDetail() {
               </>
             )}
           </button>
+          {!isEditing &&
+            (itemIsDestroyed ? (
+              <button
+                type="button"
+                onClick={() => void applyItemDestroyed(false)}
+                className="app-button-secondary inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
+              >
+                Przywróć przedmiot
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmDestroy(true)}
+                className="app-button-secondary inline-flex items-center gap-1.5 rounded-full border border-danger-200 px-4 py-2 text-sm font-medium text-danger-800 hover:bg-danger-50"
+              >
+                <OctagonAlert className="h-4 w-4" />
+                Zniszcz / zgub
+              </button>
+            ))}
           <button
             onClick={() => setConfirmDelete(true)}
             className="app-button-danger inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium"
@@ -144,6 +226,8 @@ export function ItemDetail() {
           </button>
         </div>
       </div>
+
+      {!isEditing && <DetailTocBar ariaLabel="Sekcje karty przedmiotu" items={itemTocItems} className="mb-2" />}
 
       {isEditing && (
         <div className="app-panel rounded-[1.75rem] p-4 shadow-[0_20px_40px_rgba(18,45,66,0.08)] lg:p-6">
@@ -164,44 +248,79 @@ export function ItemDetail() {
         </div>
       )}
 
-      {!isEditing && item.data.properties.length > 0 && (
-        <div className="app-panel rounded-[1.6rem] p-5 lg:p-6">
-          <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
-            Właściwości
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {item.data.properties.map((p, i) => (
-              <span key={i} className="app-pill-muted rounded-full px-3 py-1 text-sm font-medium">
-                {p}
-              </span>
-            ))}
-          </div>
-        </div>
+      {!isEditing && (item.description || item.data.properties.length > 0) && (
+        <DetailSection
+          sectionId="item-detail-kontekst"
+          title="Kontekst przedmiotu"
+          tone="accent"
+          contentClassName="flex flex-col gap-4"
+        >
+          {item.description && (
+            <div className="rounded-[1.25rem] border border-[rgba(86,150,176,0.34)] bg-[linear-gradient(180deg,rgba(171,219,235,0.5)_0%,rgba(116,188,214,0.28)_100%)] px-5 py-4 shadow-[0_12px_24px_rgba(35,95,120,0.1),inset_0_1px_0_rgba(245,252,255,0.45)]">
+              <h2 className="mb-2 text-xs font-semibold tracking-wide text-[rgb(40,95,116)] uppercase">Opis</h2>
+              <div
+                className="prose prose-sm text-surface-800 max-w-none"
+                dangerouslySetInnerHTML={{ __html: item.description }}
+              />
+            </div>
+          )}
+          {item.data.properties.length > 0 && (
+            <div className="app-panel rounded-[1.4rem] p-5">
+              <h3 className="text-surface-500 mb-3 text-xs font-semibold tracking-wide uppercase">Właściwości</h3>
+              <div className="flex flex-wrap gap-2">
+                {item.data.properties.map((p, i) => (
+                  <span key={i} className="app-pill-muted rounded-full px-3 py-1 text-sm font-medium">
+                    {p}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </DetailSection>
       )}
 
-      {!isEditing && item.description && (
-        <div className="app-panel rounded-[1.6rem] p-5 lg:p-6">
-          <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-wide uppercase">
-            Opis
-          </h2>
-          <div
-            className="prose prose-sm text-surface-700 max-w-none"
-            dangerouslySetInnerHTML={{ __html: item.description }}
-          />
-        </div>
+      {!isEditing && (
+        <DetailSection
+          sectionId="item-detail-relacje"
+          title="Relacje"
+          action={
+            <button
+              type="button"
+              onClick={() => setShowRelationPicker(true)}
+              className="app-button-secondary flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Dodaj
+            </button>
+          }
+        >
+          <RelationList entityId={item.id} />
+        </DetailSection>
       )}
 
-      {!isEditing && item.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {item.tags.map((t) => (
-            <span key={t} className="app-danger-pill rounded-full px-2.5 py-1 text-xs font-medium">
-              {t}
-            </span>
-          ))}
-        </div>
+      {!isEditing && (
+        <DetailSection sectionId="item-detail-notatki" title="Notatki MG">
+          <NotesList entityId={id!} showTitle={false} emptyMessage="Brak notatek podpiętych do tego przedmiotu." />
+        </DetailSection>
       )}
 
-      <NotesList entityId={id!} />
+      {!isEditing && (
+        <DetailSection sectionId="item-detail-tagi" title="Tagi">
+          {item.tags.length === 0 ? (
+            <p className="text-surface-500 text-sm">Brak tagów — dodaj je w trybie edycji przedmiotu.</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {item.tags.map((t) => (
+                <span key={t} className="app-pill-muted rounded-full px-2.5 py-1 text-xs font-medium">
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
+        </DetailSection>
+      )}
+
+      <DetailScrollTopFab enabled={!isEditing && itemTocItems.length > 0} />
 
       <ConfirmDialog
         open={confirmDelete}
@@ -210,6 +329,20 @@ export function ItemDetail() {
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}
       />
+
+      <ConfirmDialog
+        open={confirmDestroy}
+        title="Zniszcz lub zgub (bez usuwania)"
+        description={`Przedmiot „${item.name}” zostanie oznaczony jako niedostępny fabularnie. Karta zostanie w kampanii.`}
+        confirmLabel="Oznacz"
+        destructive={false}
+        onConfirm={() => void applyItemDestroyed(true)}
+        onCancel={() => setConfirmDestroy(false)}
+      />
+
+      {showRelationPicker && (
+        <RelationPicker sourceId={item.id} sourceType="item" onClose={() => setShowRelationPicker(false)} />
+      )}
     </div>
   );
 }

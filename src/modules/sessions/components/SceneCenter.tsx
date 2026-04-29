@@ -430,7 +430,7 @@ export const SceneCenter = forwardRef<SceneCenterHandle, SceneCenterProps>(funct
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       {/* Location breadcrumb + quick add row */}
-      <div className="flex items-center gap-3 border-b border-surface-200 bg-white/90 px-4 py-2 backdrop-blur-sm">
+      <div className="flex items-center gap-3 border-b border-[rgba(86,93,94,0.12)] bg-[rgba(248,248,245,0.9)] px-4 py-2.5 backdrop-blur-sm">
         <LocationBreadcrumb
           sessionId={sessionId}
           currentLocationId={currentLocationId}
@@ -439,7 +439,7 @@ export const SceneCenter = forwardRef<SceneCenterHandle, SceneCenterProps>(funct
         <button
           type="button"
           onClick={onOpenLocationPicker}
-          className="ml-auto inline-flex items-center gap-1 rounded-md bg-green-50 px-2 py-1 text-xs text-green-700 transition-colors hover:bg-green-100"
+          className="ml-auto inline-flex items-center gap-1 rounded-full border border-[rgba(96,169,122,0.28)] bg-[rgba(196,232,204,0.32)] px-2.5 py-1 text-xs text-green-700 transition-colors hover:bg-[rgba(196,232,204,0.45)]"
         >
           <MapPin className="h-3 w-3" />
           <span className="font-medium">Lokacja kampanii:</span>
@@ -458,7 +458,7 @@ export const SceneCenter = forwardRef<SceneCenterHandle, SceneCenterProps>(funct
             {showNameScene ? (
               <form
                 onSubmit={(e) => { e.preventDefault(); void handleNameScene(); }}
-                className="flex items-center gap-2 rounded-xl border border-primary-200 bg-white p-3 shadow-sm"
+                className="app-panel flex items-center gap-2 rounded-2xl border border-[rgba(33,71,102,0.16)] bg-[rgba(248,248,245,0.96)] p-3.5"
               >
                 <span className="shrink-0 text-xs font-semibold text-primary-800">
                   Nazwij tę lokację ({draftSceneNpcs.length}{' '}
@@ -469,25 +469,25 @@ export const SceneCenter = forwardRef<SceneCenterHandle, SceneCenterProps>(funct
                   value={sceneName}
                   onChange={(e) => setSceneName(e.target.value)}
                   placeholder="Nazwa lokacji/sceny…"
-                  className="flex-1 rounded border border-primary-300 px-2 py-1 text-sm focus:border-primary-500 focus:outline-none"
+                  className="app-input flex-1 rounded-xl px-2.5 py-1.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                 />
                 <button
                   type="submit"
                   disabled={!sceneName.trim() || sceneNameSaving}
-                  className="rounded-md bg-primary-600 px-3 py-1 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+                  className="app-button-primary rounded-xl px-3 py-1.5 text-xs font-medium disabled:opacity-50"
                 >
                   {sceneNameSaving ? '…' : 'Zapisz'}
                 </button>
                 <button
                   type="button"
                   onClick={handleSkipNaming}
-                  className="rounded-md border border-surface-300 px-3 py-1 text-xs text-surface-700 hover:bg-surface-50"
+                  className="app-button-secondary rounded-xl px-3 py-1.5 text-xs font-medium text-surface-700"
                 >
                   Anuluj
                 </button>
               </form>
             ) : (
-              <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2 text-xs text-amber-800 shadow-sm">
+              <div className="flex items-center gap-2 rounded-2xl border border-[rgba(212,172,72,0.5)] bg-[rgba(247,235,193,0.58)] px-3.5 py-2.5 text-xs text-[#7f5a11] shadow-sm">
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
                 <span>
                   {draftSceneNpcs.length === 1
@@ -497,9 +497,9 @@ export const SceneCenter = forwardRef<SceneCenterHandle, SceneCenterProps>(funct
                 <button
                   type="button"
                   onClick={() => setShowNameScene(true)}
-                  className="ml-1 font-medium underline hover:no-underline"
+                  className="app-button-secondary ml-1 rounded-full px-3 py-1 text-[11px] font-semibold text-[#7f5a11]"
                 >
-                  Nazwij lokację →
+                  Nazwij lokację
                 </button>
               </div>
             )}

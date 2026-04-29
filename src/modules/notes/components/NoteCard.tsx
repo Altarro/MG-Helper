@@ -17,7 +17,7 @@ export function NoteCard({ note }: NoteCardProps) {
   return (
     <Link
       to={`/notes/${note.id}`}
-      className="app-card group flex min-h-[176px] flex-col gap-4 rounded-[1.35rem] p-5 transition-all hover:-translate-y-0.5"
+      className="app-card group flex min-h-[176px] flex-col gap-4 rounded-[1.35rem] p-5 transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/35"
     >
       <div className="flex items-start gap-3">
         <div className="rounded-[1rem] border border-amber-200/70 bg-amber-100/70 p-2.5 text-amber-800 shadow-[0_10px_22px_rgba(210,166,67,0.14)]">
