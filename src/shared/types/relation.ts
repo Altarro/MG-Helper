@@ -12,7 +12,7 @@ export const RELATION_TYPES = [
   'related_to',    // generic bidirectional
   'clues_for',     // clue → threat|front
   'derives_from',  // thread → thread (parent-child thread hierarchy)
-  'affects',       // thread <-> threat narrative pressure
+  'affects',       // thread <-> threat; dwukierunkowe powiązanie fabularne, nie stały kierunek wpływu
 ] as const;
 
 export type RelationType = (typeof RELATION_TYPES)[number];

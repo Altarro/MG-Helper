@@ -23,7 +23,7 @@ export const THREAD_KINDS = ['main', 'side', 'personal'] as const;
 export type ThreadKind = (typeof THREAD_KINDS)[number];
 
 export const THREAD_KIND_LABELS: Record<ThreadKind, string> = {
-  main: 'Glowny',
+  main: 'Główny',
   side: 'Poboczny',
   personal: 'Osobisty',
 };

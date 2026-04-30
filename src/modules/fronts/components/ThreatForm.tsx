@@ -70,6 +70,14 @@ const threatFormSchema = z
         path: ['clockTickWhen'],
       });
     }
+
+    if (data.status === 'completed' && data.completionReason.trim().length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Podaj powód zakończenia zagrożenia',
+        path: ['completionReason'],
+      });
+    }
   });
 
 type ThreatFormRaw = z.infer<typeof threatFormSchema>;
@@ -354,7 +362,7 @@ export function ThreatForm({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-surface-800">Opis / Notatki</label>
+        <label className="text-sm font-medium text-surface-800">Opis</label>
         <Controller
           name="description"
           control={control}
@@ -627,8 +635,19 @@ export function ThreatForm({
             {...register('completionReason')}
             rows={3}
             className="app-input rounded-2xl px-3.5 py-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-            placeholder="Opcjonalnie: co sprawiło, że to zagrożenie zniknęło albo utraciło znaczenie?"
+            placeholder={
+              selectedStatus === 'completed'
+                ? 'Co sprawiło, że to zagrożenie zniknęło albo utraciło znaczenie?'
+                : 'Opcjonalnie: co sprawiło, że to zagrożenie zniknęło albo utraciło znaczenie?'
+            }
+            aria-invalid={errors.completionReason ? 'true' : 'false'}
+            aria-describedby={errors.completionReason ? 'threat-completion-reason-error' : undefined}
           />
+          {errors.completionReason && (
+            <p id="threat-completion-reason-error" role="alert" className="text-xs text-red-600">
+              {errors.completionReason.message}
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           {THREAT_DEATH_REASON_PRESETS.map((preset) => (

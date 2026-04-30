@@ -1,3 +1,5 @@
+// ARCHIWALNE: aktywny widok listy jest eksportowany z ClueListPage.tsx.
+// Ten komponent zostaje tylko jako odniesienie do starszej wersji UI; nie podpinaj go w routerze.
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Plus, Search, Zap } from 'lucide-react';

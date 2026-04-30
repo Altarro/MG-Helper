@@ -25,7 +25,7 @@ const RELATION_TYPE_LABELS: Record<string, string> = {
   related_to: 'powiązany z',
   clues_for: 'wskazówka do',
   derives_from: 'wynika z',
-  affects: 'wpływa na',
+  affects: 'powiązanie fabularne',
 };
 
 /** Strips simple HTML tags to get plain text */

@@ -162,7 +162,7 @@ export function FrontForm({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-surface-800 text-sm font-medium">Opis / Notatki</label>
+        <label className="text-surface-800 text-sm font-medium">Opis</label>
         <Controller
           name="description"
           control={control}

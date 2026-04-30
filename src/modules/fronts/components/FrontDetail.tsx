@@ -41,7 +41,6 @@ import { isClock } from '@modules/clocks/types';
 import { toast } from 'sonner';
 import {
   FRONT_CATEGORY_LABELS,
-  THREAT_TYPE_LABELS,
   inferThreatCompletionOutcomeFromClock,
   getThreatRadarArchetype,
   normalizeThreatPillars,
@@ -49,6 +48,7 @@ import {
 import { getThreatStatus, getClockData } from '@shared/utils/entityData';
 import { normalizeThreatLifecycle } from '@shared/utils/threatLifecycle';
 import { formatPolishThreatCount } from '@shared/utils/polishPlural';
+import { getCatalogLabelByValue } from '@modules/settings/campaignCatalogSettings';
 import type { FrontFormValues } from './FrontForm';
 import type { ThreatFormValues } from './ThreatForm';
 
@@ -58,7 +58,7 @@ interface ThreatDetailPanelProps {
 }
 
 function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
-  const { db } = useCampaign();
+  const { db, campaignId } = useCampaign();
   const { threat } = useThreatById(threatId);
   const { threat: forkSourceThreat } = useThreatById(threat?.data.forkThreatId);
   const [isEditing, setIsEditing] = useState(false);
@@ -283,7 +283,7 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
                   Rodzaj
                 </h3>
                 <p className="text-surface-700 text-sm">
-                  {THREAT_TYPE_LABELS[threat.data.threatType]}
+                  {getCatalogLabelByValue('threatType', threat.data.threatType, campaignId)}
                 </p>
               </div>
 
@@ -490,7 +490,7 @@ export function FrontDetail() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { db } = useCampaign();
+  const { db, campaignId } = useCampaign();
   const { front } = useFrontById(id);
   const threats = useThreats(id);
   const allThreats = useThreats();
@@ -570,7 +570,7 @@ export function FrontDetail() {
 
       return (
         threatEntity.name.toLowerCase().includes(normalizedQuery) ||
-        (THREAT_TYPE_LABELS[threatEntity.data.threatType] ?? threatEntity.data.threatType)
+        getCatalogLabelByValue('threatType', threatEntity.data.threatType, campaignId)
           .toLowerCase()
           .includes(normalizedQuery) ||
         threatEntity.data.impulse.toLowerCase().includes(normalizedQuery) ||
@@ -1152,7 +1152,7 @@ export function FrontDetail() {
                                 )}
                               </div>
                               <span className="app-danger-pill shrink-0 rounded-full px-2.5 py-1 text-xs font-medium">
-                                {THREAT_TYPE_LABELS[threatEntity.data.threatType]}
+                                {getCatalogLabelByValue('threatType', threatEntity.data.threatType, campaignId)}
                               </span>
                             </div>
 

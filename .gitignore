@@ -4,6 +4,7 @@ dist
 .DS_Store
 *.tsbuildinfo
 backup/
+artifacts/
 playwright-report/
 test-results/
 blob-report/

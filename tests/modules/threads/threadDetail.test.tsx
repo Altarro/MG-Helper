@@ -125,7 +125,7 @@ describe('ThreadDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: /\+ Konsekwencja/i }));
 
     const dialog = await screen.findByRole('dialog', { name: /Podepnij istniejący wątek pochodny/i });
-    expect(within(dialog).getByText(/Wątki juz podpiete do tego miejsca questline sa zablokowane/i)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Wątki już podpięte do tego miejsca questline są zablokowane/i)).toBeInTheDocument();
 
     const linkedThreadButton = await within(dialog).findByRole('button', { name: /Dziennik Strazniczki/i });
     expect(linkedThreadButton).toBeDisabled();
@@ -147,8 +147,81 @@ describe('ThreadDetail', () => {
       expect(screen.getByText('Wolny Trop')).toBeInTheDocument();
     });
 
-    expect(screen.getByText(/Ten wątek nie ma jeszcze jawnie podpietych zagrożeń/i)).toBeInTheDocument();
+    expect(screen.getByText(/Ten wątek działa niezależnie od zagrożeń/i)).toBeInTheDocument();
     expect(screen.getByText(/Ten wątek nie wynika jeszcze z innego wątku/i)).toBeInTheDocument();
     expect(screen.getByText(/Ten wątek nie ma jeszcze odnóg ani następstw/i)).toBeInTheDocument();
+  });
+
+  it('requires resolution before marking a thread as completed', async () => {
+    const thread = await addEntity(db, {
+      type: 'thread',
+      name: 'Sprawa Latarni',
+      description: '',
+      tags: [],
+      data: { color: '#22c55e', status: 'active', kind: 'side', resolution: '' },
+    });
+
+    renderThreadDetail(thread.id);
+
+    await waitFor(() => {
+      expect(screen.getByText('Sprawa Latarni')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Oznacz jako zakończony/i }));
+
+    const dialog = await screen.findByRole('dialog', { name: /Rozwiązanie \/ efekt/i });
+    expect(within(dialog).getByRole('button', { name: /Wątek został domknięty przy stole/i })).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: /Bohaterowie rozwiązali sprawę/i })).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: /Wątek wygasł/i })).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /Zakończ wątek/i }));
+
+    expect(
+      await within(dialog).findByText(/Podaj rozwiązanie lub efekt zakończenia wątku/i),
+    ).toBeInTheDocument();
+
+    fireEvent.change(within(dialog).getByPlaceholderText(/Co stało się po zakończeniu wątku/i), {
+      target: { value: 'Latarnia wróciła pod opiekę gildii.' },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: /Zakończ wątek/i }));
+
+    await waitFor(async () => {
+      const stored = await db.entities.get(thread.id);
+      expect(stored?.data).toMatchObject({
+        status: 'completed',
+        resolution: 'Latarnia wróciła pod opiekę gildii.',
+      });
+    });
+  });
+
+  it('clears resolution when a completed thread is reactivated', async () => {
+    const thread = await addEntity(db, {
+      type: 'thread',
+      name: 'Sprawa Archiwum',
+      description: '',
+      tags: [],
+      data: {
+        color: '#22c55e',
+        status: 'completed',
+        kind: 'side',
+        resolution: 'Archiwum zostało odzyskane.',
+      },
+    });
+
+    renderThreadDetail(thread.id);
+
+    await waitFor(() => {
+      expect(screen.getByText('Sprawa Archiwum')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Reaktywuj wątek/i }));
+
+    await waitFor(async () => {
+      const stored = await db.entities.get(thread.id);
+      expect(stored?.data).toMatchObject({
+        status: 'active',
+        resolution: '',
+      });
+    });
   });
 });

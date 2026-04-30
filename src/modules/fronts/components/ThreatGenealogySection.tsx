@@ -1,7 +1,8 @@
 import { AlertTriangle, ArrowDownRight, GitBranch, Sparkles } from 'lucide-react';
 import { Link } from 'react-router';
 import { getThreatStatus } from '@shared/utils/entityData';
-import { THREAT_TYPE_LABELS } from '../types';
+import { useCampaign } from '@shared/db/CampaignContext';
+import { getCatalogLabelByValue } from '@modules/settings/campaignCatalogSettings';
 import type { Threat } from '../types';
 
 interface ThreatGenealogySectionProps {
@@ -68,10 +69,12 @@ function ThreatGenealogyNode({
   node,
   depth,
   returnToSessionLive,
+  campaignId,
 }: {
   node: ThreatNode;
   depth: number;
   returnToSessionLive?: string | null;
+  campaignId: string;
 }) {
   const summary = summarizeThreat(node.threat);
   const hasChildren = node.children.length > 0;
@@ -120,7 +123,7 @@ function ThreatGenealogyNode({
                 </span>
 
                 <span className="app-danger-pill inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold">
-                  {THREAT_TYPE_LABELS[node.threat.data.threatType]}
+                  {getCatalogLabelByValue('threatType', node.threat.data.threatType, campaignId)}
                 </span>
 
                 <span className="app-pill-muted inline-flex rounded-full px-2.5 py-1 text-[11px] font-medium">
@@ -160,6 +163,7 @@ function ThreatGenealogyNode({
               node={child}
               depth={depth + 1}
               returnToSessionLive={returnToSessionLive}
+              campaignId={campaignId}
             />
           ))}
         </ul>
@@ -219,6 +223,7 @@ export function ThreatGenealogySection({
   threats,
   returnToSessionLive,
 }: ThreatGenealogySectionProps) {
+  const { campaignId } = useCampaign();
   const { chainRoots, standaloneThreats, chainedIds } = buildThreatForest(threats);
   const totalChains = chainRoots.length;
   const totalChainedThreats = chainedIds.size;
@@ -268,6 +273,7 @@ export function ThreatGenealogySection({
                 node={node}
                 depth={0}
                 returnToSessionLive={returnToSessionLive}
+                campaignId={campaignId}
               />
             </ul>
           </section>

@@ -42,7 +42,7 @@ export const THREAD_DERIVATION_KIND_OPTIONS = [
 export type ThreadDerivationKindOption = (typeof THREAD_DERIVATION_KIND_OPTIONS)[number];
 
 export const THREAD_DERIVATION_KIND_LABELS: Record<ThreadDerivationKindOption, string> = {
-  followup: 'Nastepstwo',
+  followup: 'Następstwo',
   alternative: 'Alternatywa',
   branch: 'Odnoga',
   consequence: 'Konsekwencja',
@@ -54,10 +54,10 @@ export const THREAD_DERIVATION_KIND_LABELS: Record<ThreadDerivationKindOption, s
  * while target is the parent / origin thread.
  */
 export const THREAD_DERIVATION_KIND_DESCRIPTIONS: Record<ThreadDerivationKindOption, string> = {
-  followup: 'Source thread is a direct continuation of the parent thread.',
-  alternative: 'Source thread is an alternative path or variant of the parent thread.',
-  branch: 'Source thread is a side branch that grows out of the parent thread.',
-  consequence: 'Source thread exists because the parent thread caused or triggered it.',
+  followup: 'Wybrany wątek jest bezpośrednią kontynuacją wątku nadrzędnego.',
+  alternative: 'Wybrany wątek jest alternatywną ścieżką albo wariantem wątku nadrzędnego.',
+  branch: 'Wybrany wątek jest odnogą wyrastającą z wątku nadrzędnego.',
+  consequence: 'Wybrany wątek istnieje jako skutek decyzji lub zdarzeń z wątku nadrzędnego.',
 };
 
 /**
@@ -69,16 +69,16 @@ export const THREAD_DERIVATION_DIRECTION_LABELS: Record<
   { outgoing: string; incoming: string }
 > = {
   followup: {
-    outgoing: 'Nastepstwo po',
+    outgoing: 'Następstwo po',
     incoming: 'Prowadzi do następstwa',
   },
   alternative: {
     outgoing: 'Alternatywa dla',
-    incoming: 'Ma alternatywe',
+    incoming: 'Ma alternatywę',
   },
   branch: {
     outgoing: 'Odnoga od',
-    incoming: 'Ma odnoge',
+    incoming: 'Ma odnogę',
   },
   consequence: {
     outgoing: 'Konsekwencja po',

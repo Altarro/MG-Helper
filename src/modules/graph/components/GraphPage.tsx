@@ -73,7 +73,14 @@ export function GraphPage() {
           <GitFork className="h-3.5 w-3.5" aria-hidden />
           Za kulisami
         </div>
-        <h1 className="text-primary-900 text-3xl font-semibold tracking-[-0.04em] lg:text-[2.2rem]">Graf relacji</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-primary-900 text-3xl font-semibold tracking-[-0.04em] lg:text-[2.2rem]">
+            Graf relacji
+          </h1>
+          <span className="rounded-full border border-orange-300/70 bg-orange-100 px-3 py-1 text-[11px] font-semibold tracking-[0.12em] text-orange-800 uppercase">
+            W budowie
+          </span>
+        </div>
         <p className="text-surface-700 mt-2 max-w-[62ch] text-sm leading-7 lg:text-[0.98rem]">
           Wizualna mapa powiązań encji — przydaje się do audytu fabuły i porządków między sesjami.
         </p>

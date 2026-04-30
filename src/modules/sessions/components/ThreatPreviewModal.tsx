@@ -5,8 +5,9 @@ import { useCampaign } from '@shared/db/CampaignContext';
 import { Modal } from '@shared/components/Modal';
 import { ClockVisual } from '@modules/clocks/components/ClockVisual';
 import { isClock } from '@modules/clocks/types';
-import { THREAT_TYPE_LABELS, isThreat } from '@modules/fronts/types';
+import { isThreat } from '@modules/fronts/types';
 import { getClockData, getThreatStatus } from '@shared/utils/entityData';
+import { getCatalogLabelByValue } from '@modules/settings/campaignCatalogSettings';
 
 interface ThreatPreviewModalProps {
   threatId: string;
@@ -15,7 +16,7 @@ interface ThreatPreviewModalProps {
 }
 
 export function ThreatPreviewModal({ threatId, sessionId, onClose }: ThreatPreviewModalProps) {
-  const { db } = useCampaign();
+  const { db, campaignId } = useCampaign();
 
   const data = useLiveQuery(async () => {
     const threat = await db.entities.get(threatId);
@@ -46,7 +47,7 @@ export function ThreatPreviewModal({ threatId, sessionId, onClose }: ThreatPrevi
   const { threat, clock, frontId } = data;
   const threatData = threat.data;
   const clockData = clock ? getClockData(clock) : null;
-  const typeLabel = THREAT_TYPE_LABELS[threatData.threatType];
+  const typeLabel = getCatalogLabelByValue('threatType', threatData.threatType, campaignId);
   const status = getThreatStatus(threat);
 
   return (

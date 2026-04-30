@@ -15,18 +15,15 @@ import type { Clue } from '../types';
 import type { ClueFormValues } from './ClueForm';
 import { formatPolishClueCount } from '@shared/utils/polishPlural';
 import { getEntityDetailPath, getEntityTypeLabel } from '@shared/utils/entityTypeMeta';
+import { getActiveCatalogOptions } from '@modules/settings/campaignCatalogSettings';
 import type { Entity } from '@shared/types/entity';
 
-type FilterTab = 'all' | 'discovered' | 'hidden' | 'character' | 'location' | 'event' | 'item';
+type FilterTab = string;
 
-const TAB_LABELS: Record<FilterTab, string> = {
+const STATUS_TAB_LABELS: Record<'all' | 'discovered' | 'hidden', string> = {
   all: 'Wszystkie',
   discovered: 'Odkryte',
   hidden: 'Nieodkryte',
-  character: 'Postacie',
-  location: 'Lokacje',
-  event: 'Zdarzenia',
-  item: 'Przedmioty',
 };
 
 const STORY_TARGET_ORDER: Record<string, number> = {
@@ -39,13 +36,13 @@ function clueMatchesTabValue(clue: Clue, tabValue: FilterTab): boolean {
   if (tabValue === 'all') return true;
   if (tabValue === 'discovered') return clue.data.discovered;
   if (tabValue === 'hidden') return !clue.data.discovered;
-  return clue.data.clueTypes.includes(tabValue);
+  return clue.data.clueTypes.some((type) => type === tabValue);
 }
 
 export function ClueList() {
   const clues = useClues();
   const navigate = useNavigate();
-  const { db } = useCampaign();
+  const { db, campaignId } = useCampaign();
 
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<FilterTab>('all');
@@ -81,16 +78,27 @@ export function ClueList() {
     );
   });
   const filtered = queryMatchedClues?.filter((clue) => clueMatchesTabValue(clue, tab));
+  const tabOptions = useMemo(
+    () => [
+      ...Object.entries(STATUS_TAB_LABELS).map(([value, label]) => ({ value, label })),
+      ...getActiveCatalogOptions(campaignId, 'clueType').map((option) => ({
+        value: option.id,
+        label: option.label,
+      })),
+    ],
+    [campaignId],
+  );
+
   const tabStats = useMemo(() => {
     const list = queryMatchedClues ?? [];
-    return (Object.keys(TAB_LABELS) as FilterTab[]).reduce(
+    return tabOptions.reduce(
       (acc, tabValue) => {
-        acc[tabValue] = list.filter((c) => clueMatchesTabValue(c, tabValue)).length;
+        acc[tabValue.value] = list.filter((c) => clueMatchesTabValue(c, tabValue.value)).length;
         return acc;
       },
       {} as Record<FilterTab, number>,
     );
-  }, [queryMatchedClues]);
+  }, [queryMatchedClues, tabOptions]);
   const viewModeCount = filtered?.length ?? 0;
 
   const groupedSections = useMemo(() => {
@@ -222,22 +230,6 @@ export function ClueList() {
           </div>
         </div>
 
-        <div className="mt-6 flex flex-wrap gap-2.5">
-          {(Object.entries(TAB_LABELS) as [FilterTab, string][]).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setTab(value)}
-              className={`rounded-full px-4 py-2 text-xs font-semibold tracking-[0.01em] transition-all ${
-                tab === value ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
-              }`}
-            >
-              <span>{label}</span>
-              <FilterCountBadge selected={tab === value} count={tabStats[value]} />
-            </button>
-          ))}
-        </div>
-
         <div className="relative mt-6">
           <Search className="text-surface-500 pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2" />
           <input
@@ -257,6 +249,22 @@ export function ClueList() {
               <X className="h-4 w-4" />
             </button>
           )}
+        </div>
+
+        <div className="mt-6 flex flex-wrap gap-2.5">
+          {tabOptions.map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setTab(value)}
+              className={`rounded-full px-4 py-2 text-xs font-semibold tracking-[0.01em] transition-all ${
+                tab === value ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+              }`}
+            >
+              <span>{label}</span>
+              <FilterCountBadge selected={tab === value} count={tabStats[value] ?? 0} />
+            </button>
+          ))}
         </div>
       </section>
 

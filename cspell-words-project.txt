@@ -146,6 +146,7 @@ statkowego
 szramem
 Thornwood
 thrd
+EPERM
 ticków
 ticku
 topbar

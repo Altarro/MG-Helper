@@ -33,7 +33,6 @@ import { isClock } from '@modules/clocks/types';
 import { markClockLinkedToThreat, markClockUnlinkedFromThreat } from '@modules/clocks/threatClockLink';
 import { toast } from 'sonner';
 import {
-  THREAT_TYPE_LABELS,
   THREAT_DEATH_REASON_PRESETS,
   THREAT_COMPLETION_OUTCOME_LABELS,
   inferThreatCompletionOutcomeFromClock,
@@ -44,13 +43,14 @@ import type { ThreatCompletionOutcome } from '../types';
 import { getThreatStatus, getClockData } from '@shared/utils/entityData';
 import { normalizeThreatLifecycle } from '@shared/utils/threatLifecycle';
 import { buildDerivedThreatDefaults, getCompletedClockLabels } from '../utils/derivedThreat';
+import { getCatalogLabelByValue } from '@modules/settings/campaignCatalogSettings';
 import type { ThreatFormValues } from './ThreatForm';
 
 export function ThreatDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { db } = useCampaign();
+  const { db, campaignId } = useCampaign();
   const { threat } = useThreatById(id);
   const { threat: forkSourceThreat } = useThreatById(threat?.data.forkThreatId);
 
@@ -486,7 +486,7 @@ export function ThreatDetail() {
             </h1>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="app-danger-pill inline-flex rounded-full px-3 py-1 text-xs font-semibold">
-                {THREAT_TYPE_LABELS[currentThreat.data.threatType]}
+                {getCatalogLabelByValue('threatType', currentThreat.data.threatType, campaignId)}
               </span>
               <span
                 className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${

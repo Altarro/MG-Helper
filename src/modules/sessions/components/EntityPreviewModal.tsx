@@ -55,7 +55,9 @@ function renderTypeDetails(
   if (entityType === 'item') {
     const itemType = typeof data.itemType === 'string' ? data.itemType : null;
     return itemType ? (
-      <span className="w-fit rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">{itemType}</span>
+      <span className="w-fit rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+        {getCatalogLabelByValue('itemType', itemType, campaignId)}
+      </span>
     ) : null;
   }
   if (entityType === 'clock') {

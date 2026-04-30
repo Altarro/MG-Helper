@@ -27,7 +27,7 @@ const RELATION_TYPE_LABELS: Record<RelationType, string> = {
   related_to: 'powiązany',
   clues_for: 'wskazówka do',
   derives_from: 'wynika z',
-  affects: 'wplywa na',
+  affects: 'powiązanie fabularne',
 };
 
 interface GraphControlsProps {

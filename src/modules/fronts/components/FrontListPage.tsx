@@ -67,6 +67,7 @@ export function FrontList() {
         tags: values.tags,
         data: {
           category: values.category,
+          goal: values.goal,
           stakes: values.stakes,
         },
       });

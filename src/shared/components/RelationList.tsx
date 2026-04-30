@@ -27,7 +27,7 @@ const RELATION_LABELS: Record<RelationType, string> = {
   related_to: 'Powiązany z',
   clues_for: 'Wskazówka do',
   derives_from: 'Wynika z',
-  affects: 'Wplywa na',
+  affects: 'Powiązanie fabularne',
 };
 
 interface RelationRowProps {
@@ -131,7 +131,7 @@ function RelationRow({
           }`}
           onClick={handleOpenTarget}
           disabled={!canOpen}
-          title={canOpen ? `Otwórz detail: ${other.name}` : other.name}
+          title={canOpen ? `Otwórz detal: ${other.name}` : other.name}
           aria-label={`Przejdź do: ${other.name}`}
         >
           {other.name}

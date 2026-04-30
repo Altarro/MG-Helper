@@ -36,6 +36,10 @@ const NODE_COLORS: Record<EntityType, string> = {
   event: '#84cc16',    // lime
 };
 
+function getGraphRelationLabel(type: RelationType): string {
+  return type === 'affects' ? 'powiązanie fabularne' : type;
+}
+
 interface GraphViewProps {
   visibleTypes: Set<EntityType>;
   visibleRelations: Set<RelationType>;
@@ -120,7 +124,7 @@ export function GraphView({ visibleTypes, visibleRelations }: GraphViewProps) {
         linkColor={() => '#cbd5e1'}
         linkDirectionalArrowLength={4}
         linkDirectionalArrowRelPos={1}
-        linkLabel={(link) => (link as GraphLink).type}
+        linkLabel={(link) => getGraphRelationLabel((link as GraphLink).type)}
         cooldownTicks={100}
         enableNodeDrag
       />

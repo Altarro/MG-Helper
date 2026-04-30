@@ -43,6 +43,8 @@ export const RELATION_RULES: Record<RelationType, AllowedRelation | 'any'> = {
     sourceTypes: ['thread'],
     targetTypes: ['thread'],
   },
+  // Zasada domenowa: `affects` jest dwukierunkowym powiązaniem wątek <-> zagrożenie.
+  // Copy UI powinno mówić o powiązaniu, bez narzucania stałego kierunku wpływu.
   affects: {
     sourceTypes: ['thread', 'threat'],
     targetTypes: ['thread', 'threat'],

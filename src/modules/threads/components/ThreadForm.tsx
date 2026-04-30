@@ -12,16 +12,32 @@ import {
   THREAD_STATUS_LABELS,
 } from '../types';
 
-const threadFormSchema = z.object({
-  name: z.string().min(1, 'Nazwa jest wymagana').max(200),
-  description: z.string().max(100_000).default(''),
-  tags: z.array(z.string().min(1).max(50)).max(50).default([]),
-  color: z.string().default('#6366f1'),
-  status: z.enum(['active', 'completed']).default('active'),
-  kind: z.enum(THREAD_KINDS).default('side'),
-  priority: z.enum(THREAD_PRIORITIES).default('normal'),
-  resolution: z.string().max(2000).default(''),
-});
+const THREAD_RESOLUTION_PRESETS = [
+  'Wątek został domknięty przy stole.',
+  'Bohaterowie rozwiązali sprawę i ponoszą jej konsekwencje.',
+  'Wątek wygasł, ale zostawił otwarte następstwa.',
+];
+
+const threadFormSchema = z
+  .object({
+    name: z.string().min(1, 'Nazwa jest wymagana').max(200),
+    description: z.string().max(100_000).default(''),
+    tags: z.array(z.string().min(1).max(50)).max(50).default([]),
+    color: z.string().default('#6366f1'),
+    status: z.enum(['active', 'completed']).default('active'),
+    kind: z.enum(THREAD_KINDS).default('side'),
+    priority: z.enum(THREAD_PRIORITIES).default('normal'),
+    resolution: z.string().max(2000).default(''),
+  })
+  .superRefine((data, ctx) => {
+    if (data.status === 'completed' && data.resolution.trim().length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Podaj rozwiązanie lub efekt zakończenia wątku',
+        path: ['resolution'],
+      });
+    }
+  });
 
 export type ThreadFormValues = z.infer<typeof threadFormSchema>;
 
@@ -38,6 +54,7 @@ export function ThreadForm({ defaultValues, onSubmit, onCancel, isSaving }: Thre
     handleSubmit,
     control,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<ThreadFormValues>({
     resolver: zodResolver(threadFormSchema),
@@ -55,7 +72,9 @@ export function ThreadForm({ defaultValues, onSubmit, onCancel, isSaving }: Thre
   });
 
   const selectedColor = watch('color');
+  const selectedStatus = watch('status');
   const nameErrorId = errors.name ? 'thread-name-error' : undefined;
+  const resolutionErrorId = errors.resolution ? 'thread-resolution-error' : undefined;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
@@ -189,13 +208,34 @@ export function ThreadForm({ defaultValues, onSubmit, onCancel, isSaving }: Thre
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-surface-800">Rozwiazanie / efekt</label>
+        <label className="text-sm font-medium text-surface-800">Rozwiązanie / efekt</label>
         <textarea
           {...register('resolution')}
           rows={3}
           className="app-input w-full rounded-2xl px-3.5 py-3 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           placeholder="Jak ten wątek zakończył się albo do czego powinien doprowadzić?"
+          aria-invalid={errors.resolution ? 'true' : 'false'}
+          aria-describedby={resolutionErrorId}
         />
+        {selectedStatus === 'completed' && (
+          <div className="flex flex-wrap gap-2">
+            {THREAD_RESOLUTION_PRESETS.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => setValue('resolution', preset, { shouldDirty: true, shouldValidate: true })}
+                className="app-pill-muted rounded-full px-3 py-1.5 text-xs transition-colors"
+              >
+                {preset}
+              </button>
+            ))}
+          </div>
+        )}
+        {errors.resolution && (
+          <p id="thread-resolution-error" role="alert" className="text-xs text-red-600">
+            {errors.resolution.message}
+          </p>
+        )}
       </div>
 
       {/* Description */}

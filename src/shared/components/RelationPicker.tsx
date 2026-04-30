@@ -28,7 +28,7 @@ const RELATION_LABELS: Record<RelationType, string> = {
   related_to: 'Powiązany z',
   clues_for: 'Wskazówka do',
   derives_from: 'Wynika z',
-  affects: 'Wplywa na',
+  affects: 'Powiązanie fabularne',
 };
 
 interface RelationPickerProps {
@@ -145,7 +145,7 @@ export function RelationPicker({
 
   return (
     <Modal
-      title="Dodaj relacje"
+      title="Dodaj relację"
       size="md"
       onClose={onClose}
       initialFocusRef={searchRef}

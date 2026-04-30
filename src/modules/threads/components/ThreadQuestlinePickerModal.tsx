@@ -73,7 +73,7 @@ export function ThreadQuestlinePickerModal({
       toast.success(
         mode === 'child'
           ? 'Wątek pochodny podpięty do questline'
-          : 'ątek nadrzędny podpięty do questline',
+          : 'Wątek nadrzędny podpięty do questline',
       );
       onClose();
     } catch (error) {
@@ -97,7 +97,7 @@ export function ThreadQuestlinePickerModal({
     >
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-surface-600">Typ powiazania questline</label>
+          <label className="text-xs font-medium text-surface-600">Typ powiązania questline</label>
           <select
             value={relationKind}
             onChange={(e) =>
@@ -119,8 +119,8 @@ export function ThreadQuestlinePickerModal({
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-surface-600">Wybierz wątek</label>
           <p className="text-xs text-surface-500">
-            Wątki juz podpiete do tego miejsca questline sa zablokowane. Aby zmienic typ relacji,
-            usun stary link na detalu wątku i dodaj go ponownie.
+            Wątki już podpięte do tego miejsca questline są zablokowane. Aby zmienić typ relacji,
+            usuń stary link na detalu wątku i dodaj go ponownie.
           </p>
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-surface-400" />
@@ -136,7 +136,7 @@ export function ThreadQuestlinePickerModal({
 
         <ul className="max-h-72 overflow-auto flex flex-col gap-1">
           {filteredThreads.length === 0 && (
-            <li className="py-2 text-center text-xs text-surface-400">Brak pasujacych wątkow</li>
+            <li className="py-2 text-center text-xs text-surface-400">Brak pasujących wątków</li>
           )}
           {filteredThreads.map((thread) => {
             const existingKind = existingQuestlineLinkMap.get(thread.id);

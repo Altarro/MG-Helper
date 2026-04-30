@@ -1,4 +1,3 @@
-import { useRef } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -7,8 +6,6 @@ import { RichTextEditor } from '@shared/components/RichTextEditor';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { getActiveCatalogOptions } from '@modules/settings/campaignCatalogSettings';
 import { normalizeClueTypes } from '../types';
-
-const SINGLE_CLICK_DELAY_MS = 250;
 
 const clueFormSchema = z.object({
   name: z.string().min(1, 'Nazwa jest wymagana').max(200),
@@ -30,7 +27,6 @@ interface ClueFormProps {
 
 export function ClueForm({ defaultValues, onSubmit, onCancel, isSaving }: ClueFormProps) {
   const { campaignId } = useCampaign();
-  const singleClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clueTypeOptions = getActiveCatalogOptions(campaignId, 'clueType');
   const defaultClueTypes: ClueFormValues['clueTypes'] = defaultValues?.clueTypes
     ? normalizeClueTypes(defaultValues.clueTypes)
@@ -90,18 +86,7 @@ export function ClueForm({ defaultValues, onSubmit, onCancel, isSaving }: ClueFo
                     key={value}
                     type="button"
                     onClick={() => {
-                      if (singleClickTimerRef.current) clearTimeout(singleClickTimerRef.current);
-                      singleClickTimerRef.current = setTimeout(() => {
-                        field.onChange([value as ClueFormValues['clueTypes'][number]]);
-                      }, SINGLE_CLICK_DELAY_MS);
-                    }}
-                    onDoubleClick={() => {
-                      if (singleClickTimerRef.current) {
-                        clearTimeout(singleClickTimerRef.current);
-                        singleClickTimerRef.current = null;
-                      }
                       if (isSelected) {
-                        // Keep at least one selected type.
                         const next = field.value.filter((item) => item !== value);
                         if (next.length > 0) field.onChange(next);
                         return;
@@ -122,9 +107,6 @@ export function ClueForm({ defaultValues, onSubmit, onCancel, isSaving }: ClueFo
             </div>
           )}
         />
-        <p className="text-surface-500 text-xs">
-          Klik: pojedynczy typ. Dwuklik: dodaj/usuń typ (multi). Musi zostać co najmniej jeden.
-        </p>
         {errors.clueTypes && (
           <p role="alert" className="text-xs text-red-600">{errors.clueTypes.message}</p>
         )}
@@ -169,7 +151,7 @@ export function ClueForm({ defaultValues, onSubmit, onCancel, isSaving }: ClueFo
 
       {/* Description (rich text) */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-surface-800">Opis (opcjonalny)</label>
+        <label className="text-sm font-medium text-surface-800">Opis</label>
         <Controller
           control={control}
           name="description"

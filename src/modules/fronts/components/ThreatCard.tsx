@@ -5,7 +5,8 @@ import { useCampaign } from '@shared/db/CampaignContext';
 import { isClock } from '@modules/clocks/types';
 import { CardScrollBlock } from '@shared/components/CardScrollBlock';
 import { getThreatStatus } from '@shared/utils/entityData';
-import { THREAT_TYPE_LABELS, normalizeThreatPillars } from '../types';
+import { getCatalogLabelByValue } from '@modules/settings/campaignCatalogSettings';
+import { normalizeThreatPillars } from '../types';
 import type { Threat } from '../types';
 import { ThreatClockListStylePanel } from './ThreatClockListStylePanel';
 
@@ -15,9 +16,9 @@ interface ThreatCardProps {
 }
 
 export const ThreatCard = memo(function ThreatCard({ threat, onClick }: ThreatCardProps) {
-  const { db } = useCampaign();
+  const { db, campaignId } = useCampaign();
   const { name, data, tags } = threat;
-  const typeLabel = THREAT_TYPE_LABELS[data.threatType];
+  const typeLabel = getCatalogLabelByValue('threatType', data.threatType, campaignId);
   const pillars = useMemo(() => normalizeThreatPillars(data.pillars), [data.pillars]);
   const hasMoves = data.moves.length > 0;
   const hasPillars = pillars.length > 0;

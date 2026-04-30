@@ -1,3 +1,5 @@
+// ARCHIWALNE: aktywny widok listy jest eksportowany z ThreadListPage.tsx.
+// Ten komponent zostaje tylko jako odniesienie do starszej wersji UI; nie podpinaj go w routerze.
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Plus, Milestone, Search, X } from 'lucide-react';

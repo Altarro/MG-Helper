@@ -7,6 +7,7 @@ import { ThreadForm } from './ThreadForm';
 import { DetailNotFound } from '@shared/components/DetailNotFound';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
+import { Modal } from '@shared/components/Modal';
 import { RelationList } from '@shared/components/RelationList';
 import { NotesList } from '@modules/notes/components/NotesList';
 import { RelationPicker } from '@shared/components/RelationPicker';
@@ -30,6 +31,12 @@ import {
 import { formatDate } from '@shared/utils/date';
 import type { ThreadFormValues } from './ThreadForm';
 import { ThreadQuestlinePickerModal } from './ThreadQuestlinePickerModal';
+
+const THREAD_RESOLUTION_PRESETS = [
+  'Wątek został domknięty przy stole.',
+  'Bohaterowie rozwiązali sprawę i ponoszą jej konsekwencje.',
+  'Wątek wygasł, ale zostawił otwarte następstwa.',
+];
 
 export function ThreadDetail() {
   const { id } = useParams<{ id: string }>();
@@ -59,6 +66,10 @@ export function ThreadDetail() {
   const [showRelPicker, setShowRelPicker] = useState(false);
   const [showThreatPicker, setShowThreatPicker] = useState(false);
   const [showContextLinksPicker, setShowContextLinksPicker] = useState(false);
+  const [completionModalOpen, setCompletionModalOpen] = useState(false);
+  const [completionSaving, setCompletionSaving] = useState(false);
+  const [completionResolution, setCompletionResolution] = useState('');
+  const [completionResolutionError, setCompletionResolutionError] = useState('');
   const [unlinkConfirm, setUnlinkConfirm] = useState<{
     relationId: string;
     title: string;
@@ -87,8 +98,8 @@ export function ThreadDetail() {
     if (!thread || isEditing) return [];
     return [
       { id: 'thread-detail-kontekst', label: 'Kontekst' },
-      { id: 'thread-detail-sesje', label: 'Sesje' },
       { id: 'thread-detail-questline', label: 'Questline' },
+      { id: 'thread-detail-sesje', label: 'Sesje' },
       { id: 'thread-detail-powiazania', label: 'Powiązania' },
       { id: 'thread-detail-notatki', label: 'Notatki MG' },
       { id: 'thread-detail-tagi', label: 'Tagi' },
@@ -145,15 +156,51 @@ export function ThreadDetail() {
     }
   }
 
-  async function handleToggleStatus() {
-    const newStatus = thread!.data.status === 'active' ? 'completed' : 'active';
+  function handleToggleStatus() {
+    if (thread!.data.status === 'active') {
+      setCompletionResolution(thread!.data.resolution ?? '');
+      setCompletionResolutionError('');
+      setCompletionModalOpen(true);
+      return;
+    }
+
+    void handleReactivateThread();
+  }
+
+  async function handleReactivateThread() {
     try {
       await updateEntity(db, thread!.id, {
-        data: { ...thread!.data, status: newStatus },
+        data: { ...thread!.data, status: 'active', resolution: '' },
       });
-      toast.success(newStatus === 'completed' ? 'Wątek zakończony' : 'Wątek reaktywowany');
+      toast.success('Wątek reaktywowany');
     } catch {
       toast.error('Nie udało się zaktualizować statusu');
+    }
+  }
+
+  async function handleConfirmCompleteThread() {
+    const trimmed = completionResolution.trim();
+    if (trimmed.length === 0) {
+      setCompletionResolutionError('Podaj rozwiązanie lub efekt zakończenia wątku');
+      toast.error('Podaj rozwiązanie / efekt');
+      return;
+    }
+
+    setCompletionSaving(true);
+    try {
+      await updateEntity(db, thread!.id, {
+        data: {
+          ...thread!.data,
+          status: 'completed',
+          resolution: trimmed,
+        },
+      });
+      toast.success('Wątek zakończony');
+      setCompletionModalOpen(false);
+    } catch {
+      toast.error('Nie udało się zakończyć wątku');
+    } finally {
+      setCompletionSaving(false);
     }
   }
 
@@ -292,7 +339,7 @@ export function ThreadDetail() {
             {thread.data.resolution && (
               <div>
                 <h2 className="text-surface-500 mb-1 text-xs font-semibold tracking-wide uppercase">
-                  Rozwiazanie / efekt
+                  Rozwiązanie / efekt
                 </h2>
                 <p className="app-danger-card text-surface-800 rounded-[1.3rem] px-4 py-3 text-sm whitespace-pre-wrap">
                   {thread.data.resolution}
@@ -322,7 +369,7 @@ export function ThreadDetail() {
                 <NarrativeLinksSection
                   title="Powiązane zagrożenia"
                   items={relatedThreats}
-                  emptyMessage="Ten wątek nie ma jeszcze podpiętych zagrożeń."
+                  emptyMessage="Ten wątek działa niezależnie od zagrożeń."
                   actionLabel="+ Dodaj zagrożenie"
                   onAction={() => setShowThreatPicker(true)}
                   onRemoveItem={(item) =>
@@ -347,46 +394,6 @@ export function ThreadDetail() {
                     description: `Czy na pewno chcesz usunąć wskazówkę „${item.clue.name}" z tego widoku wątku?`,
                   })}
               />
-            </div>
-          </DetailSection>
-
-          <DetailSection
-            sectionId="thread-detail-sesje"
-            title="Sesje i historia"
-            contentClassName="flex flex-col gap-5"
-          >
-            <div>
-              {sessions === undefined ? (
-                <LoadingSpinner />
-              ) : sessions.length === 0 ? (
-                <p className="text-surface-400 text-sm">
-                  Brak powiązanych sesji. Dodaj relację <em>pojawia się w</em> poniżej.
-                </p>
-              ) : (
-                <ul className="flex flex-col gap-2">
-                  {sessions.map((session) => (
-                    <li key={session.id}>
-                      <Link
-                        to={`/sessions/${session.id}`}
-                        className="app-input-shell hover:border-primary-300 flex items-center gap-2 rounded-[1.2rem] px-4 py-3 text-sm transition-colors hover:bg-[rgba(229,231,223,0.98)]"
-                      >
-                        <BookOpen className="text-surface-400 h-3.5 w-3.5 shrink-0" />
-                        <span className="text-surface-700 font-medium">
-                          Sesja #{session.data.number}
-                        </span>
-                        {session.data.date && (
-                          <span className="text-surface-400 ml-auto text-xs">
-                            {formatDate(session.data.date)}
-                          </span>
-                        )}
-                        {session.name && session.name !== `Sesja ${session.data.number}` && (
-                          <span className="text-surface-500 truncate text-xs">{session.name}</span>
-                        )}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </div>
           </DetailSection>
 
@@ -478,6 +485,46 @@ export function ThreadDetail() {
           </DetailSection>
 
           <DetailSection
+            sectionId="thread-detail-sesje"
+            title="Sesje i historia"
+            contentClassName="flex flex-col gap-5"
+          >
+            <div>
+              {sessions === undefined ? (
+                <LoadingSpinner />
+              ) : sessions.length === 0 ? (
+                <p className="text-surface-400 text-sm">
+                  Brak powiązanych sesji. Dodaj relację <em>pojawia się w</em> poniżej.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {sessions.map((session) => (
+                    <li key={session.id}>
+                      <Link
+                        to={`/sessions/${session.id}`}
+                        className="app-input-shell hover:border-primary-300 flex items-center gap-2 rounded-[1.2rem] px-4 py-3 text-sm transition-colors hover:bg-[rgba(229,231,223,0.98)]"
+                      >
+                        <BookOpen className="text-surface-400 h-3.5 w-3.5 shrink-0" />
+                        <span className="text-surface-700 font-medium">
+                          Sesja #{session.data.number}
+                        </span>
+                        {session.data.date && (
+                          <span className="text-surface-400 ml-auto text-xs">
+                            {formatDate(session.data.date)}
+                          </span>
+                        )}
+                        {session.name && session.name !== `Sesja ${session.data.number}` && (
+                          <span className="text-surface-500 truncate text-xs">{session.name}</span>
+                        )}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </DetailSection>
+
+          <DetailSection
             sectionId="thread-detail-powiazania"
             title="Powiązania świata"
             action={
@@ -502,7 +549,7 @@ export function ThreadDetail() {
             <NotesList
               entityId={thread.id}
               showTitle={false}
-              emptyMessage="Brak notatek podpietych do tego wątku."
+              emptyMessage="Brak notatek podpiętych do tego wątku."
             />
           </DetailSection>
 
@@ -563,6 +610,62 @@ export function ThreadDetail() {
           initialKind={questlinePicker.initialKind}
           onClose={() => setQuestlinePicker(null)}
         />
+      )}
+
+      {completionModalOpen && (
+        <Modal title="Rozwiązanie / efekt" onClose={() => setCompletionModalOpen(false)}>
+          <p className="text-surface-600 text-sm">
+            Opisz, jak wątek został zamknięty albo jaki efekt zostawia w kampanii.
+          </p>
+          <textarea
+            value={completionResolution}
+            onChange={(event) => {
+              setCompletionResolution(event.target.value);
+              if (completionResolutionError) setCompletionResolutionError('');
+            }}
+            rows={4}
+            className="app-input text-surface-800 mt-3 w-full rounded-[1.2rem] px-4 py-3 text-sm"
+            placeholder="Co stało się po zakończeniu wątku?"
+            aria-invalid={completionResolutionError ? 'true' : 'false'}
+          />
+          {completionResolutionError && (
+            <p className="mt-2 text-xs text-red-600">{completionResolutionError}</p>
+          )}
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {THREAD_RESOLUTION_PRESETS.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => {
+                  setCompletionResolution(preset);
+                  if (completionResolutionError) setCompletionResolutionError('');
+                }}
+                className="app-button-secondary rounded-full px-3 py-1.5 text-xs font-medium"
+              >
+                {preset}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-6 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setCompletionModalOpen(false)}
+              className="app-button-secondary rounded-full px-4 py-2 text-sm font-medium"
+            >
+              Anuluj
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleConfirmCompleteThread()}
+              disabled={completionSaving}
+              className="app-button-primary rounded-full px-4 py-2 text-sm font-medium disabled:opacity-50"
+            >
+              {completionSaving ? 'Zapisywanie...' : 'Zakończ wątek'}
+            </button>
+          </div>
+        </Modal>
       )}
 
       <ConfirmDialog

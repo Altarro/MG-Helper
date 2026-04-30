@@ -30,6 +30,18 @@
 - Enable artifacts only with explicit opt-in (`PW_E2E_ARTIFACTS=1`) and only for short-lived troubleshooting.
 - Never commit or upload Playwright artifacts (`playwright-report/`, `test-results/`, `blob-report/`).
 
+## Visual screenshots
+
+- Screenshots are allowed only on an explicit user request in the current chat. Do not take screenshots for routine review, testing, or curiosity.
+- Use screenshots only for visual audits or debugging UI that cannot be judged reliably from code.
+- Prefer an isolated browser context and a temporary/audit campaign. Do not reuse the user's real browser profile or personal campaign data.
+- The app uses Vite with `base: '/MG-Helper/'` and `HashRouter`; use URLs like `http://127.0.0.1:<port>/MG-Helper/#/fronts`.
+- If the sandbox blocks Vite/esbuild or Chromium with `EPERM`, request escalation instead of working around it silently.
+- For a clean audit, dismiss onboarding and set a fresh backup timestamp/session flag in the isolated context so backup reminder toasts do not cover the UI.
+- Save screenshots under a short-lived local folder such as `artifacts/visual-audit-<topic>/`; do not commit these files.
+- After collecting screenshots, stop the dev server/browser process and report where the artifacts were written.
+- Keep Playwright `trace`, `video`, and failure screenshots disabled unless the user explicitly asks for those artifacts.
+
 ## Dependency and licensing policy
 
 - Before adding any new dependency/tool, prefer permissive OSS licenses (MIT/BSD/Apache-2.0/ISC).
