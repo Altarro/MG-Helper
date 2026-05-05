@@ -660,6 +660,7 @@ export function SessionCleanup() {
   const { db } = useCampaign();
   const { session } = useSessionById(id);
   const [confirmCompleteWithOpen, setConfirmCompleteWithOpen] = useState(false);
+  const [sessionSummaryDraft, setSessionSummaryDraft] = useState('');
   const [acknowledgedFreeThreadIds, setAcknowledgedFreeThreadIds] = useState<Set<string>>(
     new Set(),
   );
@@ -687,6 +688,7 @@ export function SessionCleanup() {
       const parsed = JSON.parse(raw) as {
         acknowledgedFreeThreadIds?: unknown;
         noteDecisions?: unknown;
+        sessionSummaryDraft?: unknown;
         savedAt?: unknown;
       };
       const ids = Array.isArray(parsed.acknowledgedFreeThreadIds)
@@ -704,10 +706,22 @@ export function SessionCleanup() {
         setNoteDecisions(Object.fromEntries(entries));
       }
       if (typeof parsed.savedAt === 'string') setDraftSavedAt(parsed.savedAt);
+      if (typeof parsed.sessionSummaryDraft === 'string') {
+        setSessionSummaryDraft(parsed.sessionSummaryDraft);
+      }
     } catch {
       // ignore corrupted draft
     }
   }, [cleanupDraftKey]);
+
+  useEffect(() => {
+    if (!session) return;
+    if (sessionSummaryDraft.trim().length > 0) return;
+    const fromSession = (session.data as SessionData).summary;
+    if (typeof fromSession === 'string' && fromSession.trim().length > 0) {
+      setSessionSummaryDraft(fromSession);
+    }
+  }, [session, sessionSummaryDraft]);
 
   useEffect(() => {
     if (!cleanupDraftKey) return;
@@ -718,6 +732,7 @@ export function SessionCleanup() {
         JSON.stringify({
           acknowledgedFreeThreadIds: [...acknowledgedFreeThreadIds],
           noteDecisions,
+            sessionSummaryDraft,
           savedAt,
         }),
       );
@@ -725,7 +740,7 @@ export function SessionCleanup() {
     } catch {
       // ignore storage failures
     }
-  }, [acknowledgedFreeThreadIds, cleanupDraftKey, noteDecisions]);
+  }, [acknowledgedFreeThreadIds, cleanupDraftKey, noteDecisions, sessionSummaryDraft]);
 
   useEffect(() => {
     if (!session) return;
@@ -832,6 +847,8 @@ export function SessionCleanup() {
       await updateEntity(db, session.id, {
         data: {
           ...(session.data as SessionData),
+          summary: sessionSummaryDraft.trim(),
+          progressStatus: 'completed',
           status: 'cleanup_completed',
           reportAvailable: true,
           reportGeneratedAt: new Date().toISOString(),
@@ -932,6 +949,25 @@ export function SessionCleanup() {
       )}
 
       {/* Section: Postacie bez lokacji */}
+      <section className="app-panel rounded-[1.8rem] p-5 lg:p-6">
+        <SectionHeader
+          icon={<BookOpen className="h-4 w-4" />}
+          title="Podsumowanie sesji"
+          count={sessionSummaryDraft.trim().length > 0 ? 1 : 0}
+          iconColor="text-primary-700"
+        />
+        <p className="text-surface-500 mb-2 text-sm">
+          To streszczenie trafi na kartę sesji po zakończeniu cleanup.
+        </p>
+        <textarea
+          value={sessionSummaryDraft}
+          onChange={(event) => setSessionSummaryDraft(event.target.value)}
+          rows={4}
+          className="border-surface-300 focus-visible:ring-primary-500/35 w-full rounded-xl border bg-white px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+          placeholder="Co wydarzyło się najważniejszego i co zmieniło stan kampanii?"
+        />
+      </section>
+
       <section className="app-panel rounded-[1.8rem] p-5 lg:p-6">
         <SectionHeader
           icon={<Users className="h-4 w-4" />}

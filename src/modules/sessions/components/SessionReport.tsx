@@ -26,7 +26,7 @@ import { exportSessionMarkdown } from '@modules/data-io/utils/exportSessionMarkd
 import { toast } from 'sonner';
 import type { Entity } from '@shared/types/entity';
 import type { MgHelperDb } from '@shared/db/database';
-import type { SessionData } from '../types';
+import { getSessionProgressStatus, type SessionData } from '../types';
 import { useSessionEvents } from '../hooks/useSessionEvents';
 import { useSessionSignals } from '../hooks/useSessionSignals';
 import { getSessionEventData } from '@shared/utils/entityData';
@@ -151,6 +151,7 @@ export function SessionReport() {
     (note) => (note.data.cleanupDecision ?? 'pending') === 'archive',
   );
   const reportAvailable = sessionData.reportAvailable === true;
+  const progressStatus = getSessionProgressStatus(sessionData);
 
   const timelineTimestamps = timelineEvents.map(
     (eventItem) => getSessionEventData(eventItem).timestamp,
@@ -268,7 +269,12 @@ export function SessionReport() {
             </h1>
           </div>
           {formattedDate && <p className="text-surface-500 text-sm">{formattedDate}</p>}
-          {session.data.summary && (
+          {sessionData.sessionGoal && (
+            <p className="text-surface-700 mt-3 text-sm">
+              <span className="font-semibold">Cel sesji:</span> {sessionData.sessionGoal}
+            </p>
+          )}
+          {progressStatus === 'completed' && session.data.summary && (
             <p className="text-surface-600 mt-3 text-sm italic">{session.data.summary}</p>
           )}
           {reportAvailable && sessionData.reportGeneratedAt && (

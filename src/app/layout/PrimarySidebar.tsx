@@ -189,49 +189,11 @@ export function PrimarySidebar({ onClose }: { onClose?: () => void }) {
                             Live
                           </span>
                         )}
-                        {hasPendingCleanup && (
-                          <span className="rounded-full border border-[rgba(176,108,103,0.24)] bg-[rgba(176,108,103,0.14)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-danger-800">
-                            Cleanup {cleanupPendingCount}
-                          </span>
-                        )}
                       </span>
                     </span>
                   </NavLink>
                 );
               })}
-              {(isLiveInCurrentCampaign || hasPendingCleanup) && (
-                <div className="mt-1 flex flex-wrap gap-1.5 pl-10">
-                  {isLiveInCurrentCampaign && liveMarker && (
-                    <NavLink
-                      to={`/sessions/${liveMarker.sessionId}/live`}
-                      onClick={() => {
-                        trackNavigationClick('sidebar', `/sessions/${liveMarker.sessionId}/live`);
-                        onClose?.();
-                      }}
-                      className="rounded-full border border-[rgba(33,71,102,0.18)] bg-[rgba(111,146,164,0.12)] px-2.5 py-1 text-[11px] font-medium text-primary-800 hover:bg-[rgba(111,146,164,0.18)]"
-                    >
-                      Wróć do live
-                    </NavLink>
-                  )}
-                  {hasPendingCleanup && sessionsMeta?.latestPendingId && (
-                    <NavLink
-                      to={`/sessions/${sessionsMeta.latestPendingId}/cleanup`}
-                      onClick={() => {
-                        trackNavigationClick('sidebar', `/sessions/${sessionsMeta.latestPendingId}/cleanup`);
-                        onClose?.();
-                      }}
-                      className="rounded-full border border-[rgba(176,108,103,0.24)] bg-[rgba(176,108,103,0.12)] px-2.5 py-1 text-[11px] font-medium text-danger-800 hover:bg-[rgba(176,108,103,0.18)]"
-                      title={
-                        sessionsMeta.latestPendingName
-                          ? `Dokończ cleanup: ${sessionsMeta.latestPendingName}`
-                          : 'Dokończ cleanup'
-                      }
-                    >
-                      Dokończ cleanup
-                    </NavLink>
-                  )}
-                </div>
-              )}
             </div>
           ))}
         </div>

@@ -223,7 +223,7 @@ export function GraphPage({ embedded = false }: { embedded?: boolean }) {
       </section>
 
       <div className={`app-panel flex min-h-0 flex-1 overflow-hidden rounded-[1.35rem] ${embedded ? 'min-h-[66vh]' : ''}`}>
-        <GraphView visibleTypes={visibleTypes} visibleRelations={visibleRelations} searchQuery={searchQuery} />
+        <GraphView graphData={data} searchQuery={searchQuery} />
       </div>
     </div>
   );

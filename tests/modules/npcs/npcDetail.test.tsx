@@ -218,7 +218,7 @@ describe('NpcDetail', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Cała historia/i }));
 
-    const dialog = await screen.findByRole('dialog', { name: /Historia lokacji NPC/i });
+    const dialog = await screen.findByRole('dialog', { name: /Historia lokacji postaci/i });
     expect(within(dialog).getByText('Rynek')).toBeInTheDocument();
     expect(within(dialog).getByText('Krypta')).toBeInTheDocument();
     expect(within(dialog).getByText(/Podczas: Sesja 11/)).toBeInTheDocument();

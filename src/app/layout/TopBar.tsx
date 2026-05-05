@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { SearchBar } from '@shared/components/SearchBar';
 import { CampaignSwitcher } from '@modules/campaigns';
 import { LiveSessionIndicator } from '@shared/components/LiveSessionIndicator';
+import { CleanupSessionIndicator } from '@shared/components/CleanupSessionIndicator';
 import type { ReactNode } from 'react';
 import { useCampaign } from '@shared/db/CampaignContext';
 import type { SessionData } from '@modules/sessions/types';
@@ -104,6 +105,7 @@ export function TopBar({ children }: { children?: ReactNode }) {
       {/* Search + live indicator */}
       <div className="flex items-center gap-3">
         <LiveSessionIndicator />
+        <CleanupSessionIndicator />
         <SearchBar />
       </div>
     </header>

@@ -6,6 +6,7 @@ import { useCampaign } from '@shared/db/CampaignContext';
 import { useAssetUrl } from '@shared/hooks/useAssetUrl';
 import { getItemLifecycleStatus } from '@shared/utils/entityData';
 import { stripHtml } from '@shared/utils/sanitize';
+import { applyPolishTypography } from '@shared/utils/typography';
 import type { Item } from '../types';
 
 const TEXT_MAX_CHARS = 150;
@@ -26,8 +27,8 @@ export const ItemCard = memo(function ItemCard({ item, onClick }: ItemCardProps)
   const { campaignId } = useCampaign();
   const propertiesPreview = item.data.properties
     .slice(0, 5)
-    .map((property) => previewText(property, 90));
-  const descriptionPreview = previewText(stripHtml(item.description ?? ''));
+    .map((property) => applyPolishTypography(previewText(property, 90)));
+  const descriptionPreview = applyPolishTypography(previewText(stripHtml(item.description ?? '')));
 
   return (
     <article

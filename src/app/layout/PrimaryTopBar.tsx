@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { CampaignSwitcher } from '@modules/campaigns';
 import { SearchBar } from '@shared/components/SearchBar';
 import { LiveSessionIndicator } from '@shared/components/LiveSessionIndicator';
+import { CleanupSessionIndicator } from '@shared/components/CleanupSessionIndicator';
 import { useCampaign } from '@shared/db/CampaignContext';
 
 const ROUTE_LABELS: Record<string, string> = {
@@ -99,6 +100,7 @@ export function PrimaryTopBar({ children }: { children?: ReactNode }) {
 
       <div className="flex items-center gap-3">
         <LiveSessionIndicator />
+        <CleanupSessionIndicator />
         <SearchBar />
       </div>
     </header>

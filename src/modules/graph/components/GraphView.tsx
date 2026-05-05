@@ -1,8 +1,7 @@
 import { useRef, useCallback, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import ForceGraph2D from 'react-force-graph-2d';
-import { useGraphData } from '../hooks/useGraphData';
-import type { GraphNode, GraphLink } from '../hooks/useGraphData';
+import type { GraphData, GraphNode, GraphLink } from '../hooks/useGraphData';
 import type { EntityType } from '@shared/types/entity';
 import type { RelationType } from '@shared/types/relation';
 
@@ -41,16 +40,14 @@ function getGraphRelationLabel(type: RelationType): string {
 }
 
 interface GraphViewProps {
-  visibleTypes: Set<EntityType>;
-  visibleRelations: Set<RelationType>;
+  graphData?: GraphData;
   searchQuery?: string;
 }
 
-export function GraphView({ visibleTypes, visibleRelations, searchQuery = '' }: GraphViewProps) {
+export function GraphView({ graphData, searchQuery = '' }: GraphViewProps) {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
-  const graphData = useGraphData(visibleTypes, visibleRelations);
   const normalizedQuery = searchQuery.trim().toLowerCase();
 
   const [tooltip, setTooltip] = useState<{ x: number; y: number; label: string } | null>(null);

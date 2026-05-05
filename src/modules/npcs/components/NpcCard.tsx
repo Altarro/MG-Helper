@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router';
 import {
   Crown,
   Eye,
@@ -14,6 +15,7 @@ import { CardAccentSection } from '@shared/components/CardAccentSection';
 import { useAssetUrl } from '@shared/hooks/useAssetUrl';
 import { getNpcLifecycleStatus } from '@shared/utils/entityData';
 import { stripHtml } from '@shared/utils/sanitize';
+import { applyPolishTypography } from '@shared/utils/typography';
 import type { Npc } from '../types';
 
 const TEXT_MAX_CHARS = 150;
@@ -22,6 +24,7 @@ interface NpcCardProps {
   npc: Npc;
   onClick?: () => void;
   currentLocationName?: string;
+  currentLocationId?: string;
 }
 
 function previewText(value: string | undefined, maxChars = TEXT_MAX_CHARS): string {
@@ -33,15 +36,16 @@ export const NpcCard = React.memo(function NpcCard({
   npc,
   onClick,
   currentLocationName,
+  currentLocationId,
 }: NpcCardProps) {
   const isPC = npc.data?.isPC === true;
   const isDead = getNpcLifecycleStatus({ data: npc.data }) === 'completed';
   const thumbUrl = useAssetUrl(npc.data?.imageId ?? null, { thumb: true });
-  const instinctPreview = previewText(npc.data?.instinct);
-  const motivationPreview = previewText(npc.data?.motivation);
-  const appearancePreview = previewText(npc.data?.appearance);
-  const playStylePreview = previewText(npc.data?.playStyle);
-  const descriptionPreview = previewText(stripHtml(npc.description ?? ''));
+  const instinctPreview = applyPolishTypography(previewText(npc.data?.instinct));
+  const motivationPreview = applyPolishTypography(previewText(npc.data?.motivation));
+  const appearancePreview = applyPolishTypography(previewText(npc.data?.appearance));
+  const playStylePreview = applyPolishTypography(previewText(npc.data?.playStyle));
+  const descriptionPreview = applyPolishTypography(previewText(stripHtml(npc.description ?? '')));
 
   return (
     <article
@@ -101,10 +105,21 @@ export const NpcCard = React.memo(function NpcCard({
 
       {currentLocationName && (
         <div className="flex">
-          <span className="app-pill-muted inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium">
-            <MapPin className="h-3 w-3" aria-hidden />
-            Aktualna lokacja: {currentLocationName}
-          </span>
+          {currentLocationId ? (
+            <Link 
+              to={`/locations/${currentLocationId}`}
+              onClick={(event) => event.stopPropagation()}
+              className="app-parent-location-pill inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+            >
+              <MapPin className="h-3 w-3" aria-hidden />
+              Aktualna lokacja: {currentLocationName}
+            </Link>
+          ) : (
+            <span className="app-pill-muted inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium">
+              <MapPin className="h-3 w-3" aria-hidden />
+              Aktualna lokacja: {currentLocationName}
+            </span>
+          )}
         </div>
       )}
 

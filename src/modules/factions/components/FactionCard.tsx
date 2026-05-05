@@ -4,6 +4,7 @@ import { CardAccentList, CardAccentSection } from '@shared/components/CardAccent
 import { useAssetUrl } from '@shared/hooks/useAssetUrl';
 import { getFactionLifecycleStatus } from '@shared/utils/entityData';
 import { stripHtml } from '@shared/utils/sanitize';
+import { applyPolishTypography } from '@shared/utils/typography';
 import type { Faction } from '../types';
 
 const TEXT_MAX_CHARS = 150;
@@ -21,11 +22,13 @@ function previewText(value: string | undefined, maxChars = TEXT_MAX_CHARS): stri
 export const FactionCard = memo(function FactionCard({ faction, onClick }: FactionCardProps) {
   const thumbUrl = useAssetUrl(faction.data.imageId ?? null, { thumb: true });
   const isDisbanded = getFactionLifecycleStatus({ data: faction.data }) === 'completed';
-  const goalsPreview = faction.data.goals.slice(0, 4).map((goal) => previewText(goal, 90));
+  const goalsPreview = faction.data.goals
+    .slice(0, 4)
+    .map((goal) => applyPolishTypography(previewText(goal, 90)));
   const resourcesPreview = faction.data.resources
     .slice(0, 4)
-    .map((resource) => previewText(resource, 90));
-  const descriptionPreview = previewText(stripHtml(faction.description ?? ''));
+    .map((resource) => applyPolishTypography(previewText(resource, 90)));
+  const descriptionPreview = applyPolishTypography(previewText(stripHtml(faction.description ?? '')));
 
   return (
     <article

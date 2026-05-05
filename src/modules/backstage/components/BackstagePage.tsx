@@ -248,6 +248,7 @@ export function BackstagePage() {
           aria-labelledby="backstage-tab-graph"
           className="min-h-0 space-y-3"
         >
+          {/* Graf korzysta z własnego hooka danych (useGraphData), a nie stanu useBackstage. */}
           <h2 id="graph-heading" className="text-sm font-semibold text-surface-800">
             Graf relacji
           </h2>

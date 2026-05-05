@@ -64,7 +64,7 @@ export function ThreatSessionMatrix({ sessions, threats, threatSessionIds }: Thr
             return (
               <Fragment key={threat.id}>
                 <Link
-                  to={`/fronts/threats/${threat.id}`}
+                  to={`/threats/${threat.id}`}
                   className="sticky left-0 z-10 flex items-center gap-2 border-b border-r border-surface-200 bg-white px-3 py-2 hover:bg-surface-50 transition-colors"
                   role="rowheader"
                   title={threat.name}

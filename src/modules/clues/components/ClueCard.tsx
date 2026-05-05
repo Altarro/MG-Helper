@@ -3,6 +3,8 @@ import {
   CheckCircle2,
   ChevronRight,
   Circle,
+  FileText,
+  Lightbulb,
   MapPin,
   Package,
   User,
@@ -13,10 +15,11 @@ import {
 import { Link } from 'react-router';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { getCatalogLabelByValue } from '@modules/settings/campaignCatalogSettings';
-import { CardScrollBlock } from '@shared/components/CardScrollBlock';
+import { CardAccentSection } from '@shared/components/CardAccentSection';
 import { EntityTypeBadge } from '@shared/components/EntityTypeBadge';
 import { getEntityDetailPath } from '@shared/utils/entityTypeMeta';
 import { stripHtml } from '@shared/utils/sanitize';
+import { applyPolishTypography } from '@shared/utils/typography';
 import type { ClueStrengthOption } from '@shared/domain/storyContracts';
 import type { Clue } from '../types';
 
@@ -116,27 +119,31 @@ export const ClueCard = memo(function ClueCard({ clue, onClick, onToggleDiscover
       </div>
 
       {hintPreview && (
-        <CardScrollBlock
+        <CardAccentSection
           label="Wskazówka"
-          contentClassName="pr-0.5"
+          icon={Lightbulb}
+          tone={discovered ? 'success' : 'primary'}
           maxLines={4}
           remeasureKey={hintPreview}
         >
-          <p className="text-sm leading-6 whitespace-pre-wrap text-surface-700">{hintPreview}</p>
-        </CardScrollBlock>
+          <p className="text-sm leading-6 whitespace-pre-wrap text-surface-700">
+            {applyPolishTypography(hintPreview)}
+          </p>
+        </CardAccentSection>
       )}
 
       {descriptionPreview && (
-        <CardScrollBlock
+        <CardAccentSection
           label="Opis"
-          contentClassName="pr-0.5"
+          icon={FileText}
+          tone="surface"
           maxLines={4}
           remeasureKey={descriptionPreview}
         >
           <p className="text-sm leading-6 whitespace-pre-wrap text-surface-700">
-            {descriptionPreview}
+            {applyPolishTypography(descriptionPreview)}
           </p>
-        </CardScrollBlock>
+        </CardAccentSection>
       )}
 
       {clue.tags.length > 0 && (

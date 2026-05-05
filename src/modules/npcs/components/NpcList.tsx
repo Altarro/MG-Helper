@@ -65,32 +65,36 @@ export function NpcList() {
   const [saving, setSaving] = useState(false);
   const npcLocationMap = useLiveQuery(async () => {
     const npcIds = new Set((npcs ?? []).map((npc) => npc.id));
-    if (npcIds.size === 0) return new Map<string, string>();
+    if (npcIds.size === 0) return new Map<string, { id: string; name: string }>();
 
     const relations = (await db.relations.toArray()).filter(
       (relation) => relation.type === 'contains' && npcIds.has(relation.targetId),
     );
-    if (relations.length === 0) return new Map<string, string>();
+    if (relations.length === 0) return new Map<string, { id: string; name: string }>();
 
     const locations = await db.entities
       .where('id')
       .anyOf([...new Set(relations.map((relation) => relation.sourceId))])
       .toArray();
-    const locationNames = new Map(
-      locations.filter(isLocation).map((location) => [location.id, location.name]),
+    const locationEntities = new Map(
+      locations.filter(isLocation).map((location) => [location.id, location]),
     );
 
     return new Map(
       relations
-        .map((relation) => [relation.targetId, locationNames.get(relation.sourceId)] as const)
-        .filter((entry): entry is [string, string] => Boolean(entry[1])),
+        .map((relation) => {
+          const location = locationEntities.get(relation.sourceId);
+          if (!location) return null;
+          return [relation.targetId, { id: location.id, name: location.name }] as const;
+        })
+        .filter((entry): entry is [string, { id: string; name: string }] => Boolean(entry)),
     );
   }, [db, npcs]);
 
   const lowerQuery = query.trim().toLowerCase();
   const filtered = npcs?.filter(
     (npc) =>
-      npcMatchesQuery(npc, lowerQuery, npcLocationMap?.get(npc.id)) &&
+      npcMatchesQuery(npc, lowerQuery, npcLocationMap?.get(npc.id)?.name) &&
       npcMatchesTag(npc, activeTag) &&
       npcMatchesTab(npc, tab) &&
       npcMatchesLifecycle(npc, hideDead, showOnlyDead),
@@ -99,7 +103,7 @@ export function NpcList() {
   const tabStats = useMemo(() => {
     const list = (npcs ?? []).filter(
       (n) =>
-        npcMatchesQuery(n, lowerQuery, npcLocationMap?.get(n.id)) &&
+        npcMatchesQuery(n, lowerQuery, npcLocationMap?.get(n.id)?.name) &&
         npcMatchesTag(n, activeTag) &&
         npcMatchesLifecycle(n, hideDead, showOnlyDead),
     );
@@ -113,7 +117,7 @@ export function NpcList() {
   const tagCounts = useMemo(() => {
     const list = (npcs ?? []).filter(
       (n) =>
-        npcMatchesQuery(n, lowerQuery, npcLocationMap?.get(n.id)) &&
+        npcMatchesQuery(n, lowerQuery, npcLocationMap?.get(n.id)?.name) &&
         npcMatchesTab(n, tab) &&
         npcMatchesLifecycle(n, hideDead, showOnlyDead),
     );
@@ -129,7 +133,7 @@ export function NpcList() {
   const deadInTabSelection = useMemo(() => {
     const list = (npcs ?? []).filter(
       (n) =>
-        npcMatchesQuery(n, lowerQuery, npcLocationMap?.get(n.id)) &&
+        npcMatchesQuery(n, lowerQuery, npcLocationMap?.get(n.id)?.name) &&
         npcMatchesTag(n, activeTag) &&
         npcMatchesTab(n, tab),
     );
@@ -303,7 +307,8 @@ export function NpcList() {
             <NpcCard
               key={npc.id}
               npc={npc}
-              currentLocationName={npcLocationMap?.get(npc.id)}
+              currentLocationName={npcLocationMap?.get(npc.id)?.name}
+              currentLocationId={npcLocationMap?.get(npc.id)?.id}
               onClick={() => navigate(`/npcs/${npc.id}`)}
             />
           ))}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Sparkles, X, Loader2 } from 'lucide-react';
-import { seedDemoData, hasExistingData } from '@shared/db/seedCampaign';
+import { seedDemoData, hasExistingData } from '@shared/db/seed';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
 

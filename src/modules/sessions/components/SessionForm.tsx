@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { TagInput } from '@shared/components/TagInput';
 import { RichTextEditor } from '@shared/components/RichTextEditor';
+import { SESSION_PROGRESS_STATUSES } from '../types';
 
 export const SCENE_MIN_MINUTES = 5;
 
@@ -36,6 +37,8 @@ const sessionFormSchema = z
     number: z.coerce.number().int().min(1, 'Numer sesji musi być ≥ 1'),
     date: z.string().min(1, 'Data jest wymagana'),
     name: z.string().max(200).default(''),
+    sessionGoal: z.string().max(1000).default(''),
+    progressStatus: z.enum(SESSION_PROGRESS_STATUSES).default('planned'),
     summary: z.string().max(2000).default(''),
     plannedDurationMin: z.preprocess(
       (value) => (value === '' || value === null ? undefined : value),
@@ -104,6 +107,8 @@ export function SessionForm({
       number: 1,
       date: format(new Date(), 'yyyy-MM-dd'),
       name: '',
+      sessionGoal: '',
+      progressStatus: 'planned',
       summary: '',
       plannedDurationMin: undefined,
       scenes: [],
@@ -229,15 +234,42 @@ export function SessionForm({
         />
       </div>
 
+      {/* Session goal */}
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="session-goal" className="text-sm font-medium text-surface-800">Cel sesji</label>
+        <textarea
+          id="session-goal"
+          {...register('sessionGoal')}
+          rows={2}
+          className="app-input rounded-2xl px-3.5 py-3 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-y"
+          placeholder="Po co jest ta sesja i co ma domknąć?"
+        />
+      </div>
+
+      {/* Session progress status */}
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="session-progress-status" className="text-sm font-medium text-surface-800">Status sesji</label>
+        <select
+          id="session-progress-status"
+          {...register('progressStatus')}
+          className="app-input rounded-2xl px-3.5 py-3 text-sm text-surface-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+        >
+          <option value="planned">Zaplanowana</option>
+          <option value="completed">Zakończona</option>
+        </select>
+      </div>
+
       {/* Summary */}
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="session-summary" className="text-sm font-medium text-surface-800">Krótkie streszczenie</label>
+        <label htmlFor="session-summary" className="text-sm font-medium text-surface-800">
+          Streszczenie po sesji
+        </label>
         <textarea
           id="session-summary"
           {...register('summary')}
           rows={3}
           className="app-input rounded-2xl px-3.5 py-3 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 resize-y"
-          placeholder="Co się wydarzyło w skrócie…"
+          placeholder="Uzupełnij po sesji (najczęściej podczas cleanup)."
         />
       </div>
 

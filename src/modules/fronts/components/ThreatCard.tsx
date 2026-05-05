@@ -1,10 +1,11 @@
 import { memo, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Shield } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { isClock } from '@modules/clocks/types';
-import { CardScrollBlock } from '@shared/components/CardScrollBlock';
+import { CardAccentSection } from '@shared/components/CardAccentSection';
 import { getThreatStatus } from '@shared/utils/entityData';
+import { applyPolishTypography } from '@shared/utils/typography';
 import { getCatalogLabelByValue } from '@modules/settings/campaignCatalogSettings';
 import { normalizeThreatPillars } from '../types';
 import type { Threat } from '../types';
@@ -88,98 +89,93 @@ export const ThreatCard = memo(function ThreatCard({ threat, onClick }: ThreatCa
       )}
 
       {impulseTrimmed.length > 0 && (
-        <CardScrollBlock label="Impuls" contentClassName="pr-0.5" maxLines={5} remeasureKey={impulseTrimmed}>
-          <p className="text-sm leading-6 whitespace-pre-wrap text-surface-700">{impulseTrimmed}</p>
-        </CardScrollBlock>
+        <CardAccentSection
+          label="Impuls"
+          icon={AlertTriangle}
+          tone="primary"
+          maxLines={4}
+          remeasureKey={impulseTrimmed}
+        >
+          <p className="text-sm leading-6 whitespace-pre-wrap text-surface-700">
+            {applyPolishTypography(impulseTrimmed)}
+          </p>
+        </CardAccentSection>
       )}
 
       {(hasMoves || hasPillars) && (
         <div className="flex flex-col gap-2">
+          {hasMoves && hasPillars && (
+            <div className="flex items-center gap-2 self-start">
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setDetailMode('moves');
+                }}
+                className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                  detailMode === 'moves'
+                    ? 'app-pill'
+                    : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+                }`}
+              >
+                Ruchy
+              </button>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setDetailMode('pillars');
+                }}
+                className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                  detailMode === 'pillars'
+                    ? 'app-pill'
+                    : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+                }`}
+              >
+                Filary
+              </button>
+            </div>
+          )}
+
           {detailMode === 'moves' && hasMoves && (
-            <CardScrollBlock
+            <CardAccentSection
               label="Ruchy"
-              contentClassName="pr-0.5"
+              icon={AlertTriangle}
+              tone="warning"
+              maxLines={4}
               remeasureKey={data.moves.join('\u0001')}
-              headerRight={
-                hasMoves && hasPillars ? (
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setDetailMode('moves');
-                      }}
-                      className="app-pill rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
-                    >
-                      Ruchy
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setDetailMode('pillars');
-                      }}
-                      className="app-pill-muted hover:bg-[rgba(223,225,218,0.98)] rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
-                    >
-                      Filary
-                    </button>
-                  </div>
-                ) : null
-              }
+              contentClassName="pr-0.5"
             >
-              <ul className="list-inside list-disc text-sm leading-6 text-surface-700 [&>li+li]:mt-1">
+              <ul className="text-surface-700 flex flex-col gap-0 text-sm leading-6">
                 {data.moves.map((move, index) => (
-                  <li key={`${threat.id}-move-${index}`} className="marker:text-surface-400 pl-0.5">
-                    {move}
+                  <li key={`${threat.id}-move-${index}`} className="grid grid-cols-[0.6rem_minmax(0,1fr)] gap-2">
+                    <span className="mt-[0.7rem] h-1.5 w-1.5 rounded-full bg-warning-500/80" />
+                    <span>{applyPolishTypography(move)}</span>
                   </li>
                 ))}
               </ul>
-            </CardScrollBlock>
+            </CardAccentSection>
           )}
 
           {detailMode === 'pillars' && hasPillars && (
-            <CardScrollBlock
+            <CardAccentSection
               label="Filary"
-              contentClassName="pr-0.5"
+              icon={Shield}
+              tone="surface"
+              maxLines={5}
               remeasureKey={pillars.map((pillar) => `${pillar.label}:${pillar.destroyed ? '1' : '0'}`).join('\u0001')}
-              headerRight={
-                hasMoves && hasPillars ? (
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setDetailMode('moves');
-                      }}
-                      className="app-pill-muted hover:bg-[rgba(223,225,218,0.98)] rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
-                    >
-                      Ruchy
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setDetailMode('pillars');
-                      }}
-                      className="app-pill rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
-                    >
-                      Filary
-                    </button>
-                  </div>
-                ) : null
-              }
             >
-              <ul className="list-inside list-disc text-sm leading-6 text-surface-700 [&>li+li]:mt-1">
+              <ul className="text-surface-700 flex flex-col gap-1.5 text-sm leading-6">
                 {pillars.map((pillar, index) => (
-                  <li
-                    key={`${threat.id}-pillar-${index}`}
-                    className={`marker:text-surface-400 pl-0.5 ${pillar.destroyed ? 'line-through opacity-70' : ''}`}
-                  >
-                    {pillar.label}
+                  <li key={`${threat.id}-pillar-${index}`} className="grid grid-cols-[0.6rem_minmax(0,1fr)] gap-2">
+                    <span className="mt-[0.7rem] h-1.5 w-1.5 rounded-full bg-surface-400/70" />
+                    <span className={pillar.destroyed ? 'line-through opacity-70' : ''}>
+                      {applyPolishTypography(pillar.label)}
+                    </span>
                   </li>
                 ))}
               </ul>
-            </CardScrollBlock>
+            </CardAccentSection>
           )}
         </div>
       )}

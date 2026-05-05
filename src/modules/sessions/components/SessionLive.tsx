@@ -36,7 +36,12 @@ import { useCurrentSceneNpcIds } from '../hooks/useLiveSessionQueries';
 import { toast } from 'sonner';
 import { ensureEntityAppearsInSession, moveNpcToLocation } from '../utils/liveSessionCommands';
 import { addEntity, addRelation, updateEntity } from '@shared/db/operations';
-import { getSessionLifecycleStatus, type SessionData } from '../types';
+import { getSessionLifecycleStatus, isSession, type SessionData } from '../types';
+import {
+  buildCleanupPendingSessionData,
+  formatSessionLabel,
+  getBlockingCleanupSession,
+} from '../utils/sessionLifecycle';
 
 const DEFAULT_SPOTLIGHT: SpotlightState = {
   mgActive: false,
@@ -108,11 +113,7 @@ export function SessionLive() {
     }, [db, openCardIds]) ?? [];
   const blockingCleanupSession = useLiveQuery(async () => {
     const all = await db.entities.where('type').equals('session').toArray();
-    return all.find(
-      (entity) =>
-        entity.id !== (session?.id ?? id) &&
-        getSessionLifecycleStatus(entity.data as unknown as SessionData) === 'cleanup_pending',
-    );
+    return getBlockingCleanupSession(all.filter(isSession), session?.id ?? id);
   }, [db, id, session?.id]);
 
   useEffect(() => {
@@ -132,9 +133,7 @@ export function SessionLive() {
   useEffect(() => {
     if (!session || !id) return;
     if (blockingCleanupSession) {
-      const blockedTitle =
-        blockingCleanupSession.name ||
-        `Sesja ${(blockingCleanupSession.data as { number?: number }).number ?? '?'}`;
+      const blockedTitle = formatSessionLabel(blockingCleanupSession);
       toast.error(
         `Dokończ najpierw sprzątanie: ${blockedTitle}. Start nowej sesji na żywo jest zablokowany.`,
       );
@@ -202,25 +201,31 @@ export function SessionLive() {
 
   async function handleEndSession() {
     if (!id || !session) return;
+    if (blockingCleanupSession && blockingCleanupSession.id !== session.id) {
+      toast.error(`Najpierw dokończ sprzątanie: ${formatSessionLabel(blockingCleanupSession)}.`);
+      navigate(`/sessions/${blockingCleanupSession.id}/cleanup`);
+      return;
+    }
     const spotlightSnapshot = spotlightState ?? DEFAULT_SPOTLIGHT;
+    const nowIso = new Date().toISOString();
+    const spotlightSummary = {
+      capturedAt: nowIso,
+      mgTotalActiveSec: timerNowSec(spotlightSnapshot.mgTotalActiveTimer),
+      mgWaitSec: timerNowSec(spotlightSnapshot.mgTimer),
+      players: spotlightSnapshot.players.map((player) => ({
+        id: player.id,
+        name: player.name,
+        playerName: player.playerName,
+        totalActiveSec: timerNowSec(player.totalActiveTimer),
+        waitSec: timerNowSec(player.waitTimer),
+      })),
+    };
     await updateEntity(db, session.id, {
-      data: {
-        ...session.data,
-        status: 'cleanup_pending',
-        liveRunEndedAt: new Date().toISOString(),
-        spotlightSummary: {
-          capturedAt: new Date().toISOString(),
-          mgTotalActiveSec: timerNowSec(spotlightSnapshot.mgTotalActiveTimer),
-          mgWaitSec: timerNowSec(spotlightSnapshot.mgTimer),
-          players: spotlightSnapshot.players.map((player) => ({
-            id: player.id,
-            name: player.name,
-            playerName: player.playerName,
-            totalActiveSec: timerNowSec(player.totalActiveTimer),
-            waitSec: timerNowSec(player.waitTimer),
-          })),
-        },
-      },
+      data: buildCleanupPendingSessionData(
+        session.data,
+        spotlightSummary,
+        nowIso,
+      ) as unknown as Record<string, unknown>,
     });
     clearLiveSessionMarker();
     clearLiveSessionState(id);

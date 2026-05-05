@@ -6,6 +6,7 @@ import { useCampaign } from '@shared/db/CampaignContext';
 import { useAssetUrl } from '@shared/hooks/useAssetUrl';
 import { getLocationLifecycleStatus } from '@shared/utils/entityData';
 import { stripHtml } from '@shared/utils/sanitize';
+import { applyPolishTypography } from '@shared/utils/typography';
 import type { Location } from '../types';
 
 const DANGER_LABELS = [
@@ -36,12 +37,12 @@ export const LocationCard = React.memo(function LocationCard({
   const isDestroyed = getLocationLifecycleStatus({ data: location.data }) === 'completed';
   const thumbUrl = useAssetUrl(location.data.imageId ?? null, { thumb: true });
   const { campaignId } = useCampaign();
-  const descriptionPreview = previewText(stripHtml(location.description ?? ''));
+  const descriptionPreview = applyPolishTypography(previewText(stripHtml(location.description ?? '')));
   const senseRows = [
-    { label: 'Widzisz', value: previewText(location.data.senses.see) },
-    { label: 'Słyszysz', value: previewText(location.data.senses.hear) },
-    { label: 'Czujesz', value: previewText(location.data.senses.smell) },
-    { label: 'Atmosfera', value: previewText(location.data.senses.feel) },
+    { label: 'Widzisz', value: applyPolishTypography(previewText(location.data.senses.see)) },
+    { label: 'Słyszysz', value: applyPolishTypography(previewText(location.data.senses.hear)) },
+    { label: 'Czujesz', value: applyPolishTypography(previewText(location.data.senses.smell)) },
+    { label: 'Atmosfera', value: applyPolishTypography(previewText(location.data.senses.feel)) },
   ].filter((row) => row.value);
 
   return (

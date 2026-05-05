@@ -6,6 +6,7 @@ import {
   Trash2,
   X,
   BookOpen,
+  Brush,
   MapPin,
   Users,
   Package,
@@ -41,7 +42,7 @@ import { LocationPickerModal } from './LocationPickerModal';
 import type { SessionFormValues } from './SessionForm';
 import type { Entity } from '@shared/types/entity';
 import { removeEntityFromSession } from '../utils/liveSessionCommands';
-import { getSessionLifecycleStatus, type SessionData } from '../types';
+import { getSessionLifecycleStatus, getSessionProgressStatus, type SessionData } from '../types';
 
 function useSessionAppearances(db: MgHelperDb, sessionId: string | undefined) {
   return (
@@ -335,7 +336,10 @@ export function SessionDetail() {
     if (!session || isEditing) return [];
     const d = session.data as unknown as SessionData;
     const items: { id: string; label: string }[] = [];
-    if (d.summary) items.push({ id: 'session-detail-streszczenie', label: 'Streszczenie' });
+    if (d.sessionGoal) items.push({ id: 'session-detail-cel', label: 'Cel sesji' });
+    if (getSessionProgressStatus(d) === 'completed' && d.summary) {
+      items.push({ id: 'session-detail-streszczenie', label: 'Streszczenie' });
+    }
     if (d.plannedDurationMin || (d.scenes?.length ?? 0) > 0) {
       items.push({ id: 'session-detail-sceny', label: 'Sceny' });
     }
@@ -395,6 +399,8 @@ export function SessionDetail() {
           ...(session.data as unknown as SessionData),
           number: values.number,
           date: values.date,
+          sessionGoal: values.sessionGoal,
+          progressStatus: values.progressStatus,
           summary: values.summary,
           plannedDurationMin: values.plannedDurationMin,
           scenes: values.scenes,
@@ -458,6 +464,8 @@ export function SessionDetail() {
         liveRunStartedAt: new Date().toISOString(),
         liveRunEndedAt: undefined,
         spotlightSummary: undefined,
+        progressStatus: 'planned',
+        summary: '',
       },
     });
     void navigate(`/sessions/${session.id}/live`);
@@ -531,6 +539,9 @@ export function SessionDetail() {
               <span className="app-pill rounded-full px-3 py-1.5 text-xs font-medium">
                 {reportStatusLabel}
               </span>
+              <span className="app-pill-muted rounded-full px-3 py-1.5 text-xs font-medium">
+                Status: {getSessionProgressStatus(session.data) === 'completed' ? 'zakończona' : 'zaplanowana'}
+              </span>
               {session.data.plannedDurationMin && (
                 <span className="app-pill-muted rounded-full px-3 py-1.5 text-xs font-medium">
                   Plan: {session.data.plannedDurationMin} min
@@ -540,8 +551,8 @@ export function SessionDetail() {
           </div>
 
           <div className="flex flex-col justify-between gap-5 border-t border-[rgba(86,93,94,0.1)] bg-[rgba(255,250,240,0.11)] p-5 lg:p-6 xl:border-t-0 xl:border-l">
-            <div className="grid grid-cols-3 gap-2">
-              <div className="rounded-2xl border border-[rgba(86,93,94,0.1)] bg-[rgba(223,225,218,0.55)] p-3">
+            <div className="grid auto-rows-fr grid-cols-3 gap-2">
+              <div className="flex min-h-[6.25rem] flex-col justify-between rounded-2xl border border-[rgba(86,93,94,0.1)] bg-[rgba(223,225,218,0.55)] p-3">
                 <p className="text-surface-900 text-2xl font-semibold tracking-[-0.04em]">
                   {appearances.npcs.length +
                     appearances.locations.length +
@@ -551,7 +562,7 @@ export function SessionDetail() {
                   Encje
                 </p>
               </div>
-              <div className="rounded-2xl border border-[rgba(86,93,94,0.1)] bg-[rgba(223,225,218,0.55)] p-3">
+              <div className="flex min-h-[6.25rem] flex-col justify-between rounded-2xl border border-[rgba(86,93,94,0.1)] bg-[rgba(223,225,218,0.55)] p-3">
                 <p className="text-surface-900 text-2xl font-semibold tracking-[-0.04em]">
                   {appearances.threads.length + appearances.clues.length}
                 </p>
@@ -559,7 +570,7 @@ export function SessionDetail() {
                   Narracja
                 </p>
               </div>
-              <div className="rounded-2xl border border-[rgba(86,93,94,0.1)] bg-[rgba(223,225,218,0.55)] p-3">
+              <div className="flex min-h-[6.25rem] flex-col justify-between rounded-2xl border border-[rgba(86,93,94,0.1)] bg-[rgba(223,225,218,0.55)] p-3">
                 <p className="text-surface-900 text-2xl font-semibold tracking-[-0.04em]">
                   {appearances.threats.length}
                 </p>
@@ -568,57 +579,61 @@ export function SessionDetail() {
                 </p>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2.5">
-              <Link
-                to={`/sessions/${session.id}/report`}
-                className="app-button-secondary inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium"
-              >
-                <FileText className="h-4 w-4" />
-                Raport
-              </Link>
-              <Link
-                to="#"
-                onClick={(event) => {
-                  event.preventDefault();
-                  handleStartLive();
-                }}
-                className="app-accent inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-transform hover:-translate-y-0.5"
-              >
-                <Zap className="h-4 w-4" />
-                Na żywo
-              </Link>
-              <Link
-                to={`/sessions/${session.id}/cleanup`}
-                className="app-button-secondary inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium"
-              >
-                <MapPin className="h-4 w-4" />
-                Sprzątaj sesję
-              </Link>
-              <button
-                type="button"
-                onClick={() => setIsEditing(!isEditing)}
-                className="app-button-secondary inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium"
-              >
-                {isEditing ? (
-                  <>
-                    <X className="h-4 w-4" />
-                    Anuluj
-                  </>
-                ) : (
-                  <>
-                    <Edit2 className="h-4 w-4" />
-                    Edytuj
-                  </>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmDelete(true)}
-                className="app-button-danger inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium transition-colors"
-              >
-                <Trash2 className="h-4 w-4" />
-                Usuń
-              </button>
+            <div className="grid gap-2">
+              <div className="grid grid-cols-3 gap-2">
+                <Link
+                  to="#"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    handleStartLive();
+                  }}
+                  className="app-accent inline-flex w-full min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-2xl px-3 py-2.5 text-sm font-semibold transition-transform hover:-translate-y-0.5"
+                >
+                  <Zap className="h-4 w-4" />
+                  Na żywo
+                </Link>
+                <Link
+                  to={`/sessions/${session.id}/cleanup`}
+                  className="app-button-secondary inline-flex w-full min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-2xl px-3 py-2.5 text-sm font-medium"
+                >
+                  <Brush className="h-4 w-4" />
+                  Sprzątaj sesję
+                </Link>
+                <Link
+                  to={`/sessions/${session.id}/report`}
+                  className="app-button-secondary inline-flex w-full min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-2xl px-3 py-2.5 text-sm font-medium"
+                >
+                  <FileText className="h-4 w-4" />
+                  Raport
+                </Link>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(!isEditing)}
+                  className="app-button-secondary inline-flex w-full min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-2xl px-3 py-2.5 text-sm font-medium"
+                >
+                  {isEditing ? (
+                    <>
+                      <X className="h-4 w-4" />
+                      Anuluj
+                    </>
+                  ) : (
+                    <>
+                      <Edit2 className="h-4 w-4" />
+                      Edytuj
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(true)}
+                  className="app-button-danger inline-flex w-full min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-2xl px-3 py-2.5 text-sm font-medium transition-colors"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Usuń
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -649,6 +664,8 @@ export function SessionDetail() {
               number: session.data.number,
               date: session.data.date,
               name: session.name,
+              sessionGoal: session.data.sessionGoal,
+              progressStatus: getSessionProgressStatus(session.data),
               summary: session.data.summary,
               plannedDurationMin: session.data.plannedDurationMin,
               scenes: session.data.scenes ?? [],
@@ -662,7 +679,18 @@ export function SessionDetail() {
         </div>
       )}
 
-      {!isEditing && session.data.summary && (
+      {!isEditing && session.data.sessionGoal && (
+        <section id="session-detail-cel" className="app-panel rounded-[1.8rem] p-5 lg:p-6">
+          <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-[0.18em] uppercase">
+            Cel sesji
+          </h2>
+          <p className="text-surface-800 max-w-[90ch] text-sm leading-7">{session.data.sessionGoal}</p>
+        </section>
+      )}
+
+      {!isEditing &&
+        getSessionProgressStatus(session.data) === 'completed' &&
+        session.data.summary && (
         <section id="session-detail-streszczenie" className="app-panel rounded-[1.8rem] p-5 lg:p-6">
           <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-[0.18em] uppercase">
             Streszczenie

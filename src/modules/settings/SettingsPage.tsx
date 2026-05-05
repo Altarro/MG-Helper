@@ -19,7 +19,7 @@ import { importJson } from '@shared/utils/importJson';
 import { exportFull } from '@shared/utils/exportFull';
 import { importFull, type ImportFullResult } from '@shared/utils/importFull';
 import { cleanupOrphanAssets } from '@shared/db/assets';
-import { seedDemoData } from '@shared/db/seedCampaign';
+import { seedDemoData } from '@shared/db/seed';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { listCampaigns } from '@shared/db/campaignStore';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';

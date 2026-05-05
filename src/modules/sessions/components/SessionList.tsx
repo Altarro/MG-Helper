@@ -36,7 +36,7 @@ import { addEntity, updateSortOrders } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
 import { reorderEntities } from '@shared/utils/dnd';
-import { getSessionLifecycleStatus, type Session } from '../types';
+import { getSessionLifecycleStatus, getSessionProgressStatus, type Session } from '../types';
 import type { SessionFormValues } from './SessionForm';
 
 function SessionStat({
@@ -92,6 +92,7 @@ export function SessionList() {
     const title = s.name || `Sesja ${s.data.number}`;
     return (
       title.toLowerCase().includes(lowerQuery) ||
+      (s.data.sessionGoal ?? '').toLowerCase().includes(lowerQuery) ||
       s.data.summary.toLowerCase().includes(lowerQuery) ||
       s.data.date.includes(lowerQuery) ||
       s.tags.some((t) => t.toLowerCase().includes(lowerQuery))
@@ -109,6 +110,7 @@ export function SessionList() {
         (session) => getSessionLifecycleStatus(session.data) === 'cleanup_pending',
       ).length,
       reports: list.filter((session) => session.data.reportAvailable === true).length,
+      completed: list.filter((session) => getSessionProgressStatus(session.data) === 'completed').length,
     };
   }, [sessions]);
 
@@ -123,6 +125,8 @@ export function SessionList() {
         data: {
           number: values.number,
           date: values.date,
+          sessionGoal: values.sessionGoal,
+          progressStatus: values.progressStatus,
           summary: values.summary,
           status: 'cleanup_completed',
           reportAvailable: false,
@@ -184,7 +188,7 @@ export function SessionList() {
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Szukaj po tytule, dacie, streszczeniu albo tagach..."
+                placeholder="Szukaj po tytule, celu, streszczeniu, dacie albo tagach..."
                 className="app-input focus:border-primary-500 focus:ring-primary-500/20 w-full rounded-2xl py-3 pr-10 pl-11 text-sm focus:ring-2 focus:outline-none"
               />
               {query && (

@@ -281,16 +281,33 @@ function buildSnapshot(entities: Entity[], relations: Relation[]): BackstageSnap
 export function useBackstage(): BackstageData | undefined {
   const { db, campaignId } = useCampaign();
   return useLiveQuery(async () => {
-    const [entities, relAppears, relClues, relAffects, relTracks, relRelated] = await Promise.all([
-      db.entities.toArray(),
+    const [entities, relAppears, relClues, relAffects, relTracks, relRelated, relBelongsTo] = await Promise.all([
+      db.entities.where('type').anyOf([
+        'session',
+        'thread',
+        'npc',
+        'faction',
+        'threat',
+        'location',
+        'clue',
+        'clock',
+      ]).toArray(),
       db.relations.where('type').equals('appears_in').toArray(),
       db.relations.where('type').equals('clues_for').toArray(),
       db.relations.where('type').equals('affects').toArray(),
       db.relations.where('type').equals('tracks').toArray(),
       db.relations.where('type').equals('related_to').toArray(),
+      db.relations.where('type').equals('belongs_to').toArray(),
     ]);
 
-    const relations: Relation[] = [...relAppears, ...relClues, ...relAffects, ...relTracks, ...relRelated];
+    const relations: Relation[] = [
+      ...relAppears,
+      ...relClues,
+      ...relAffects,
+      ...relTracks,
+      ...relRelated,
+      ...relBelongsTo,
+    ];
     const snapshot = buildSnapshot(entities, relations);
     const threatRows = computeAllThreatRadarRows(snapshot, loadThreatRadarWeights(campaignId));
 

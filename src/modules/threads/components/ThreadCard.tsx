@@ -1,7 +1,7 @@
 import { Fragment, memo, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react';
 import { Link } from 'react-router';
-import { Tag } from 'lucide-react';
-import { CardScrollBlock } from '@shared/components/CardScrollBlock';
+import { CheckCircle2, FileText, GitBranch, Tag } from 'lucide-react';
+import { CardAccentSection } from '@shared/components/CardAccentSection';
 import {
   THREAD_KIND_LABELS,
   THREAD_PRIORITY_LABELS,
@@ -9,6 +9,7 @@ import {
 } from '../types';
 import type { Thread } from '../types';
 import { stripHtml } from '@shared/utils/sanitize';
+import { applyPolishTypography } from '@shared/utils/typography';
 
 const DESCRIPTION_MAX_CHARS = 120;
 const RESOLUTION_MAX_CHARS = 160;
@@ -112,28 +113,38 @@ export const ThreadCard = memo(function ThreadCard({
         </div>
 
         {preview && (
-          <CardScrollBlock label="Opis" contentClassName="pr-0.5" maxLines={4} remeasureKey={preview}>
-            <p className="text-sm leading-6 whitespace-pre-wrap text-surface-700">{preview}</p>
-          </CardScrollBlock>
+          <CardAccentSection
+            label="Opis"
+            icon={FileText}
+            tone="surface"
+            maxLines={4}
+            remeasureKey={preview}
+          >
+            <p className="text-sm leading-6 whitespace-pre-wrap text-surface-700">
+              {applyPolishTypography(preview)}
+            </p>
+          </CardAccentSection>
         )}
 
         {isCompleted && resolutionPreview && (
-          <CardScrollBlock
+          <CardAccentSection
             label="Efekt"
-            contentClassName="pr-0.5"
+            icon={CheckCircle2}
+            tone="success"
             maxLines={4}
             remeasureKey={resolutionPreview}
           >
             <p className="text-sm leading-6 whitespace-pre-wrap text-surface-700">
-              {resolutionPreview}
+              {applyPolishTypography(resolutionPreview)}
             </p>
-          </CardScrollBlock>
+          </CardAccentSection>
         )}
 
         {hasQuestline && (
-          <CardScrollBlock
+          <CardAccentSection
             label="Linia wątku"
-            contentClassName="pr-0.5"
+            icon={GitBranch}
+            tone="primary"
             maxLines={5}
             remeasureKey={questlineGroups
               .map((group) => `${group.label}:${group.items.map((item) => item.id).join('|')}`)
@@ -143,7 +154,7 @@ export const ThreadCard = memo(function ThreadCard({
               {questlineGroups.map((group) => (
                 <p key={group.label} className="min-w-0 text-sm leading-6 text-surface-700">
                   <span className="font-medium text-surface-600">
-                    {group.label}:
+                    {applyPolishTypography(group.label)}:
                   </span>
                   <span> </span>
                   <span>
@@ -157,7 +168,7 @@ export const ThreadCard = memo(function ThreadCard({
                           onPointerDown={stopCardEvent}
                           onKeyDown={stopCardEvent}
                         >
-                          {item.name}
+                          {applyPolishTypography(item.name)}
                         </Link>
                       </Fragment>
                     ))}
@@ -165,7 +176,7 @@ export const ThreadCard = memo(function ThreadCard({
                 </p>
               ))}
             </div>
-          </CardScrollBlock>
+          </CardAccentSection>
         )}
 
         {thread.tags.length > 0 && (

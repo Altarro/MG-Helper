@@ -3,7 +3,13 @@ import { Link } from 'react-router';
 import { BookOpen, CalendarDays, FileText, Radio } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { pl } from 'date-fns/locale';
-import { getSessionLifecycleStatus, type Session, type SessionLifecycleStatus } from '../types';
+import {
+  getSessionLifecycleStatus,
+  getSessionProgressStatus,
+  type Session,
+  type SessionLifecycleStatus,
+  type SessionProgressStatus,
+} from '../types';
 
 interface SessionCardProps {
   session: Session;
@@ -15,6 +21,17 @@ export const SessionCard = memo(function SessionCard({ session }: SessionCardPro
 
   const title = name || `Sesja ${data.number}`;
   const lifecycle = getSessionLifecycleStatus(data);
+  const progressStatus = getSessionProgressStatus(data);
+  const progressMeta: Record<SessionProgressStatus, { label: string; className: string }> = {
+    planned: {
+      label: 'Zaplanowana',
+      className: 'border-[rgba(86,93,94,0.16)] bg-[rgba(223,225,218,0.72)] text-surface-700',
+    },
+    completed: {
+      label: 'Zakończona',
+      className: 'border-primary-500/18 bg-[rgba(111,146,164,0.12)] text-primary-800',
+    },
+  };
   const statusMeta: Record<SessionLifecycleStatus, { label: string; className: string }> = {
     live: {
       label: 'Na żywo',
@@ -56,11 +73,20 @@ export const SessionCard = memo(function SessionCard({ session }: SessionCardPro
               </h3>
             </div>
           </div>
-          <span
-            className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${statusMeta[lifecycle].className}`}
-          >
-            {statusMeta[lifecycle].label}
-          </span>
+          <div className="flex shrink-0 flex-col items-end gap-1.5">
+            <span
+              className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${progressMeta[progressStatus].className}`}
+            >
+              {progressMeta[progressStatus].label}
+            </span>
+            {lifecycle !== 'cleanup_completed' ? (
+              <span
+                className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${statusMeta[lifecycle].className}`}
+              >
+                {statusMeta[lifecycle].label}
+              </span>
+            ) : null}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
@@ -88,7 +114,16 @@ export const SessionCard = memo(function SessionCard({ session }: SessionCardPro
           </div>
         </div>
 
-        {data.summary && (
+        {data.sessionGoal && (
+          <div className="border-primary-500/45 rounded-r-2xl border-l-2 bg-[rgba(111,146,164,0.07)] py-2.5 pr-2.5 pl-3">
+            <p className="text-primary-800 mb-1.5 text-[11px] font-semibold tracking-wide uppercase">
+              Cel sesji
+            </p>
+            <p className="text-surface-700 line-clamp-3 text-sm leading-6">{data.sessionGoal}</p>
+          </div>
+        )}
+
+        {progressStatus === 'completed' && data.summary && (
           <div className="border-l-primary-500/45 rounded-r-2xl border-l-2 bg-[rgba(111,146,164,0.07)] py-2.5 pr-2.5 pl-3">
             <p className="text-primary-800 mb-1.5 text-[11px] font-semibold tracking-wide uppercase">
               Streszczenie

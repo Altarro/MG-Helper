@@ -4,6 +4,11 @@ import type { Entity, NewEntity, NewRelation } from '@shared/types';
 import { createGeneratorDemoPacks } from '@modules/generator/demoPacks';
 import { appendGeneratorRollLog, importGeneratorPacks } from '@modules/generator/repository';
 
+/**
+ * @deprecated Wewnętrzna implementacja danych demonstracyjnych.
+ * Używaj wyłącznie `@shared/db/seed` jako publicznego punktu wejścia.
+ */
+
 type EntityMap<T extends Record<string, NewEntity>> = {
   [K in keyof T]: Entity;
 };

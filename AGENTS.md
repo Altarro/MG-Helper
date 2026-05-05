@@ -22,6 +22,10 @@
 - Prefer small targeted edits over mass copy/paste from external tools.
 - If terminal output looks suspicious, verify the actual file contents before saving changes.
 - When changing visible labels, placeholders, toasts, dialog text, or descriptions, double-check Polish spelling.
+- Treat user-indicated sections as the authoritative scope of work: do not modify sections that were not explicitly requested, unless such changes are strictly necessary to deliver the requested outcome correctly.
+- Do not create a new infrastructure entrypoint/module (seed, migration, bootstrap, registry) if an existing one can be extended.
+- Before adding any new infrastructure file, include explicit justification in the chat: problem, why existing file is insufficient, and maintenance cost/tradeoff.
+- Seed policy: `src/shared/db/seed.ts` is the only public seed entrypoint. Direct imports from `seedCampaign.ts` are forbidden outside `seed.ts`.
 
 ## Commit and push safety
 

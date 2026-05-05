@@ -60,7 +60,7 @@ describe('location contract smoke checks', () => {
       />,
     );
 
-    expect(screen.getByText(/Relacja nadrzedna zostanie ustawiona automatycznie/i)).toBeInTheDocument();
+    expect(screen.getByText(/Relacja nadrzędna zostanie ustawiona automatycznie/i)).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/Nazwa/i), {
       target: { value: 'Wieza' },
