@@ -23,6 +23,12 @@
 - If terminal output looks suspicious, verify the actual file contents before saving changes.
 - When changing visible labels, placeholders, toasts, dialog text, or descriptions, double-check Polish spelling.
 
+## Commit and push safety
+
+- When the user asks for `commit` and `push`, always check the current branch before staging or committing.
+- If the current branch is `main`, tell the user explicitly that they are on `main` and ask them to confirm that they really want to commit and push there.
+- Do not commit or push on `main` until the user confirms that decision in the chat.
+
 ## E2E privacy and artifact policy
 
 - Treat E2E runs as potentially sensitive: avoid collecting visual/debug artifacts by default.
