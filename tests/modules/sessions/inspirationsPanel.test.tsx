@@ -25,6 +25,10 @@ vi.mock('@shared/db/CampaignContext', () => ({
   useCampaign: () => ({ db: {}, campaignId: 'camp-1' }),
 }));
 
+vi.mock('dexie-react-hooks', () => ({
+  useLiveQuery: () => [],
+}));
+
 vi.mock('@modules/generator/repository', () => ({
   appendGeneratorRollLog: (...args: unknown[]) => appendGeneratorRollLogMock(...args),
 }));
@@ -54,6 +58,10 @@ vi.mock('@modules/generator/hooks/useGeneratorRoll', () => ({
     setSeed: vi.fn(),
     withoutRepetition: false,
     setWithoutRepetition: vi.fn(),
+    evoEnabled: true,
+    setEvoEnabled: vi.fn(),
+    evoContextTags: [],
+    setEvoContextTags: vi.fn(),
     isCommitting: false,
     lastRoll: mockedLastRoll,
     rollHistory: mockedLastRoll ? [mockedLastRoll] : [],

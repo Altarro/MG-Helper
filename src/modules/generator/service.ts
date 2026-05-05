@@ -110,6 +110,11 @@ function pickWeighted(
   });
   if (activeEntries.length === 0) return null;
 
+  if (options?.evo?.enabled) {
+    const evoPicked = pickWithEvolutionaryBias(activeEntries, rng, options.evo);
+    if (evoPicked) return evoPicked.value;
+  }
+
   const totalWeight = activeEntries.reduce((sum, entry) => sum + Math.max(0, entry.weight), 0);
   if (totalWeight <= 0) {
     return activeEntries[Math.floor(rng() * activeEntries.length)]?.value ?? null;
@@ -121,6 +126,79 @@ function pickWeighted(
     if (roll <= 0) return entry.value;
   }
   return activeEntries[activeEntries.length - 1]?.value ?? null;
+}
+
+function pickWithEvolutionaryBias(
+  entries: GeneratorTable['entries'],
+  rng: () => number,
+  evo: NonNullable<GeneratorRollEngineOptions['evo']>,
+): GeneratorTable['entries'][number] | null {
+  const contextTags = new Set((evo.contextTags ?? []).map(normalizeToken).filter(Boolean));
+  const previousResults = new Set((evo.previousResults ?? []).map((value) => value.trim().toLowerCase()).filter(Boolean));
+  const explorationRate = clamp01(evo.explorationRate ?? 0.28);
+  const generations = Math.max(1, Math.min(8, evo.generations ?? 4));
+  const populationSize = Math.max(6, Math.min(24, entries.length));
+
+  if (entries.length === 0) return null;
+
+  const scoreByEntry = new Map<string, number>();
+  for (const entry of entries) {
+    const baseWeight = Math.max(0, entry.weight);
+    const tagMatches = entry.tags.reduce((sum, tag) => sum + (contextTags.has(normalizeToken(tag)) ? 1 : 0), 0);
+    const tagSignal = contextTags.size === 0 ? 0 : tagMatches / contextTags.size;
+    const noveltySignal = previousResults.has(entry.value.trim().toLowerCase()) ? 0 : 1;
+    const fitness = 0.52 * (baseWeight > 0 ? Math.log1p(baseWeight) : 0) + 0.33 * tagSignal + 0.15 * noveltySignal;
+    scoreByEntry.set(entry.id, Math.max(0.0001, fitness));
+  }
+
+  let population = Array.from({ length: populationSize }, () => selectByScore(entries, scoreByEntry, rng) ?? entries[0]!);
+  for (let generation = 0; generation < generations; generation += 1) {
+    const ranked = [...population].sort(
+      (a, b) => (scoreByEntry.get(b.id) ?? 0) - (scoreByEntry.get(a.id) ?? 0),
+    );
+    const eliteCount = Math.max(1, Math.floor(populationSize * 0.35));
+    const elites = ranked.slice(0, eliteCount);
+    const nextPopulation = [...elites];
+    while (nextPopulation.length < populationSize) {
+      const elite = elites[Math.floor(rng() * elites.length)] ?? entries[0]!;
+      const shouldMutate = rng() < explorationRate;
+      if (shouldMutate) {
+        nextPopulation.push(selectByScore(entries, scoreByEntry, rng) ?? elite);
+      } else {
+        nextPopulation.push(elite);
+      }
+    }
+    population = nextPopulation;
+  }
+
+  const evolvedScores = new Map<string, number>();
+  for (const entry of population) {
+    evolvedScores.set(entry.id, (evolvedScores.get(entry.id) ?? 0) + (scoreByEntry.get(entry.id) ?? 0));
+  }
+  return selectByScore(entries, evolvedScores, rng) ?? entries[Math.floor(rng() * entries.length)] ?? null;
+}
+
+function selectByScore(
+  entries: GeneratorTable['entries'],
+  scoreByEntry: Map<string, number>,
+  rng: () => number,
+): GeneratorTable['entries'][number] | null {
+  const total = entries.reduce((sum, entry) => sum + Math.max(0, scoreByEntry.get(entry.id) ?? 0), 0);
+  if (total <= 0) return entries[Math.floor(rng() * entries.length)] ?? null;
+  let roll = rng() * total;
+  for (const entry of entries) {
+    roll -= Math.max(0, scoreByEntry.get(entry.id) ?? 0);
+    if (roll <= 0) return entry;
+  }
+  return entries[entries.length - 1] ?? null;
+}
+
+function normalizeToken(value: string): string {
+  return value.trim().toLowerCase().replace(/[^\p{L}\p{N}_-]+/gu, '');
+}
+
+function clamp01(v: number): number {
+  return Math.min(1, Math.max(0, v));
 }
 
 export function createRng(seed?: string | number): () => number {

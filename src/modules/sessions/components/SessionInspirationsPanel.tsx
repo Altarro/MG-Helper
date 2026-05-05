@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { Sparkles, User, MapPin, Dice5, Table2, WandSparkles, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
 import { useGeneratorPacks } from '@modules/generator/hooks/useGeneratorPacks';
@@ -124,6 +125,9 @@ export function SessionInspirationsPanel({ sessionId, currentLocationId }: Sessi
     setSeed,
     withoutRepetition,
     setWithoutRepetition,
+    evoEnabled,
+    setEvoEnabled,
+    setEvoContextTags,
     isCommitting,
     lastRoll,
     rollHistory,
@@ -147,6 +151,28 @@ export function SessionInspirationsPanel({ sessionId, currentLocationId }: Sessi
       : undefined,
   });
   const previewRoll = useMemo(() => preview(), [preview]);
+  const sessionContextTags = useLiveQuery(async () => {
+    const appears = await db.relations
+      .where('targetId')
+      .equals(sessionId)
+      .filter((relation) => relation.type === 'appears_in')
+      .toArray();
+    if (appears.length === 0) return [];
+    const entityIds = Array.from(new Set(appears.map((relation) => relation.sourceId)));
+    const entities = await db.entities.where('id').anyOf(entityIds).toArray();
+    const tags = new Set<string>();
+    for (const entity of entities) {
+      tags.add(entity.type);
+      for (const tag of entity.tags ?? []) {
+        const normalized = tag.trim().toLowerCase();
+        if (normalized) tags.add(normalized);
+      }
+      for (const token of entity.name.toLowerCase().split(/[^\p{L}\p{N}]+/u)) {
+        if (token.length >= 3) tags.add(token);
+      }
+    }
+    return Array.from(tags).slice(0, 64);
+  }, [db, sessionId]);
 
   useEffect(() => {
     const migrated = migrateLegacyGeneratorSettings(campaignId);
@@ -189,6 +215,10 @@ export function SessionInspirationsPanel({ sessionId, currentLocationId }: Sessi
   useEffect(() => {
     localStorage.setItem(settingsKeys.seed, seed);
   }, [seed, settingsKeys]);
+
+  useEffect(() => {
+    setEvoContextTags(sessionContextTags ?? []);
+  }, [sessionContextTags, setEvoContextTags]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -599,6 +629,15 @@ export function SessionInspirationsPanel({ sessionId, currentLocationId }: Sessi
               className="h-4 w-4 rounded border-surface-300 text-primary-700 focus:ring-primary-500/30"
             />
             Bez powtorzen (w aktywnym losowaniu)
+          </label>
+          <label className="inline-flex items-center gap-2 text-xs text-surface-700">
+            <input
+              type="checkbox"
+              checked={evoEnabled}
+              onChange={(event) => setEvoEnabled(event.target.checked)}
+              className="h-4 w-4 rounded border-surface-300 text-primary-700 focus:ring-primary-500/30"
+            />
+            EvoGenerator (dopasowanie do kontekstu kampanii)
           </label>
           {mode === 'character' && (
             <label className="inline-flex items-center gap-2 text-xs text-surface-700">

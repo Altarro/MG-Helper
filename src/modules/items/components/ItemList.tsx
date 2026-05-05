@@ -10,26 +10,29 @@ import { EmptyState } from '@shared/components/EmptyState';
 import { addEntity } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
-import { ITEM_TYPES, ITEM_TYPE_LABELS } from '../types';
 import type { ItemFormValues } from './ItemForm';
-import type { ItemType } from '../types';
 import { getItemLifecycleStatus } from '@shared/utils/entityData';
+import { stripHtml } from '@shared/utils/sanitize';
+import { getActiveCatalogOptions } from '@modules/settings/campaignCatalogSettings';
 
 export function ItemList() {
   const items = useItems();
   const navigate = useNavigate();
-  const { db } = useCampaign();
+  const { db, campaignId } = useCampaign();
   const [query, setQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState<ItemType | 'all'>('all');
+  const [typeFilter, setTypeFilter] = useState<string | 'all'>('all');
   const [hideDestroyed, setHideDestroyed] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const typeOptions = getActiveCatalogOptions(campaignId, 'itemType');
 
   const lowerQuery = query.trim().toLowerCase();
   const queryMatchedItems = items?.filter((item) => {
     const matchesQuery =
       !lowerQuery ||
       item.name.toLowerCase().includes(lowerQuery) ||
+      stripHtml(item.description ?? '').toLowerCase().includes(lowerQuery) ||
+      item.data.properties.some((property) => property.toLowerCase().includes(lowerQuery)) ||
       item.tags.some((t) => t.toLowerCase().includes(lowerQuery));
     return matchesQuery;
   });
@@ -46,12 +49,12 @@ export function ItemList() {
 
   const typeCounts = useMemo(() => {
     const list = queryDestroyMatched ?? [];
-    const counts: Partial<Record<ItemType | 'all', number>> = { all: list.length };
-    for (const t of ITEM_TYPES) {
+    const counts: Partial<Record<string | 'all', number>> = { all: list.length };
+    for (const { id: t } of typeOptions) {
       counts[t] = list.filter((item) => item.data.itemType === t).length;
     }
-    return counts as Record<ItemType | 'all', number>;
-  }, [queryDestroyMatched]);
+    return counts as Record<string | 'all', number>;
+  }, [queryDestroyMatched, typeOptions]);
 
   const destroyedInTypeSelection = useMemo(() => {
     const list =
@@ -134,17 +137,17 @@ export function ItemList() {
             className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${typeFilter === 'all' ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'}`}
           >
             <span>Wszystkie</span>
-            <FilterCountBadge selected={typeFilter === 'all'} count={typeCounts.all} />
+            <FilterCountBadge selected={typeFilter === 'all'} count={typeCounts.all ?? 0} />
           </button>
-          {ITEM_TYPES.map((t) => (
+          {typeOptions.map(({ id: t, label }) => (
             <button
               key={t}
               type="button"
               onClick={() => setTypeFilter(t)}
               className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${typeFilter === t ? 'app-danger-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'}`}
             >
-              <span>{ITEM_TYPE_LABELS[t]}</span>
-              <FilterCountBadge selected={typeFilter === t} count={typeCounts[t]} />
+              <span>{label}</span>
+              <FilterCountBadge selected={typeFilter === t} count={typeCounts[t] ?? 0} />
             </button>
           ))}
           <button
@@ -171,7 +174,9 @@ export function ItemList() {
         <LoadingSpinner />
       ) : filtered && filtered.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((item) => <ItemCard key={item.id} item={item} />)}
+          {filtered.map((item) => (
+            <ItemCard key={item.id} item={item} onClick={() => navigate(`/items/${item.id}`)} />
+          ))}
         </div>
       ) : (
         <div className="app-panel rounded-[1.8rem] p-6">

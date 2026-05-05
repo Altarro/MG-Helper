@@ -24,12 +24,12 @@ export function getReadableRelationErrorMessage(
       context.targetType === 'thread'
     ) {
       if (!context.mode) {
-        return 'Te wątki są już powiązane w questline. Aby zmienić typ powiązania, usuń starą relację i dodaj ją ponownie.';
+        return 'Te wątki są już powiązane w linii wątku. Aby zmienić typ powiązania, usuń starą relację i dodaj ją ponownie.';
       }
 
       return context.mode === 'parent'
-        ? 'Ten wątek nadrzędny jest już podpięty do bieżącego wątku. Aby zmienić typ questline, usuń starą relację i dodaj ją ponownie.'
-        : 'Ten wątek jest już podpięty jako element questline. Aby zmienić typ powiązania, usuń starą relację i dodaj ją ponownie.';
+        ? 'Ten wątek nadrzędny jest już podpięty do bieżącego wątku. Aby zmienić typ linii wątku, usuń starą relację i dodaj ją ponownie.'
+        : 'Ten wątek jest już podpięty jako element linii wątku. Aby zmienić typ powiązania, usuń starą relację i dodaj ją ponownie.';
     }
 
     if (context.relationType === 'clues_for') {

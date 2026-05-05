@@ -10,28 +10,35 @@ import { EmptyState } from '@shared/components/EmptyState';
 import { addEntity, assignContainment } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
-import { createLocationData, LOCATION_TYPE_LABELS } from '../types';
-import type { LocationType } from '../types';
+import { createLocationData } from '../types';
 import type { LocationFormValues } from './LocationForm';
 import { getLocationLifecycleStatus } from '@shared/utils/entityData';
+import { stripHtml } from '@shared/utils/sanitize';
+import { getActiveCatalogOptions } from '@modules/settings/campaignCatalogSettings';
 
-type FilterType = 'all' | LocationType;
+type FilterType = 'all' | string;
 
 export function LocationList() {
   const locations = useLocations();
   const navigate = useNavigate();
-  const { db } = useCampaign();
+  const { db, campaignId } = useCampaign();
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<FilterType>('all');
   const [hideDestroyed, setHideDestroyed] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const typeOptions = getActiveCatalogOptions(campaignId, 'locationType');
 
   const lowerQuery = query.trim().toLowerCase();
   const queryMatchedLocations = locations?.filter((loc) => {
     const matchesQuery =
       !lowerQuery ||
       loc.name.toLowerCase().includes(lowerQuery) ||
+      stripHtml(loc.description ?? '').toLowerCase().includes(lowerQuery) ||
+      loc.data.senses.see.toLowerCase().includes(lowerQuery) ||
+      loc.data.senses.hear.toLowerCase().includes(lowerQuery) ||
+      loc.data.senses.smell.toLowerCase().includes(lowerQuery) ||
+      loc.data.senses.feel.toLowerCase().includes(lowerQuery) ||
       loc.tags.some((t) => t.toLowerCase().includes(lowerQuery));
     return matchesQuery;
   });
@@ -49,11 +56,11 @@ export function LocationList() {
   const typeCounts = useMemo(() => {
     const list = queryDestroyMatched ?? [];
     const counts: Partial<Record<FilterType, number>> = { all: list.length };
-    for (const type of Object.keys(LOCATION_TYPE_LABELS) as LocationType[]) {
+    for (const { id: type } of typeOptions) {
       counts[type] = list.filter((loc) => loc.data.locationType === type).length;
     }
     return counts as Record<FilterType, number>;
-  }, [queryDestroyMatched]);
+  }, [queryDestroyMatched, typeOptions]);
 
   const destroyedInTypeSelection = useMemo(() => {
     const list =
@@ -147,9 +154,9 @@ export function LocationList() {
             className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${typeFilter === 'all' ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'}`}
           >
             <span>Wszystkie</span>
-            <FilterCountBadge selected={typeFilter === 'all'} count={typeCounts.all} />
+            <FilterCountBadge selected={typeFilter === 'all'} count={typeCounts.all ?? 0} />
           </button>
-          {(Object.entries(LOCATION_TYPE_LABELS) as [LocationType, string][]).map(([type, label]) => (
+          {typeOptions.map(({ id: type, label }) => (
             <button
               key={type}
               type="button"

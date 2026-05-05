@@ -98,7 +98,7 @@ export function ThreadDetail() {
     if (!thread || isEditing) return [];
     return [
       { id: 'thread-detail-kontekst', label: 'Kontekst' },
-      { id: 'thread-detail-questline', label: 'Questline' },
+      { id: 'thread-detail-questline', label: 'Linia wątku' },
       { id: 'thread-detail-sesje', label: 'Sesje' },
       { id: 'thread-detail-powiazania', label: 'Powiązania' },
       { id: 'thread-detail-notatki', label: 'Notatki MG' },
@@ -399,7 +399,7 @@ export function ThreadDetail() {
 
           <DetailSection
             sectionId="thread-detail-questline"
-            title="Questline"
+            title="Linia wątku"
           >
             <NarrativeLinksSection
               title="Wątki nadrzędne"
@@ -410,13 +410,13 @@ export function ThreadDetail() {
               onRemoveItem={(item) =>
                 setUnlinkConfirm({
                   relationId: item.relation.id,
-                  title: 'Usunąć powiązanie questline?',
+                  title: 'Usunąć powiązanie linii wątku?',
                   description: `Czy na pewno chcesz odpiąć nadrzędny wątek „${item.entity.name}"?`,
                 })}
               removeAriaLabel={(item) => `Usuń nadrzędny wątek ${item.entity.name}`}
               meta={(item) => {
                 const kind = item.relation.meta?.threadDerivationKind;
-                if (!kind) return 'Relacja legacy bez doprecyzowanego typu questline.';
+                if (!kind) return 'Relacja legacy bez doprecyzowanego typu linii wątku.';
                 return `${getThreadDerivationDirectionLabel(kind, 'outgoing')} • ${getThreadDerivationKindLabel(kind)}`;
               }}
             />
@@ -457,7 +457,7 @@ export function ThreadDetail() {
                       onRemoveItem={(item) =>
                         setUnlinkConfirm({
                           relationId: item.relation.id,
-                          title: 'Usunąć powiązanie questline?',
+                          title: 'Usunąć powiązanie linii wątku?',
                           description: `Czy na pewno chcesz odpiąć pochodny wątek „${item.entity.name}"?`,
                         })}
                       removeAriaLabel={(item) => `Usuń pochodny wątek ${item.entity.name}`}
@@ -466,17 +466,17 @@ export function ThreadDetail() {
                   ))}
                   {legacyChildThreads.length > 0 && (
                     <NarrativeLinksSection
-                      title="Legacy questline"
+                      title="Starsza linia wątku"
                       items={legacyChildThreads}
                       emptyMessage=""
                       onRemoveItem={(item) =>
                         setUnlinkConfirm({
                           relationId: item.relation.id,
-                          title: 'Usunąć powiązanie questline?',
+                          title: 'Usunąć powiązanie linii wątku?',
                           description: `Czy na pewno chcesz odpiąć pochodny wątek „${item.entity.name}"?`,
                         })}
                       removeAriaLabel={(item) => `Usuń pochodny wątek ${item.entity.name}`}
-                      meta={() => 'Relacja legacy bez doprecyzowanego typu questline.'}
+                      meta={() => 'Relacja legacy bez doprecyzowanego typu linii wątku.'}
                     />
                   )}
                 </div>

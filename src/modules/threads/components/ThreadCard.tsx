@@ -1,5 +1,7 @@
-import { memo } from 'react';
+import { Fragment, memo, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react';
+import { Link } from 'react-router';
 import { Tag } from 'lucide-react';
+import { CardScrollBlock } from '@shared/components/CardScrollBlock';
 import {
   THREAD_KIND_LABELS,
   THREAD_PRIORITY_LABELS,
@@ -9,21 +11,72 @@ import type { Thread } from '../types';
 import { stripHtml } from '@shared/utils/sanitize';
 
 const DESCRIPTION_MAX_CHARS = 120;
+const RESOLUTION_MAX_CHARS = 160;
+
+export interface ThreadQuestlineCardItem {
+  id: string;
+  name: string;
+  label: string;
+}
+
+export interface ThreadQuestlineCardInfo {
+  parents: ThreadQuestlineCardItem[];
+  children: ThreadQuestlineCardItem[];
+}
+
+interface ThreadQuestlineCardGroup {
+  label: string;
+  items: ThreadQuestlineCardItem[];
+}
 
 interface ThreadCardProps {
   thread: Thread;
   onClick?: () => void;
   className?: string;
+  questline?: ThreadQuestlineCardInfo;
 }
 
-export const ThreadCard = memo(function ThreadCard({ thread, onClick, className = '' }: ThreadCardProps) {
+function getQuestlineGroups(questline?: ThreadQuestlineCardInfo): ThreadQuestlineCardGroup[] {
+  const groups = new Map<string, ThreadQuestlineCardItem[]>();
+
+  for (const item of [...(questline?.parents ?? []), ...(questline?.children ?? [])]) {
+    const group = groups.get(item.label);
+    if (group) {
+      group.push(item);
+    } else {
+      groups.set(item.label, [item]);
+    }
+  }
+
+  return [...groups].map(([label, items]) => ({ label, items }));
+}
+
+function stopCardEvent(
+  event: KeyboardEvent<HTMLAnchorElement> | MouseEvent<HTMLAnchorElement> | PointerEvent<HTMLAnchorElement>,
+) {
+  event.stopPropagation();
+}
+
+export const ThreadCard = memo(function ThreadCard({
+  thread,
+  onClick,
+  className = '',
+  questline,
+}: ThreadCardProps) {
   const plainDescription = stripHtml(thread.description ?? '');
   const preview =
     plainDescription.length > DESCRIPTION_MAX_CHARS
       ? `${plainDescription.slice(0, DESCRIPTION_MAX_CHARS).trimEnd()}...`
       : plainDescription;
+  const resolution = (thread.data.resolution ?? '').trim();
+  const resolutionPreview =
+    resolution.length > RESOLUTION_MAX_CHARS
+      ? `${resolution.slice(0, RESOLUTION_MAX_CHARS).trimEnd()}...`
+      : resolution;
 
   const isCompleted = thread.data.status === 'completed';
+  const questlineGroups = getQuestlineGroups(questline);
+  const hasQuestline = questlineGroups.length > 0;
 
   return (
     <article
@@ -59,7 +112,60 @@ export const ThreadCard = memo(function ThreadCard({ thread, onClick, className 
         </div>
 
         {preview && (
-          <p className="line-clamp-3 text-sm leading-6 text-surface-700">{preview}</p>
+          <CardScrollBlock label="Opis" contentClassName="pr-0.5" maxLines={4} remeasureKey={preview}>
+            <p className="text-sm leading-6 whitespace-pre-wrap text-surface-700">{preview}</p>
+          </CardScrollBlock>
+        )}
+
+        {isCompleted && resolutionPreview && (
+          <CardScrollBlock
+            label="Efekt"
+            contentClassName="pr-0.5"
+            maxLines={4}
+            remeasureKey={resolutionPreview}
+          >
+            <p className="text-sm leading-6 whitespace-pre-wrap text-surface-700">
+              {resolutionPreview}
+            </p>
+          </CardScrollBlock>
+        )}
+
+        {hasQuestline && (
+          <CardScrollBlock
+            label="Linia wątku"
+            contentClassName="pr-0.5"
+            maxLines={5}
+            remeasureKey={questlineGroups
+              .map((group) => `${group.label}:${group.items.map((item) => item.id).join('|')}`)
+              .join(';')}
+          >
+            <div className="flex flex-col gap-2">
+              {questlineGroups.map((group) => (
+                <p key={group.label} className="min-w-0 text-sm leading-6 text-surface-700">
+                  <span className="font-medium text-surface-600">
+                    {group.label}:
+                  </span>
+                  <span> </span>
+                  <span>
+                    {group.items.map((item, index) => (
+                      <Fragment key={item.id}>
+                        {index > 0 && <span className="text-surface-500">, </span>}
+                        <Link
+                          to={`/threads/${item.id}`}
+                          className="rounded-sm underline decoration-transparent underline-offset-4 transition-colors hover:text-primary-700 hover:decoration-primary-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30"
+                          onClick={stopCardEvent}
+                          onPointerDown={stopCardEvent}
+                          onKeyDown={stopCardEvent}
+                        >
+                          {item.name}
+                        </Link>
+                      </Fragment>
+                    ))}
+                  </span>
+                </p>
+              ))}
+            </div>
+          </CardScrollBlock>
         )}
 
         {thread.tags.length > 0 && (

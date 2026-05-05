@@ -33,9 +33,10 @@ import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
 import { formatDate } from '@shared/utils/date';
 import { getEntityDetailPath } from '@shared/utils/entityTypeMeta';
-import { createLocationData, LOCATION_TYPE_LABELS } from '../types';
+import { createLocationData } from '../types';
 import { getLocationLifecycleStatus } from '@shared/utils/entityData';
 import { withLifecycleStatus } from '@shared/types/entityLifecycle';
+import { getCatalogLabelByValue } from '@modules/settings/campaignCatalogSettings';
 import { DndContext } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
 import type { NpcDragData } from '@shared/components/DraggableNpcChip';
@@ -66,7 +67,7 @@ export function LocationDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const locationState = useLocation();
-  const { db } = useCampaign();
+  const { db, campaignId } = useCampaign();
   const { location } = useLocationById(id);
   const returnToSessionLive = (locationState.state as { returnToSessionLive?: string } | null)
     ?.returnToSessionLive;
@@ -367,7 +368,7 @@ export function LocationDetail() {
                   {location.name}
                 </h1>
                 <span className="app-pill-muted rounded-full px-2.5 py-1 text-xs font-medium">
-                  {LOCATION_TYPE_LABELS[locationType]}
+                  {getCatalogLabelByValue('locationType', locationType, campaignId)}
                 </span>
                 {danger > 0 && (
                   <span

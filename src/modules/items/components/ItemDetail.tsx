@@ -17,17 +17,17 @@ import { deleteEntity, updateEntity } from '@shared/db/operations';
 import { deleteAsset } from '@shared/db/assets';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
-import { ITEM_TYPE_LABELS } from '../types';
 import { getItemLifecycleStatus } from '@shared/utils/entityData';
 import { withLifecycleStatus } from '@shared/types/entityLifecycle';
 import { recordEntityMutationInSession } from '@modules/sessions/utils/sessionSignals';
+import { getCatalogLabelByValue } from '@modules/settings/campaignCatalogSettings';
 import type { ItemFormValues } from './ItemForm';
 
 export function ItemDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { db } = useCampaign();
+  const { db, campaignId } = useCampaign();
   const { item } = useItemById(id);
 
   const [isEditing, setIsEditing] = useState(false);
@@ -179,7 +179,7 @@ export function ItemDetail() {
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <span className="app-danger-pill rounded-full px-3 py-1 text-xs font-semibold">
-                {ITEM_TYPE_LABELS[item.data.itemType]}
+                {getCatalogLabelByValue('itemType', item.data.itemType, campaignId)}
               </span>
             </div>
           </div>

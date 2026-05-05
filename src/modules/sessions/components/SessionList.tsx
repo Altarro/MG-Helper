@@ -1,6 +1,15 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Plus, Search, X, BookOpen } from 'lucide-react';
+import {
+  BookOpen,
+  CheckCircle2,
+  ClipboardList,
+  Plus,
+  Radio,
+  Search,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 import { format } from 'date-fns';
 import {
   DndContext,
@@ -27,8 +36,41 @@ import { addEntity, updateSortOrders } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
 import { reorderEntities } from '@shared/utils/dnd';
-import type { Session } from '../types';
+import { getSessionLifecycleStatus, type Session } from '../types';
 import type { SessionFormValues } from './SessionForm';
+
+function SessionStat({
+  icon: Icon,
+  label,
+  value,
+  tone = 'primary',
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: number;
+  tone?: 'primary' | 'warning' | 'danger' | 'success';
+}) {
+  const toneClass = {
+    primary: 'bg-[rgba(111,146,164,0.14)] text-primary-800',
+    warning: 'bg-[rgba(242,196,88,0.18)] text-[#8b5b0c]',
+    danger: 'bg-[rgba(176,108,103,0.12)] text-danger-700',
+    success: 'bg-[rgba(106,143,135,0.14)] text-success-600',
+  }[tone];
+
+  return (
+    <div className="rounded-2xl border border-[rgba(86,93,94,0.1)] bg-[rgba(223,225,218,0.55)] p-3">
+      <div className={`mb-3 flex h-8 w-8 items-center justify-center rounded-xl ${toneClass}`}>
+        <Icon className="h-4 w-4" />
+      </div>
+      <p className="text-surface-900 text-2xl leading-none font-semibold tracking-[-0.04em]">
+        {value}
+      </p>
+      <p className="text-surface-500 mt-1 text-[11px] font-semibold tracking-wide uppercase">
+        {label}
+      </p>
+    </div>
+  );
+}
 
 export function SessionList() {
   const sessions = useSessions();
@@ -56,9 +98,19 @@ export function SessionList() {
     );
   });
 
-  const nextNumber = sessions && sessions.length > 0
-    ? Math.max(...sessions.map((s) => s.data.number)) + 1
-    : 1;
+  const nextNumber =
+    sessions && sessions.length > 0 ? Math.max(...sessions.map((s) => s.data.number)) + 1 : 1;
+  const sessionStats = useMemo(() => {
+    const list = sessions ?? [];
+    return {
+      total: list.length,
+      live: list.filter((session) => getSessionLifecycleStatus(session.data) === 'live').length,
+      cleanup: list.filter(
+        (session) => getSessionLifecycleStatus(session.data) === 'cleanup_pending',
+      ).length,
+      reports: list.filter((session) => session.data.reportAvailable === true).length,
+    };
+  }, [sessions]);
 
   async function handleCreate(values: SessionFormValues) {
     setSaving(true);
@@ -99,7 +151,10 @@ export function SessionList() {
     if (!over || active.id === over.id || !sessions) return;
     const reordered = reorderEntities(sessions, String(active.id), String(over.id));
     try {
-      await updateSortOrders(db, reordered.map((s) => s.id));
+      await updateSortOrders(
+        db,
+        reordered.map((s) => s.id),
+      );
       toast.success('Kolejność zaktualizowana');
     } catch {
       toast.error('Nie udało się zapisać kolejności');
@@ -110,49 +165,75 @@ export function SessionList() {
 
   return (
     <div className="flex flex-col gap-6">
-      <section className="app-panel-strong rounded-[2rem] px-6 py-7 lg:px-8 lg:py-8">
-        <div className="flex flex-wrap items-start justify-between gap-5">
-          <div className="max-w-3xl">
-            <div className="mb-3 inline-flex items-center rounded-full border border-[rgba(33,71,102,0.16)] bg-[rgba(111,146,164,0.12)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary-700">
+      <section className="app-panel-strong overflow-hidden rounded-[2.2rem] p-0">
+        <div className="grid gap-0 lg:grid-cols-[minmax(0,1.25fr)_minmax(22rem,0.75fr)]">
+          <div className="relative px-6 py-7 lg:px-8 lg:py-8">
+            <div className="absolute inset-y-0 left-0 w-1.5 bg-[linear-gradient(180deg,var(--color-primary-500)_0%,var(--color-warning-500)_100%)]" />
+            <div className="text-primary-700 mb-4 inline-flex items-center rounded-full border border-[rgba(33,71,102,0.16)] bg-[rgba(111,146,164,0.12)] px-3 py-1 text-[11px] font-semibold tracking-[0.18em] uppercase">
               Archiwum kampanii
             </div>
-            <h1 className="text-3xl font-semibold tracking-[-0.04em] text-primary-900 lg:text-[2.2rem]">
+            <h1 className="text-primary-900 max-w-[12ch] text-[2.7rem] leading-[0.95] font-semibold tracking-[-0.06em] lg:text-[4.2rem]">
               Sesje
             </h1>
-            <p className="mt-2 max-w-[62ch] text-sm leading-7 text-surface-700 lg:text-[0.98rem]">
-              Chronologiczny zapis spotkań i najważniejszych wydarzeń kampanii.
+            <p className="text-surface-700 mt-4 max-w-[68ch] text-sm leading-7 lg:text-[0.98rem]">
+              Każde spotkanie jako czytelny rekord: plan, przebieg, cleanup i raport w jednym
+              miejscu.
             </p>
+            <div className="relative mt-6">
+              <Search className="text-surface-500 pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Szukaj po tytule, dacie, streszczeniu albo tagach..."
+                className="app-input focus:border-primary-500 focus:ring-primary-500/20 w-full rounded-2xl py-3 pr-10 pl-11 text-sm focus:ring-2 focus:outline-none"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  className="text-surface-500 hover:text-primary-700 absolute top-1/2 right-3 -translate-y-1/2 rounded-full p-1 transition-colors"
+                  aria-label="Wyczyść wyszukiwanie"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setShowForm(true)}
-            className="app-button-primary flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-transform hover:-translate-y-0.5"
-          >
-            <Plus className="h-4 w-4" />
-            Nowa sesja
-          </button>
-        </div>
-
-        <div className="relative mt-6">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-500" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Szukaj sesji..."
-            className="app-input w-full rounded-2xl py-3 pl-11 pr-10 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-          />
-          {query && (
-            <button type="button" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-surface-500 transition-colors hover:text-primary-700">
-              <X className="h-4 w-4" />
+          <div className="border-t border-[rgba(86,93,94,0.1)] bg-[rgba(255,250,240,0.11)] p-5 lg:border-t-0 lg:border-l lg:p-6">
+            <div className="grid grid-cols-2 gap-3">
+              <SessionStat icon={BookOpen} label="W archiwum" value={sessionStats.total} />
+              <SessionStat icon={Radio} label="Live" value={sessionStats.live} tone="warning" />
+              <SessionStat
+                icon={ClipboardList}
+                label="Cleanup"
+                value={sessionStats.cleanup}
+                tone="danger"
+              />
+              <SessionStat
+                icon={CheckCircle2}
+                label="Raporty"
+                value={sessionStats.reports}
+                tone="success"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowForm(true)}
+              className="app-button-primary mt-5 flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-transform hover:-translate-y-0.5"
+            >
+              <Plus className="h-4 w-4" />
+              Nowa sesja
             </button>
-          )}
+          </div>
         </div>
       </section>
 
       {showForm && (
         <div className="app-panel rounded-[1.8rem] p-5 lg:p-6">
-          <h2 className="mb-4 text-base font-semibold tracking-[-0.02em] text-primary-900">Nowa sesja</h2>
+          <h2 className="text-primary-900 mb-4 text-base font-semibold tracking-[-0.02em]">
+            Nowa sesja
+          </h2>
           <SessionForm
             defaultValues={{ number: nextNumber, date: format(new Date(), 'yyyy-MM-dd') }}
             onSubmit={handleCreate}
@@ -166,9 +247,14 @@ export function SessionList() {
       {isLoading ? (
         <LoadingSpinner />
       ) : filtered && filtered.length > 0 ? (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
           <SortableContext items={filtered.map((s) => s.id)} strategy={rectSortingStrategy}>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {filtered.map((session) => (
                 <SortableSessionCard key={session.id} session={session} />
               ))}
@@ -185,10 +271,23 @@ export function SessionList() {
       ) : (
         <div className="app-panel rounded-[1.8rem] p-6">
           <EmptyState
-            icon={<BookOpen className="h-10 w-10 text-primary-300" />}
+            icon={<BookOpen className="text-primary-300 h-10 w-10" />}
             title={sessions && sessions.length === 0 ? 'Brak sesji' : 'Brak wyników'}
-            description={sessions && sessions.length === 0 ? 'Zapisz swoją pierwszą sesję, by zacząć archiwizować kampanię.' : 'Żadna sesja nie pasuje do wyszukiwania.'}
-            action={sessions && sessions.length === 0 ? <button onClick={() => setShowForm(true)} className="app-button-primary rounded-2xl px-4 py-3 text-sm font-medium">Nowa sesja</button> : undefined}
+            description={
+              sessions && sessions.length === 0
+                ? 'Zapisz swoją pierwszą sesję, by zacząć archiwizować kampanię.'
+                : 'Żadna sesja nie pasuje do wyszukiwania.'
+            }
+            action={
+              sessions && sessions.length === 0 ? (
+                <button
+                  onClick={() => setShowForm(true)}
+                  className="app-button-primary rounded-2xl px-4 py-3 text-sm font-medium"
+                >
+                  Nowa sesja
+                </button>
+              ) : undefined
+            }
           />
         </div>
       )}

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { Plus, Search, X } from 'lucide-react';
 import { useNpcs } from '../hooks/useNpcs';
 import { NpcCard } from './NpcCard';
@@ -12,16 +13,23 @@ import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
 import type { NpcFormValues } from './NpcForm';
 import type { Npc } from '../types';
+import { isLocation } from '@modules/locations/types';
 import { getNpcLifecycleStatus } from '@shared/utils/entityData';
+import { stripHtml } from '@shared/utils/sanitize';
 
 type NpcTab = 'all' | 'players' | 'npcs';
 
-function npcMatchesQuery(npc: Npc, lowerQuery: string): boolean {
+function npcMatchesQuery(npc: Npc, lowerQuery: string, currentLocationName?: string): boolean {
   if (!lowerQuery) return true;
   return (
     npc.name.toLowerCase().includes(lowerQuery) ||
+    currentLocationName?.toLowerCase().includes(lowerQuery) ||
+    stripHtml(npc.description ?? '').toLowerCase().includes(lowerQuery) ||
     npc.data?.instinct?.toLowerCase().includes(lowerQuery) ||
     npc.data?.motivation?.toLowerCase().includes(lowerQuery) ||
+    npc.data?.appearance?.toLowerCase().includes(lowerQuery) ||
+    npc.data?.playStyle?.toLowerCase().includes(lowerQuery) ||
+    npc.data?.playerName?.toLowerCase().includes(lowerQuery) ||
     npc.tags.some((t) => t.toLowerCase().includes(lowerQuery))
   );
 }
@@ -38,8 +46,10 @@ function npcMatchesTab(npc: Npc, tab: NpcTab): boolean {
   );
 }
 
-function npcMatchesHideDead(npc: Npc, hideDead: boolean): boolean {
-  return !hideDead || getNpcLifecycleStatus({ data: npc.data }) !== 'completed';
+function npcMatchesLifecycle(npc: Npc, hideDead: boolean, showOnlyDead: boolean): boolean {
+  const isDead = getNpcLifecycleStatus({ data: npc.data }) === 'completed';
+  if (showOnlyDead) return isDead;
+  return !hideDead || !isDead;
 }
 
 export function NpcList() {
@@ -49,39 +59,63 @@ export function NpcList() {
   const [query, setQuery] = useState('');
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [tab, setTab] = useState<NpcTab>('all');
+  const [showOnlyDead, setShowOnlyDead] = useState(false);
   const [hideDead, setHideDead] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const npcLocationMap = useLiveQuery(async () => {
+    const npcIds = new Set((npcs ?? []).map((npc) => npc.id));
+    if (npcIds.size === 0) return new Map<string, string>();
+
+    const relations = (await db.relations.toArray()).filter(
+      (relation) => relation.type === 'contains' && npcIds.has(relation.targetId),
+    );
+    if (relations.length === 0) return new Map<string, string>();
+
+    const locations = await db.entities
+      .where('id')
+      .anyOf([...new Set(relations.map((relation) => relation.sourceId))])
+      .toArray();
+    const locationNames = new Map(
+      locations.filter(isLocation).map((location) => [location.id, location.name]),
+    );
+
+    return new Map(
+      relations
+        .map((relation) => [relation.targetId, locationNames.get(relation.sourceId)] as const)
+        .filter((entry): entry is [string, string] => Boolean(entry[1])),
+    );
+  }, [db, npcs]);
 
   const lowerQuery = query.trim().toLowerCase();
   const filtered = npcs?.filter(
     (npc) =>
-      npcMatchesQuery(npc, lowerQuery) &&
+      npcMatchesQuery(npc, lowerQuery, npcLocationMap?.get(npc.id)) &&
       npcMatchesTag(npc, activeTag) &&
       npcMatchesTab(npc, tab) &&
-      npcMatchesHideDead(npc, hideDead),
+      npcMatchesLifecycle(npc, hideDead, showOnlyDead),
   );
 
   const tabStats = useMemo(() => {
     const list = (npcs ?? []).filter(
       (n) =>
-        npcMatchesQuery(n, lowerQuery) &&
+        npcMatchesQuery(n, lowerQuery, npcLocationMap?.get(n.id)) &&
         npcMatchesTag(n, activeTag) &&
-        npcMatchesHideDead(n, hideDead),
+        npcMatchesLifecycle(n, hideDead, showOnlyDead),
     );
     return {
       all: list.length,
       players: list.filter((n) => npcMatchesTab(n, 'players')).length,
       npcs: list.filter((n) => npcMatchesTab(n, 'npcs')).length,
     };
-  }, [npcs, lowerQuery, activeTag, hideDead]);
+  }, [npcs, lowerQuery, activeTag, hideDead, showOnlyDead, npcLocationMap]);
 
   const tagCounts = useMemo(() => {
     const list = (npcs ?? []).filter(
       (n) =>
-        npcMatchesQuery(n, lowerQuery) &&
+        npcMatchesQuery(n, lowerQuery, npcLocationMap?.get(n.id)) &&
         npcMatchesTab(n, tab) &&
-        npcMatchesHideDead(n, hideDead),
+        npcMatchesLifecycle(n, hideDead, showOnlyDead),
     );
     const map = new Map<string, number>();
     for (const n of list) {
@@ -90,17 +124,17 @@ export function NpcList() {
       }
     }
     return map;
-  }, [npcs, lowerQuery, tab, hideDead]);
+  }, [npcs, lowerQuery, tab, hideDead, showOnlyDead, npcLocationMap]);
 
   const deadInTabSelection = useMemo(() => {
     const list = (npcs ?? []).filter(
       (n) =>
-        npcMatchesQuery(n, lowerQuery) &&
+        npcMatchesQuery(n, lowerQuery, npcLocationMap?.get(n.id)) &&
         npcMatchesTag(n, activeTag) &&
         npcMatchesTab(n, tab),
     );
     return list.filter((n) => getNpcLifecycleStatus({ data: n.data }) === 'completed').length;
-  }, [npcs, lowerQuery, activeTag, tab]);
+  }, [npcs, lowerQuery, activeTag, tab, npcLocationMap]);
 
   const allTags = npcs ? [...new Set(npcs.flatMap((n) => n.tags))].sort() : [];
 
@@ -159,6 +193,27 @@ export function NpcList() {
           </button>
         </div>
 
+        <div className="relative mt-6">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-500" />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Szukaj postaci, instynktów albo motywacji..."
+            className="app-input w-full rounded-2xl py-3 pl-11 pr-10 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              aria-label="Wyczyść wyszukiwanie"
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-surface-500 transition-colors hover:text-primary-700"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
         <div className="mt-6 flex flex-wrap gap-2.5">
           {([
             ['all', 'Wszyscy'],
@@ -188,35 +243,30 @@ export function NpcList() {
           ))}
           <button
             type="button"
-            onClick={() => setHideDead((v) => !v)}
+            onClick={() => {
+              setShowOnlyDead((value) => !value);
+              setHideDead(false);
+            }}
+            className={`rounded-full px-4 py-2 text-xs font-semibold tracking-[0.01em] transition-all ${
+              showOnlyDead ? 'app-danger-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+            }`}
+          >
+            <span>Tylko martwe</span>
+            <FilterCountBadge selected={showOnlyDead} count={deadInTabSelection} />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setHideDead((value) => !value);
+              setShowOnlyDead(false);
+            }}
             className={`rounded-full px-4 py-2 text-xs font-semibold tracking-[0.01em] transition-all ${
               hideDead ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
             }`}
           >
-            <span>Ukryj nie żyjące</span>
+            <span>Ukryj martwe</span>
             <FilterCountBadge selected={hideDead} count={deadInTabSelection} />
           </button>
-        </div>
-
-        <div className="relative mt-6">
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-500" />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Szukaj postaci, instynktów albo motywacji..."
-            className="app-input w-full rounded-2xl py-3 pl-11 pr-10 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-          />
-          {query && (
-            <button
-              type="button"
-              onClick={() => setQuery('')}
-              aria-label="Wyczyść wyszukiwanie"
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-surface-500 transition-colors hover:text-primary-700"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
         </div>
 
         {allTags.length > 0 && (
@@ -250,7 +300,12 @@ export function NpcList() {
       ) : filtered && filtered.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((npc) => (
-            <NpcCard key={npc.id} npc={npc} onClick={() => navigate(`/npcs/${npc.id}`)} />
+            <NpcCard
+              key={npc.id}
+              npc={npc}
+              currentLocationName={npcLocationMap?.get(npc.id)}
+              onClick={() => navigate(`/npcs/${npc.id}`)}
+            />
           ))}
         </div>
       ) : (
@@ -258,12 +313,12 @@ export function NpcList() {
           <EmptyState
             title="Brak postaci"
             description={
-              lowerQuery || activeTag || tab !== 'all' || hideDead
+              lowerQuery || activeTag || tab !== 'all' || hideDead || showOnlyDead
                 ? 'Brak wyników dla podanych filtrów.'
                 : 'Utwórz pierwszą postać, aby zacząć budować obsadę kampanii.'
             }
             action={
-              !lowerQuery && !activeTag && tab === 'all' && !hideDead ? (
+              !lowerQuery && !activeTag && tab === 'all' && !hideDead && !showOnlyDead ? (
                 <button
                   type="button"
                   onClick={() => setShowForm(true)}

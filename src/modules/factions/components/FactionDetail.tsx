@@ -11,6 +11,8 @@ import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { EntityDetailPortrait } from '@shared/components/EntityDetailPortrait';
 import { NotesList } from '@modules/notes/components/NotesList';
+import { RelationList } from '@shared/components/RelationList';
+import { RelationPicker } from '@shared/components/RelationPicker';
 import {
   deleteEntity,
   updateEntity,
@@ -29,6 +31,7 @@ import { getFactionLifecycleStatus } from '@shared/utils/entityData';
 import { withLifecycleStatus } from '@shared/types/entityLifecycle';
 import { Modal } from '@shared/components/Modal';
 import { useEntitiesByType } from '@shared/hooks/useEntitiesByType';
+import { getEntityDetailPath } from '@shared/utils/entityTypeMeta';
 
 type FactionAttachment = {
   relationId: string;
@@ -92,6 +95,7 @@ export function FactionDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showMemberPicker, setShowMemberPicker] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [showRelationPicker, setShowRelationPicker] = useState(false);
   const [memberQuery, setMemberQuery] = useState('');
   const [locationQuery, setLocationQuery] = useState('');
   const [assigningEntityId, setAssigningEntityId] = useState<string | null>(null);
@@ -133,6 +137,7 @@ export function FactionDetail() {
     items.push(
       { id: 'faction-detail-headquarters', label: 'Siedziby' },
       { id: 'faction-detail-members', label: 'Członkowie' },
+      { id: 'faction-detail-relacje', label: 'Relacje' },
       { id: 'faction-detail-notatki', label: 'Notatki' },
       { id: 'faction-detail-tagi', label: 'Tagi' },
     );
@@ -238,6 +243,13 @@ export function FactionDetail() {
       toast.error(`Nie udało się dodać: ${entityTypeLabel.toLowerCase()}`);
     } finally {
       setAssigningEntityId(null);
+    }
+  }
+
+  function handleNavigateToEntity(entity: Entity) {
+    const detailPath = getEntityDetailPath(entity.type, entity.id);
+    if (detailPath) {
+      navigate(detailPath);
     }
   }
 
@@ -493,6 +505,25 @@ export function FactionDetail() {
         </div>
       )}
 
+      {!isEditing && (
+        <DetailSection
+          sectionId="faction-detail-relacje"
+          title="Relacje"
+          action={
+            <button
+              type="button"
+              onClick={() => setShowRelationPicker(true)}
+              className="app-button-secondary flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Dodaj
+            </button>
+          }
+        >
+          <RelationList entityId={faction.id} onNavigate={handleNavigateToEntity} />
+        </DetailSection>
+      )}
+
       <div id="faction-detail-notatki">
         <NotesList entityId={id!} />
       </div>
@@ -627,6 +658,14 @@ export function FactionDetail() {
             </ul>
           </div>
         </Modal>
+      )}
+
+      {showRelationPicker && (
+        <RelationPicker
+          sourceId={faction.id}
+          sourceType="faction"
+          onClose={() => setShowRelationPicker(false)}
+        />
       )}
     </div>
   );

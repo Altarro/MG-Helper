@@ -783,7 +783,7 @@ export async function seedDemoData(db: MgHelperDb): Promise<void> {
       tags: ['główny wątek', 'rytuał'],
       data: {
         segments: 8,
-        filled: 2,
+        filled: 6,
         isActive: true,
         tickLabels: [
           'Pierwszy hymn rozbrzmiewa w ogrodach opactwa',
@@ -825,7 +825,7 @@ export async function seedDemoData(db: MgHelperDb): Promise<void> {
       tags: ['rada', 'korupcja'],
       data: {
         segments: 6,
-        filled: 2,
+        filled: 4,
         isActive: true,
         tickLabels: [
           'Pierwszy tajny kontrakt przechodzi bez dyskusji',
@@ -845,7 +845,7 @@ export async function seedDemoData(db: MgHelperDb): Promise<void> {
       tags: ['przemyt', 'kanały'],
       data: {
         segments: 6,
-        filled: 3,
+        filled: 5,
         isActive: true,
         tickLabels: [
           'Pierwsza załoga składa hołd Nox',
@@ -865,7 +865,7 @@ export async function seedDemoData(db: MgHelperDb): Promise<void> {
       tags: ['choroba', 'miasto'],
       data: {
         segments: 6,
-        filled: 1,
+        filled: 4,
         isActive: true,
         tickLabels: [
           'Pierwsi chorzy trafiają do Solnego Szpitala',
@@ -885,7 +885,7 @@ export async function seedDemoData(db: MgHelperDb): Promise<void> {
       tags: ['najemnicy', 'fort'],
       data: {
         segments: 4,
-        filled: 1,
+        filled: 2,
         isActive: true,
         tickLabels: [
           'Verrick kupuje materiały wybuchowe i haki abordażowe',
@@ -994,6 +994,7 @@ export async function seedDemoData(db: MgHelperDb): Promise<void> {
       tags: ['kult', 'rytuał'],
       data: {
         threatType: 'dark_entity',
+        radarArchetype: 'avalanche',
         impulse: 'Otworzyć komorę i przeprowadzić wybranych przez przemianę',
         trigger: [
           'Syrene domyka kolejny etap hymnu bez zakłóceń.',
@@ -1015,6 +1016,7 @@ export async function seedDemoData(db: MgHelperDb): Promise<void> {
       tags: ['latarnia', 'astralna burza'],
       data: {
         threatType: 'environ_disaster',
+        radarArchetype: 'living_world',
         impulse: 'Przerwać kontrolę nad światłem i ściągnąć katastrofę na port',
         trigger: [
           'Bractwo odkłada właściwą naprawę soczewki.',
@@ -1036,6 +1038,7 @@ export async function seedDemoData(db: MgHelperDb): Promise<void> {
       tags: ['rada', 'sprzedaż'],
       data: {
         threatType: 'corrupt_ruler',
+        radarArchetype: 'mystery',
         impulse: 'Spieniężyć władzę zanim port upadnie albo się oczyści',
         trigger: [
           'Rada podpisuje kontrakt bez kontroli i debaty publicznej.',
@@ -1057,6 +1060,7 @@ export async function seedDemoData(db: MgHelperDb): Promise<void> {
       tags: ['przemyt', 'świadkowie'],
       data: {
         threatType: 'ambitious_organization',
+        radarArchetype: 'predator',
         impulse: 'Zmonopolizować kanały i przeżycie pod miastem',
         trigger: [
           'Nox przejmuje nową śluzę albo punkt przeładunkowy.',
@@ -1078,6 +1082,7 @@ export async function seedDemoData(db: MgHelperDb): Promise<void> {
       tags: ['choroba', 'mgła'],
       data: {
         threatType: 'disease_affliction',
+        radarArchetype: 'avalanche',
         impulse: 'Rozprzestrzeniać skażenie szybciej niż ludzie zdążą je zrozumieć',
         trigger: [
           'Pojawia się nowe ognisko mgły w gęsto zaludnionej dzielnicy.',
@@ -1099,6 +1104,7 @@ export async function seedDemoData(db: MgHelperDb): Promise<void> {
       tags: ['najemnik', 'szturm'],
       data: {
         threatType: 'force_of_chaos',
+        radarArchetype: 'ambush',
         impulse: 'Uderzyć brutalnie i przejąć kluczowe punkty zanim pojawi się opór',
         trigger: [
           'Verrick kończy przygotowania ludzi i sprzętu do szturmu.',
@@ -1597,12 +1603,12 @@ export async function seedDemoData(db: MgHelperDb): Promise<void> {
       type: 'clue',
       name: 'Złamana Pieczęć Rady',
       description:
-        '<p>Odcisk pieczęci Vaala na kopii rozkazu, który nigdy nie trafił do oficjalnych ksiąg. Ktoś z rady działa poza protokołem.</p>',
+        '<p>Odcisk pieczęci Vaala na kopii rozkazu, który nigdy nie trafił do oficjalnych ksiąg. Ktoś z rady działa poza protokołem — gracze przeszli obok pieczęci, nie łącząc faktów.</p>',
       tags: ['rada', 'fałszerstwo'],
       data: {
         clueType: 'event',
         hint: 'Pieczęć została użyta do zalegalizowania przejęcia magazynów i zamknięcia świadków.',
-        discovered: true,
+        discovered: false,
       },
     },
   } satisfies Record<string, NewEntity>, addEntity);
@@ -2228,6 +2234,35 @@ export async function seedDemoData(db: MgHelperDb): Promise<void> {
       tracks(threats.noxChannels.id, clocks.smugglingNet.id),
       tracks(threats.brineMist.id, clocks.saltPlague.id),
       tracks(threats.verrickRaid.id, clocks.verrickAssault.id),
+
+      // Threat → Thread (affects) — radar potrzebuje tej sieci, żeby liczyć obecność
+      // powiązanych wątków na sesjach (sygnały „Niedomknięte wątki” / „Powiązani znikają”).
+      { type: 'affects', sourceId: threats.syreneRitual.id, targetId: threads.blackTide.id },
+      { type: 'affects', sourceId: threats.syreneRitual.id, targetId: threads.abbeySchism.id },
+      { type: 'affects', sourceId: threats.syreneRitual.id, targetId: threads.priceOfSalvation.id },
+      { type: 'affects', sourceId: threats.lanternBreak.id, targetId: threads.starPrism.id },
+      { type: 'affects', sourceId: threats.lanternBreak.id, targetId: threads.lighthousePact.id },
+      { type: 'affects', sourceId: threats.vaalDeal.id, targetId: threads.boughtCouncilors.id },
+      { type: 'affects', sourceId: threats.noxChannels.id, targetId: threads.missingDockers.id },
+      { type: 'affects', sourceId: threats.noxChannels.id, targetId: threads.dryCanals.id },
+      { type: 'affects', sourceId: threats.noxChannels.id, targetId: threads.whaleBoneKey.id },
+      { type: 'affects', sourceId: threats.brineMist.id, targetId: threads.saltFog.id },
+      { type: 'affects', sourceId: threats.verrickRaid.id, targetId: threads.verrick.id },
+
+      // Threat → NPC/Frakcja (related_to) — buduje sieć dla sygnału „Powiązani znikają”
+      relatedTo(threats.syreneRitual.id, npcs.syrene.id, 'antagonista'),
+      relatedTo(threats.syreneRitual.id, factions.deepSilence.id, 'frakcja'),
+      relatedTo(threats.lanternBreak.id, npcs.elsera.id, 'osoba kluczowa'),
+      relatedTo(threats.lanternBreak.id, npcs.toman.id, 'archiwista'),
+      relatedTo(threats.lanternBreak.id, factions.lighthouse.id, 'frakcja'),
+      relatedTo(threats.vaalDeal.id, npcs.oren.id, 'antagonista'),
+      relatedTo(threats.vaalDeal.id, factions.council.id, 'frakcja'),
+      relatedTo(threats.noxChannels.id, npcs.nox.id, 'antagonista'),
+      relatedTo(threats.noxChannels.id, factions.blackSails.id, 'frakcja'),
+      relatedTo(threats.brineMist.id, npcs.ysma.id, 'lekarka'),
+      relatedTo(threats.brineMist.id, factions.saltCompany.id, 'powiązanie'),
+      relatedTo(threats.verrickRaid.id, npcs.verrick.id, 'antagonista'),
+      relatedTo(threats.verrickRaid.id, factions.blackSails.id, 'frakcja'),
 
       // Dodatkowe relacje zegarów
       relatedTo(clocks.rynDebt.id, npcs.ryn.id, 'stary rachunek'),

@@ -292,7 +292,8 @@ export function SessionLive() {
   const handlePanelPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     const element = panelScrollRef.current;
     if (!element || !panelDragRef.current) return;
-    element.scrollTop = panelDragRef.current.scrollTop - (event.clientY - panelDragRef.current.startY);
+    element.scrollTop =
+      panelDragRef.current.scrollTop - (event.clientY - panelDragRef.current.startY);
   }, []);
 
   const handlePanelPointerUp = useCallback(() => {
@@ -373,7 +374,9 @@ export function SessionLive() {
     }
     if (section === 'clues') return <SessionCluesPanel sessionId={sessionId} />;
     if (section === 'inspirations') {
-      return <SessionInspirationsPanel sessionId={sessionId} currentLocationId={currentLocationId} />;
+      return (
+        <SessionInspirationsPanel sessionId={sessionId} currentLocationId={currentLocationId} />
+      );
     }
     return (
       <SessionSearchPanel
@@ -396,45 +399,49 @@ export function SessionLive() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
-      <section className="app-panel-strong shrink-0 rounded-[2rem] px-6 py-5 lg:px-8">
-        <div className="mb-4 inline-flex items-center rounded-full border border-[rgba(33,71,102,0.16)] bg-[rgba(111,146,164,0.12)] px-3 py-1 text-[11px] font-semibold tracking-[0.18em] text-primary-700 uppercase">
-          Sesja na żywo
-        </div>
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0 flex items-center gap-3">
+      <section className="app-panel-strong shrink-0 overflow-hidden rounded-[2.1rem] p-0">
+        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="relative flex min-w-0 items-center gap-4 px-6 py-5 lg:px-8">
+            <div className="absolute inset-y-0 left-0 w-1.5 bg-[linear-gradient(180deg,var(--color-warning-500)_0%,var(--color-primary-500)_100%)]" />
             <Link
               to={`/sessions/${id}`}
-              className="app-button-secondary text-surface-600 hover:text-primary-800 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl transition-colors"
+              className="app-button-secondary text-surface-600 hover:text-primary-800 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition-colors"
+              aria-label="Wróć do detalu sesji"
             >
               <ArrowLeft className="h-4 w-4" />
             </Link>
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[rgba(242,196,88,0.14)] text-[#9a6710]">
-              <Zap className="h-4 w-4" />
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[rgba(242,196,88,0.18)] text-[#9a6710] shadow-[inset_0_1px_0_rgba(255,250,240,0.24)]">
+              <Zap className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-primary-900 truncate text-2xl font-semibold tracking-[-0.03em]">
+              <div className="mb-1 inline-flex items-center rounded-full border border-[rgba(210,166,67,0.22)] bg-[rgba(242,196,88,0.14)] px-2.5 py-0.5 text-[10px] font-semibold tracking-[0.16em] text-[#8b5b0c] uppercase">
+                Live desk
+              </div>
+              <h1 className="text-primary-900 truncate text-[2rem] leading-none font-semibold tracking-[-0.05em] lg:text-[2.55rem]">
                 {title}
               </h1>
-              <p className="text-surface-700 mt-1 text-sm leading-6">
-                Operacyjny widok scen, postaci i zagrożeń podczas prowadzenia sesji.
+              <p className="text-surface-700 mt-2 max-w-[70ch] text-sm leading-6">
+                Scena w centrum, narzędzia pod ręką, notatki i zagrożenia w bocznym panelu.
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setSessionClockModalOpen(true)}
-            className="inline-flex items-center gap-2 rounded-2xl border border-[rgba(33,71,102,0.24)] bg-[rgba(111,146,164,0.1)] px-4 py-3 text-sm font-semibold text-primary-800 transition-colors hover:bg-[rgba(111,146,164,0.16)]"
-          >
-            + Zegar sesyjny
-          </button>
-          <button
-            type="button"
-            onClick={() => setConfirmEnd(true)}
-            className="inline-flex items-center gap-2 rounded-2xl border border-[rgba(176,108,103,0.32)] bg-[rgba(176,108,103,0.08)] px-4 py-3 text-sm font-semibold text-danger-700 transition-colors hover:bg-[rgba(176,108,103,0.14)]"
-          >
-            <StopCircle className="h-4 w-4" />
-            Zakończ sesję
-          </button>
+          <div className="flex items-center gap-2 border-t border-[rgba(86,93,94,0.1)] bg-[rgba(255,250,240,0.11)] px-5 py-4 xl:border-t-0 xl:border-l">
+            <button
+              type="button"
+              onClick={() => setSessionClockModalOpen(true)}
+              className="text-primary-800 inline-flex items-center gap-2 rounded-2xl border border-[rgba(33,71,102,0.24)] bg-[rgba(111,146,164,0.1)] px-4 py-3 text-sm font-semibold transition-colors hover:bg-[rgba(111,146,164,0.16)]"
+            >
+              + Zegar sesyjny
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmEnd(true)}
+              className="text-danger-700 inline-flex items-center gap-2 rounded-2xl border border-[rgba(176,108,103,0.32)] bg-[rgba(176,108,103,0.08)] px-4 py-3 text-sm font-semibold transition-colors hover:bg-[rgba(176,108,103,0.14)]"
+            >
+              <StopCircle className="h-4 w-4" />
+              Zakończ sesję
+            </button>
+          </div>
         </div>
       </section>
 
@@ -446,13 +453,13 @@ export function SessionLive() {
         onDragEnd={(event) => void handleDragEnd(event)}
         onDragCancel={() => setActiveNpcDrag(null)}
       >
-        <div className="grid min-h-0 flex-1 grid-cols-[300px_minmax(0,1fr)] gap-4 overflow-hidden px-1 pb-1">
+        <div className="grid min-h-0 flex-1 grid-cols-[320px_minmax(0,1fr)] gap-4 overflow-hidden px-1 pb-1">
           <aside className="flex min-h-0 flex-col gap-4">
-            <div className="app-panel min-h-0 flex-[1.88] overflow-hidden rounded-[1.65rem]">
+            <div className="app-panel border-l-primary-500/40 min-h-0 flex-[1.88] overflow-hidden rounded-[1.8rem] border-l-2">
               <SessionTimeline sessionId={session.id} />
             </div>
             <div
-              className="app-panel min-h-0 flex-[1.12] overflow-y-auto rounded-[1.65rem] p-3"
+              className="app-panel border-l-warning-500/50 min-h-0 flex-[1.12] overflow-y-auto rounded-[1.8rem] border-l-2 p-3"
               style={{ scrollbarWidth: 'none' }}
             >
               <SessionNowPlayingPanel
@@ -468,7 +475,7 @@ export function SessionLive() {
             </div>
           </aside>
 
-          <div className="app-panel min-h-0 overflow-hidden rounded-[1.8rem]">
+          <div className="app-panel-strong min-h-0 overflow-hidden rounded-[2rem]">
             <SceneCenter
               ref={sceneCenterRef}
               sessionId={session.id}
@@ -572,7 +579,7 @@ export function SessionLive() {
         )}
 
         <div
-          className={`fixed top-[5.5rem] right-0 bottom-6 z-[34] flex w-[min(26rem,42vw)] min-w-[21.5rem] max-w-[calc(100vw-1.25rem)] flex-col overflow-hidden rounded-l-[1.8rem] border border-r-0 border-[rgba(86,93,94,0.14)] bg-[linear-gradient(180deg,rgba(223,225,218,0.96)_0%,rgba(210,212,203,0.98)_100%)] shadow-[0_28px_52px_rgba(18,45,66,0.18)] transition-transform duration-300 ease-out ${
+          className={`fixed top-[5.5rem] right-0 bottom-6 z-[34] flex w-[min(26rem,42vw)] max-w-[calc(100vw-1.25rem)] min-w-[21.5rem] flex-col overflow-hidden rounded-l-[1.8rem] border border-r-0 border-[rgba(86,93,94,0.14)] bg-[linear-gradient(180deg,rgba(223,225,218,0.96)_0%,rgba(210,212,203,0.98)_100%)] shadow-[0_28px_52px_rgba(18,45,66,0.18)] transition-transform duration-300 ease-out ${
             openSection ? 'translate-x-0' : 'translate-x-full'
           } ${openSection ? 'pointer-events-auto' : 'pointer-events-none'}`}
         >
@@ -648,11 +655,11 @@ export function SessionLive() {
       {sessionClockModalOpen && (
         <Modal title="Nowy zegar sesyjny" onClose={() => setSessionClockModalOpen(false)} size="md">
           <div className="space-y-3">
-            <p className="text-sm text-surface-600">
+            <p className="text-surface-600 text-sm">
               Zegar sesyjny działa tylko w bieżącej sesji live (wariant 4 lub 6 segmentów).
             </p>
             <div className="space-y-1">
-              <label htmlFor="session-clock-name" className="text-sm font-medium text-surface-700">
+              <label htmlFor="session-clock-name" className="text-surface-700 text-sm font-medium">
                 Nazwa zegara
               </label>
               <input
@@ -665,7 +672,10 @@ export function SessionLive() {
               />
             </div>
             <div className="space-y-1">
-              <label htmlFor="session-clock-segments" className="text-sm font-medium text-surface-700">
+              <label
+                htmlFor="session-clock-segments"
+                className="text-surface-700 text-sm font-medium"
+              >
                 Segmenty
               </label>
               <select

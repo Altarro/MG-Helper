@@ -75,7 +75,7 @@ export async function recordNpcLocationHistory(
 
   const entity = await addEntity(db, {
     type: 'event',
-    name: 'Historia lokacji NPC',
+    name: 'Historia lokacji postaci',
     description: '',
     tags: [],
     data,

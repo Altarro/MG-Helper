@@ -72,8 +72,8 @@ export function ThreadQuestlinePickerModal({
       });
       toast.success(
         mode === 'child'
-          ? 'Wątek pochodny podpięty do questline'
-          : 'Wątek nadrzędny podpięty do questline',
+          ? 'Wątek pochodny podpięty do linii wątku'
+          : 'Wątek nadrzędny podpięty do linii wątku',
       );
       onClose();
     } catch (error) {
@@ -93,11 +93,11 @@ export function ThreadQuestlinePickerModal({
       size="md"
       onClose={onClose}
       initialFocusRef={searchRef}
-      aria-label="Picker questline"
+      aria-label="Wybór linii wątku"
     >
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-surface-600">Typ powiązania questline</label>
+          <label className="text-xs font-medium text-surface-600">Typ powiązania linii wątku</label>
           <select
             value={relationKind}
             onChange={(e) =>
@@ -119,7 +119,7 @@ export function ThreadQuestlinePickerModal({
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-surface-600">Wybierz wątek</label>
           <p className="text-xs text-surface-500">
-            Wątki już podpięte do tego miejsca questline są zablokowane. Aby zmienić typ relacji,
+            Wątki już podpięte do tego miejsca linii wątku są zablokowane. Aby zmienić typ relacji,
             usuń stary link na detalu wątku i dodaj go ponownie.
           </p>
           <div className="relative">
@@ -160,7 +160,7 @@ export function ThreadQuestlinePickerModal({
                   {isAlreadyLinked && (
                     <span className="block text-xs text-surface-500">
                       Już powiązane jako:{' '}
-                      {existingKind ? getThreadDerivationKindLabel(existingKind) : 'legacy questline'}
+                      {existingKind ? getThreadDerivationKindLabel(existingKind) : 'starsza linia wątku'}
                     </span>
                   )}
                 </span>

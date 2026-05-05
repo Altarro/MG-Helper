@@ -53,7 +53,14 @@ function useSessionAppearancesForReport(db: MgHelperDb, sessionId: string | unde
         clues: valid.filter((e) => e.type === 'clue'),
         clocks: valid.filter((e) => e.type === 'clock'),
       };
-    }, [db, sessionId]) ?? { npcs: [], locations: [], items: [], threads: [], clues: [], clocks: [] }
+    }, [db, sessionId]) ?? {
+      npcs: [],
+      locations: [],
+      items: [],
+      threads: [],
+      clues: [],
+      clocks: [],
+    }
   );
 }
 
@@ -71,9 +78,11 @@ function ReportSection({
   children: React.ReactNode;
 }) {
   return (
-    <section className="print:break-inside-avoid">
-      <h2 className="mb-3 flex items-center gap-2 border-b border-surface-100 pb-1 text-base font-semibold text-surface-800 print:border-surface-300">
-        <span className={`print:hidden ${iconColor}`}>{icon}</span>
+    <section className="print:border-surface-200 rounded-[1.35rem] border border-[rgba(86,93,94,0.1)] bg-[rgba(255,250,240,0.42)] p-4 print:break-inside-avoid print:bg-white">
+      <h2 className="text-surface-800 print:border-surface-300 mb-3 flex items-center gap-2 border-b border-[rgba(86,93,94,0.1)] pb-2 text-base font-semibold">
+        <span className={`rounded-xl bg-[rgba(223,225,218,0.8)] p-1.5 print:hidden ${iconColor}`}>
+          {icon}
+        </span>
         {title}
       </h2>
       {children}
@@ -132,9 +141,9 @@ export function SessionReport() {
     }
   }
 
-  const sortedNotes = notes ? [...notes].sort((a, b) =>
-    a.data.createdAt.localeCompare(b.data.createdAt),
-  ) : [];
+  const sortedNotes = notes
+    ? [...notes].sort((a, b) => a.data.createdAt.localeCompare(b.data.createdAt))
+    : [];
   const operationalNotes = sortedNotes.filter(
     (note) => (note.data.cleanupDecision ?? 'pending') === 'keep',
   );
@@ -143,8 +152,12 @@ export function SessionReport() {
   );
   const reportAvailable = sessionData.reportAvailable === true;
 
-  const timelineTimestamps = timelineEvents.map((eventItem) => getSessionEventData(eventItem).timestamp);
-  const signalTimestamps = signalEvents.map((eventItem) => getSessionEventData(eventItem).timestamp);
+  const timelineTimestamps = timelineEvents.map(
+    (eventItem) => getSessionEventData(eventItem).timestamp,
+  );
+  const signalTimestamps = signalEvents.map(
+    (eventItem) => getSessionEventData(eventItem).timestamp,
+  );
   const noteTimestamps = operationalNotes.map((note) => note.data.createdAt);
   const allKnownTimestamps = [...timelineTimestamps, ...signalTimestamps, ...noteTimestamps]
     .map((value) => new Date(value))
@@ -178,20 +191,24 @@ export function SessionReport() {
   const sceneRows = scenes.map((scene, index) => {
     const plannedCheckpointMin = scenes
       .slice(0, index + 1)
-      .reduce((sum, item) => sum + (Number.isFinite(item.estimatedDurationMin) ? item.estimatedDurationMin : 0), 0);
+      .reduce(
+        (sum, item) =>
+          sum + (Number.isFinite(item.estimatedDurationMin) ? item.estimatedDurationMin : 0),
+        0,
+      );
     const actualMarker = sceneMarkers[index];
     const actualCheckpointMin =
       runStartedAt && actualMarker
-        ? Math.max(0, Math.round((Date.parse(actualMarker.timestamp) - Date.parse(runStartedAt)) / 60000))
+        ? Math.max(
+            0,
+            Math.round((Date.parse(actualMarker.timestamp) - Date.parse(runStartedAt)) / 60000),
+          )
         : null;
     return {
       scene,
       plannedCheckpointMin,
       actualCheckpointMin,
-      deltaMin:
-        actualCheckpointMin != null
-          ? actualCheckpointMin - plannedCheckpointMin
-          : null,
+      deltaMin: actualCheckpointMin != null ? actualCheckpointMin - plannedCheckpointMin : null,
     };
   });
 
@@ -203,29 +220,30 @@ export function SessionReport() {
 
   const locationSurvivorExceptions = appearances.locations.filter(
     (locationEntity) =>
-      (locationEntity.data as { survivedParentDestruction?: boolean }).survivedParentDestruction === true,
+      (locationEntity.data as { survivedParentDestruction?: boolean }).survivedParentDestruction ===
+      true,
   );
 
   return (
-    <div className="min-h-screen bg-surface-50 p-4 print:bg-white print:p-0">
+    <div className="min-h-screen bg-[linear-gradient(180deg,rgba(210,212,203,0.96)_0%,rgba(196,199,189,0.92)_100%)] p-4 print:bg-white print:p-0">
       {/* Toolbar — hidden when printing */}
-      <div className="mb-4 flex items-center gap-2 print:hidden">
+      <div className="app-panel-strong mx-auto mb-4 flex max-w-6xl items-center gap-2 rounded-[1.6rem] px-4 py-3 print:hidden">
         <Link
           to={`/sessions/${id}`}
-          className="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-surface-500 hover:text-surface-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          className="text-surface-600 hover:text-surface-800 focus-visible:ring-primary-500/40 flex items-center gap-1.5 rounded-2xl px-3 py-2 text-sm font-medium hover:bg-[rgba(223,225,218,0.75)] focus-visible:ring-2 focus-visible:outline-none"
         >
           <ArrowLeft className="h-4 w-4" /> Sesja
         </Link>
         <div className="ml-auto flex gap-2">
           <button
             onClick={handleExport}
-            className="flex items-center gap-1.5 rounded-md border border-surface-300 px-3 py-1.5 text-sm hover:bg-surface-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            className="app-button-secondary focus-visible:ring-primary-500/40 flex items-center gap-1.5 rounded-2xl px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
           >
             <Download className="h-3.5 w-3.5" /> Eksportuj .md
           </button>
           <button
             onClick={handlePrint}
-            className="flex items-center gap-1.5 rounded-md bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            className="app-button-primary focus-visible:ring-primary-500/40 flex items-center gap-1.5 rounded-2xl px-3 py-2 text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
           >
             <Printer className="h-3.5 w-3.5" /> Drukuj
           </button>
@@ -233,28 +251,30 @@ export function SessionReport() {
       </div>
 
       {/* Report document — A4-like, white background */}
-      <div className="mx-auto max-w-[800px] rounded-xl bg-white p-8 shadow-sm print:rounded-none print:shadow-none">
+      <div className="mx-auto max-w-5xl rounded-[2rem] border border-[rgba(86,93,94,0.12)] bg-[rgba(245,242,234,0.96)] p-6 shadow-[0_24px_52px_rgba(18,45,66,0.13)] print:max-w-none print:rounded-none print:border-0 print:bg-white print:p-8 print:shadow-none">
         {!reportAvailable ? (
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-            Brak raportu (po ponownym uruchomieniu sesji). Zakończ cleanup, aby wygenerować nowy raport.
+            Brak raportu (po ponownym uruchomieniu sesji). Zakończ cleanup, aby wygenerować nowy
+            raport.
           </div>
         ) : null}
 
         {/* Header */}
-        <div className="mb-6 border-b border-surface-200 pb-4 print:border-surface-300">
-          <div className="mb-1 flex items-center gap-2">
-            <BookOpen className="h-5 w-5 shrink-0 text-primary-500 print:hidden" />
-            <h1 className="text-2xl font-bold text-surface-900">{title}</h1>
+        <div className="print:border-surface-300 mb-6 rounded-[1.6rem] border border-[rgba(86,93,94,0.1)] bg-[linear-gradient(180deg,rgba(223,225,218,0.76)_0%,rgba(210,212,203,0.58)_100%)] p-5 print:border-b print:bg-white print:p-0 print:pb-4">
+          <div className="mb-2 flex items-center gap-3">
+            <BookOpen className="text-primary-700 h-6 w-6 shrink-0 print:hidden" />
+            <h1 className="text-surface-900 text-[2.35rem] leading-none font-semibold tracking-[-0.06em]">
+              {title}
+            </h1>
           </div>
-          {formattedDate && (
-            <p className="text-sm text-surface-500">{formattedDate}</p>
-          )}
+          {formattedDate && <p className="text-surface-500 text-sm">{formattedDate}</p>}
           {session.data.summary && (
-            <p className="mt-3 text-sm italic text-surface-600">{session.data.summary}</p>
+            <p className="text-surface-600 mt-3 text-sm italic">{session.data.summary}</p>
           )}
           {reportAvailable && sessionData.reportGeneratedAt && (
-            <p className="mt-2 text-xs text-surface-500">
-              Raport dostępny • wygenerowano {format(new Date(sessionData.reportGeneratedAt), 'dd.MM.yyyy HH:mm')}
+            <p className="text-surface-500 mt-2 text-xs">
+              Raport dostępny • wygenerowano{' '}
+              {format(new Date(sessionData.reportGeneratedAt), 'dd.MM.yyyy HH:mm')}
             </p>
           )}
         </div>
@@ -266,18 +286,28 @@ export function SessionReport() {
             iconColor="text-emerald-500"
             title="Metryki sesji"
           >
-            <ul className="grid gap-2 text-sm text-surface-800 sm:grid-cols-2">
-              <li className="rounded-lg border border-surface-200 px-3 py-2">
-                Czas trwania sesji: <span className="font-semibold">{runDurationMin != null ? `${runDurationMin} min` : 'brak danych'}</span>
+            <ul className="text-surface-800 grid gap-2 text-sm sm:grid-cols-2">
+              <li className="border-surface-200 rounded-lg border px-3 py-2">
+                Czas trwania sesji:{' '}
+                <span className="font-semibold">
+                  {runDurationMin != null ? `${runDurationMin} min` : 'brak danych'}
+                </span>
               </li>
-              <li className="rounded-lg border border-surface-200 px-3 py-2">
-                Planowany czas: <span className="font-semibold">{plannedDurationMin != null ? `${plannedDurationMin} min` : 'brak planu'}</span>
+              <li className="border-surface-200 rounded-lg border px-3 py-2">
+                Planowany czas:{' '}
+                <span className="font-semibold">
+                  {plannedDurationMin != null ? `${plannedDurationMin} min` : 'brak planu'}
+                </span>
               </li>
-              <li className="rounded-lg border border-surface-200 px-3 py-2">
-                Odchylenie vs ETA: <span className="font-semibold">{runVsEtaMin != null ? formatSignedMinutes(runVsEtaMin) : 'brak danych'}</span>
+              <li className="border-surface-200 rounded-lg border px-3 py-2">
+                Odchylenie vs ETA:{' '}
+                <span className="font-semibold">
+                  {runVsEtaMin != null ? formatSignedMinutes(runVsEtaMin) : 'brak danych'}
+                </span>
               </li>
-              <li className="rounded-lg border border-surface-200 px-3 py-2">
-                Zmiany statusów zagrożeń: <span className="font-semibold">{threatStatusChanges.length}</span>
+              <li className="border-surface-200 rounded-lg border px-3 py-2">
+                Zmiany statusów zagrożeń:{' '}
+                <span className="font-semibold">{threatStatusChanges.length}</span>
               </li>
             </ul>
           </ReportSection>
@@ -290,14 +320,23 @@ export function SessionReport() {
             >
               <ul className="flex flex-col gap-2">
                 {sceneRows.map((row, index) => (
-                  <li key={`${row.scene.name}-${index}`} className="rounded-lg border border-surface-200 px-3 py-2 text-sm text-surface-800">
-                    <p className="font-medium">{index + 1}. {row.scene.name}</p>
-                    <p className="text-xs text-surface-600">
+                  <li
+                    key={`${row.scene.name}-${index}`}
+                    className="border-surface-200 text-surface-800 rounded-lg border px-3 py-2 text-sm"
+                  >
+                    <p className="font-medium">
+                      {index + 1}. {row.scene.name}
+                    </p>
+                    <p className="text-surface-600 text-xs">
                       Plan checkpoint: {row.plannedCheckpointMin} min
                       {' · '}
-                      Faktyczny checkpoint: {row.actualCheckpointMin != null ? `${row.actualCheckpointMin} min` : 'brak znacznika sceny'}
+                      Faktyczny checkpoint:{' '}
+                      {row.actualCheckpointMin != null
+                        ? `${row.actualCheckpointMin} min`
+                        : 'brak znacznika sceny'}
                       {' · '}
-                      Delta: {row.deltaMin != null ? formatSignedMinutes(row.deltaMin) : 'brak danych'}
+                      Delta:{' '}
+                      {row.deltaMin != null ? formatSignedMinutes(row.deltaMin) : 'brak danych'}
                     </p>
                   </li>
                 ))}
@@ -311,7 +350,7 @@ export function SessionReport() {
               iconColor="text-emerald-600"
               title="Wyjątki dziedziczenia lokacji"
             >
-              <ul className="flex flex-col gap-1.5 text-sm text-surface-800">
+              <ul className="text-surface-800 flex flex-col gap-1.5 text-sm">
                 {locationSurvivorExceptions.map((locationEntity) => (
                   <li key={locationEntity.id}>
                     {locationEntity.name} — ocalała mimo zniszczenia lokacji nadrzędnej.
@@ -327,24 +366,35 @@ export function SessionReport() {
               iconColor="text-blue-500"
               title="Spotlight"
             >
-              <div className="space-y-2 text-sm text-surface-800">
+              <div className="text-surface-800 space-y-2 text-sm">
                 <p>
-                  MG aktywnie: <span className="font-semibold">{Math.round(sessionData.spotlightSummary.mgTotalActiveSec / 60)} min</span>
+                  MG aktywnie:{' '}
+                  <span className="font-semibold">
+                    {Math.round(sessionData.spotlightSummary.mgTotalActiveSec / 60)} min
+                  </span>
                   {' · '}
-                  MG oczekiwanie: <span className="font-semibold">{Math.round(sessionData.spotlightSummary.mgWaitSec / 60)} min</span>
+                  MG oczekiwanie:{' '}
+                  <span className="font-semibold">
+                    {Math.round(sessionData.spotlightSummary.mgWaitSec / 60)} min
+                  </span>
                 </p>
                 {sessionData.spotlightSummary.players.length > 0 ? (
                   <ul className="grid gap-2 sm:grid-cols-2">
                     {sessionData.spotlightSummary.players.map((player) => (
-                      <li key={player.id} className="rounded-lg border border-surface-200 px-3 py-2 text-xs text-surface-700">
-                        <p className="font-medium text-surface-800">{player.name}</p>
+                      <li
+                        key={player.id}
+                        className="border-surface-200 text-surface-700 rounded-lg border px-3 py-2 text-xs"
+                      >
+                        <p className="text-surface-800 font-medium">{player.name}</p>
                         <p>Aktywnie: {Math.round(player.totalActiveSec / 60)} min</p>
                         <p>Oczekiwanie: {Math.round(player.waitSec / 60)} min</p>
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-xs text-surface-500">Brak zapisanych danych graczy dla tej sesji.</p>
+                  <p className="text-surface-500 text-xs">
+                    Brak zapisanych danych graczy dla tej sesji.
+                  </p>
                 )}
               </div>
             </ReportSection>
@@ -356,10 +406,11 @@ export function SessionReport() {
               iconColor="text-rose-500"
               title="Zmiany statusów zagrożeń"
             >
-              <ul className="flex flex-col gap-1.5 text-sm text-surface-800">
+              <ul className="text-surface-800 flex flex-col gap-1.5 text-sm">
                 {threatStatusChanges.map((eventItem) => {
                   const data = getSessionEventData(eventItem);
-                  const fromStatus = typeof data.metadata?.from === 'string' ? data.metadata.from : null;
+                  const fromStatus =
+                    typeof data.metadata?.from === 'string' ? data.metadata.from : null;
                   const toStatus = typeof data.metadata?.to === 'string' ? data.metadata.to : null;
                   return (
                     <li key={eventItem.id}>
@@ -382,12 +433,12 @@ export function SessionReport() {
               <ol className="flex flex-col gap-3">
                 {operationalNotes.map((note, i) => (
                   <li key={note.id} className="flex gap-2.5">
-                    <span className="mt-0.5 w-5 shrink-0 text-right text-xs text-surface-400">
+                    <span className="text-surface-400 mt-0.5 w-5 shrink-0 text-right text-xs">
                       {i + 1}.
                     </span>
                     <div>
-                      <p className="text-sm text-surface-800">{note.data.content}</p>
-                      <p className="mt-0.5 text-xs text-surface-400">
+                      <p className="text-surface-800 text-sm">{note.data.content}</p>
+                      <p className="text-surface-400 mt-0.5 text-xs">
                         {format(new Date(note.data.createdAt), 'HH:mm · dd.MM.yyyy')}
                       </p>
                     </div>
@@ -405,7 +456,7 @@ export function SessionReport() {
             >
               <ul className="flex flex-col gap-2">
                 {archivedNotes.map((note) => (
-                  <li key={note.id} className="text-sm text-surface-600">
+                  <li key={note.id} className="text-surface-600 text-sm">
                     {note.data.content}
                   </li>
                 ))}
@@ -425,7 +476,7 @@ export function SessionReport() {
                   <li key={e.id}>
                     <Link
                       to={`/npcs/${e.id}`}
-                      className="rounded-full bg-blue-50 px-2.5 py-0.5 text-sm text-blue-700 hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 print:bg-transparent print:text-surface-800"
+                      className="focus-visible:ring-primary-500/40 print:text-surface-800 rounded-full bg-blue-50 px-2.5 py-0.5 text-sm text-blue-700 hover:bg-blue-100 focus-visible:ring-2 focus-visible:outline-none print:bg-transparent"
                     >
                       {e.name}
                     </Link>
@@ -447,7 +498,7 @@ export function SessionReport() {
                   <li key={e.id}>
                     <Link
                       to={`/locations/${e.id}`}
-                      className="rounded-full bg-green-50 px-2.5 py-0.5 text-sm text-green-700 hover:bg-green-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 print:bg-transparent print:text-surface-800"
+                      className="focus-visible:ring-primary-500/40 print:text-surface-800 rounded-full bg-green-50 px-2.5 py-0.5 text-sm text-green-700 hover:bg-green-100 focus-visible:ring-2 focus-visible:outline-none print:bg-transparent"
                     >
                       {e.name}
                     </Link>
@@ -469,7 +520,7 @@ export function SessionReport() {
                   <li key={e.id}>
                     <Link
                       to={`/threads/${e.id}`}
-                      className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-sm text-indigo-700 hover:bg-indigo-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 print:bg-transparent print:text-surface-800"
+                      className="focus-visible:ring-primary-500/40 print:text-surface-800 rounded-full bg-indigo-50 px-2.5 py-0.5 text-sm text-indigo-700 hover:bg-indigo-100 focus-visible:ring-2 focus-visible:outline-none print:bg-transparent"
                     >
                       {e.name}
                     </Link>
@@ -491,7 +542,7 @@ export function SessionReport() {
                   <li key={e.id}>
                     <Link
                       to={`/clues/${e.id}`}
-                      className="rounded-full bg-yellow-50 px-2.5 py-0.5 text-sm text-yellow-700 hover:bg-yellow-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 print:bg-transparent print:text-surface-800"
+                      className="focus-visible:ring-primary-500/40 print:text-surface-800 rounded-full bg-yellow-50 px-2.5 py-0.5 text-sm text-yellow-700 hover:bg-yellow-100 focus-visible:ring-2 focus-visible:outline-none print:bg-transparent"
                     >
                       {e.name}
                     </Link>
@@ -513,7 +564,7 @@ export function SessionReport() {
                   <li key={e.id}>
                     <Link
                       to={`/items/${e.id}`}
-                      className="rounded-full bg-orange-50 px-2.5 py-0.5 text-sm text-orange-700 hover:bg-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 print:bg-transparent print:text-surface-800"
+                      className="focus-visible:ring-primary-500/40 print:text-surface-800 rounded-full bg-orange-50 px-2.5 py-0.5 text-sm text-orange-700 hover:bg-orange-100 focus-visible:ring-2 focus-visible:outline-none print:bg-transparent"
                     >
                       {e.name}
                     </Link>
@@ -536,11 +587,11 @@ export function SessionReport() {
                   const pct = Math.round((cd.filled / cd.segments) * 100);
                   return (
                     <li key={e.id} className="flex items-center gap-3 text-sm">
-                      <span className="font-medium text-surface-800">{e.name}</span>
+                      <span className="text-surface-800 font-medium">{e.name}</span>
                       <span className="text-surface-400">
                         {cd.filled}/{cd.segments}
                       </span>
-                      <div className="h-1.5 w-24 overflow-hidden rounded-full bg-surface-100">
+                      <div className="bg-surface-100 h-1.5 w-24 overflow-hidden rounded-full">
                         <div
                           className="h-full rounded-full bg-rose-400"
                           style={{ width: `${pct}%` }}
@@ -562,7 +613,7 @@ export function SessionReport() {
             appearances.items.length === 0 &&
             appearances.clocks.length === 0 &&
             threatStatusChanges.length === 0 && (
-              <p className="text-sm text-surface-400 italic">
+              <p className="text-surface-400 text-sm italic">
                 Brak danych — dodaj powiązania poprzez "Na żywo".
               </p>
             )}
@@ -572,7 +623,7 @@ export function SessionReport() {
             iconColor="text-primary-500"
             title="Kolejne kroki"
           >
-            <ul className="list-disc space-y-1 pl-4 text-sm text-surface-800">
+            <ul className="text-surface-800 list-disc space-y-1 pl-4 text-sm">
               <li>Domknąć cleanup i potwierdzić wszystkie zależności między encjami.</li>
               <li>Zweryfikować wątki i zagrożenia ze zmianami statusów po sesji.</li>
               <li>Przejrzeć notatki i przepisać najważniejsze ustalenia do encji domenowych.</li>

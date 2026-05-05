@@ -19,7 +19,7 @@ import { deleteEntity, deleteRelation, updateEntity } from '@shared/db/operation
 import { useCampaign } from '@shared/db/CampaignContext';
 import { getCatalogLabelByValue } from '@modules/settings/campaignCatalogSettings';
 import { toast } from 'sonner';
-import { CLUE_STRENGTH_LABELS, getClueStrengthLabel } from '@shared/domain/storyContracts';
+import { getClueStrengthLabel } from '@shared/domain/storyContracts';
 import type { ClueFormValues } from './ClueForm';
 
 export function ClueDetail() {
@@ -119,7 +119,11 @@ export function ClueDetail() {
       await updateEntity(db, clue!.id, {
         data: { ...clue!.data, discovered: !clue!.data.discovered },
       });
-      toast.success(clue!.data.discovered ? 'Wskazówka ukryta' : 'Wskazówka odkryta przez graczy');
+      toast.success(
+        clue!.data.discovered
+          ? 'Wskazówka oznaczona jako nieodkryta'
+          : 'Wskazówka odkryta przez graczy',
+      );
     } catch {
       toast.error('Nie udało się zaktualizować statusu');
     }
@@ -137,17 +141,6 @@ export function ClueDetail() {
   }
 
   const resolvedClueTargets = clueTargets ?? [];
-  const strongTargets = resolvedClueTargets.filter(
-    (item) => item.relation.meta?.clueStrength === 'strong',
-  );
-  const standardTargets = resolvedClueTargets.filter(
-    (item) => item.relation.meta?.clueStrength === 'standard',
-  );
-  const weakTargets = resolvedClueTargets.filter(
-    (item) => item.relation.meta?.clueStrength === 'weak',
-  );
-  const hasStrengthBadges =
-    strongTargets.length > 0 || standardTargets.length > 0 || weakTargets.length > 0;
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
@@ -187,7 +180,7 @@ export function ClueDetail() {
                     : 'app-pill-muted'
                 }`}
               >
-                {clue.data.discovered ? 'Odkryta' : 'Ukryta'}
+                {clue.data.discovered ? 'Odkryta' : 'Nieodkryta'}
               </span>
             </div>
           </div>
@@ -244,7 +237,7 @@ export function ClueDetail() {
               >
                 {clue.data.discovered ? (
                   <>
-                    <CheckCircle2 className="h-4 w-4" /> Odkryta — kliknij, aby ukryć
+                    <CheckCircle2 className="h-4 w-4" /> Odkryta — kliknij, aby oznaczyć jako nieodkrytą
                   </>
                 ) : (
                   <>
@@ -309,26 +302,6 @@ export function ClueDetail() {
             }
             contentClassName="flex flex-col gap-5"
           >
-            {hasStrengthBadges && (
-              <div className="mb-3 flex flex-wrap gap-1.5">
-                {strongTargets.length > 0 && (
-                  <span className="inline-flex rounded-full border border-cyan-200/80 bg-cyan-100/75 px-2.5 py-1 text-xs font-semibold text-cyan-800">
-                    {CLUE_STRENGTH_LABELS.strong}: {strongTargets.length}
-                  </span>
-                )}
-                {standardTargets.length > 0 && (
-                  <span className="app-pill-muted inline-flex rounded-full px-2.5 py-1 text-xs font-semibold">
-                    {CLUE_STRENGTH_LABELS.standard}: {standardTargets.length}
-                  </span>
-                )}
-                {weakTargets.length > 0 && (
-                  <span className="app-danger-pill inline-flex rounded-full px-2.5 py-1 text-xs font-semibold">
-                    {CLUE_STRENGTH_LABELS.weak}: {weakTargets.length}
-                  </span>
-                )}
-              </div>
-            )}
-
             <NarrativeLinksSection
               title="Prowadzi do"
               items={resolvedClueTargets}
@@ -339,6 +312,7 @@ export function ClueDetail() {
                   ? getClueStrengthLabel(item.relation.meta.clueStrength)
                   : null
               }
+              metaTone={(item) => item.relation.meta?.clueStrength}
               onRemoveItem={(item) =>
                 setUnlinkConfirm({
                   relationId: item.relation.id,

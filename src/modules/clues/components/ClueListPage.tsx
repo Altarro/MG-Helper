@@ -169,7 +169,11 @@ export function ClueList() {
       await updateEntity(db, clue.id, {
         data: { ...clue.data, discovered: !clue.data.discovered },
       });
-      toast.success(clue.data.discovered ? 'Wskazówka ukryta' : 'Wskazówka odkryta');
+      toast.success(
+        clue.data.discovered
+          ? 'Wskazówka oznaczona jako nieodkryta'
+          : 'Wskazówka odkryta',
+      );
     } catch {
       toast.error('Nie udało się zaktualizować wskazówki');
     }

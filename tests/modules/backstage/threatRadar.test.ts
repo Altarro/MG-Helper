@@ -4,6 +4,7 @@ import type { BackstageSnapshot } from '@modules/backstage/types';
 import type { Session } from '@modules/sessions/types';
 import type { Thread } from '@modules/threads/types';
 import type { Threat } from '@modules/fronts/types';
+import type { Faction } from '@modules/factions/types';
 
 const now = new Date().toISOString();
 
@@ -52,9 +53,32 @@ function thread(id: string, name: string, status: 'active' | 'completed'): Threa
   };
 }
 
+function faction(id: string, name: string): Faction {
+  return {
+    id,
+    type: 'faction',
+    name,
+    description: '',
+    tags: [],
+    createdAt: now,
+    updatedAt: now,
+    data: { goals: [], resources: [] },
+  };
+}
+
 function footprintFor(
   threatId: string,
-  snap: Pick<BackstageSnapshot, 'threatSessionIds' | 'threatThreadIds' | 'threatClues' | 'threadSessionIds' | 'clueSessionIds' | 'npcSessionIds'>,
+  snap: Pick<
+    BackstageSnapshot,
+    | 'threatSessionIds'
+    | 'threatThreadIds'
+    | 'threatClues'
+    | 'threadSessionIds'
+    | 'clueSessionIds'
+    | 'npcSessionIds'
+    | 'threatFactionIds'
+    | 'factionSessionIds'
+  >,
   npcByThreat?: Map<string, Set<string>>,
 ): Map<string, Set<string>> {
   const fp = new Map<string, Set<string>>();
@@ -69,8 +93,82 @@ function footprintFor(
   for (const npcId of npcByThreat?.get(threatId) ?? []) {
     for (const sid of snap.npcSessionIds.get(npcId) ?? []) set.add(sid);
   }
+  for (const factionId of snap.threatFactionIds.get(threatId) ?? []) {
+    for (const sid of snap.factionSessionIds.get(factionId) ?? []) set.add(sid);
+  }
   fp.set(threatId, set);
   return fp;
+}
+
+function baseSnapshot(params: {
+  sessions: Session[];
+  threats: Threat[];
+  threads?: Thread[];
+  threatSessionIds?: Map<string, Set<string>>;
+  threadSessionIds?: Map<string, Set<string>>;
+  clueSessionIds?: Map<string, Set<string>>;
+  threatClues?: Map<string, { clueId: string; discovered: boolean }[]>;
+  threatThreadIds?: Map<string, string[]>;
+  threatClocks?: Map<string, { filled: number; segments: number; isActive: boolean; isCompleted: boolean }[]>;
+  threatNpcIds?: Map<string, Set<string>>;
+  npcSessionIds?: Map<string, Set<string>>;
+  factions?: Faction[];
+  factionSessionIds?: Map<string, Set<string>>;
+  threatFactionIds?: Map<string, Set<string>>;
+}): BackstageSnapshot {
+  const threatSessionIds = params.threatSessionIds ?? new Map(params.threats.map((t) => [t.id, new Set<string>()]));
+  const threadSessionIds = params.threadSessionIds ?? new Map();
+  const clueSessionIds = params.clueSessionIds ?? new Map();
+  const threatClues = params.threatClues ?? new Map(params.threats.map((t) => [t.id, []]));
+  const threatThreadIds = params.threatThreadIds ?? new Map(params.threats.map((t) => [t.id, []]));
+  const threatClocks = params.threatClocks ?? new Map(params.threats.map((t) => [t.id, []]));
+  const threatNpcIds = params.threatNpcIds ?? new Map(params.threats.map((t) => [t.id, new Set<string>()]));
+  const npcSessionIds = params.npcSessionIds ?? new Map();
+  const factions = params.factions ?? [];
+  const factionSessionIds = params.factionSessionIds ?? new Map(factions.map((f) => [f.id, new Set<string>()]));
+  const threatFactionIds =
+    params.threatFactionIds ?? new Map(params.threats.map((t) => [t.id, new Set<string>()]));
+
+  return {
+    sessions: params.sessions,
+    threads: params.threads ?? [],
+    threadSessionIds,
+    npcs: [],
+    npcSessionIds,
+    factions,
+    factionSessionIds,
+    threats: params.threats,
+    locations: [],
+    locationSessionIds: new Map(),
+    clues: [],
+    clueSessionIds,
+    activeThreats: params.threats,
+    threatSessionIds,
+    threatClues,
+    threatThreadIds,
+    threatNpcIds,
+    threatFactionIds,
+    threatClocks,
+    threatFootprintSessionIds: new Map(
+      params.threats.map((t) => [
+        t.id,
+        footprintFor(
+          t.id,
+          {
+            threatSessionIds,
+            threatThreadIds,
+            threatClues,
+            threadSessionIds,
+            clueSessionIds,
+            npcSessionIds,
+            threatFactionIds,
+            factionSessionIds,
+          },
+          threatNpcIds,
+        ).get(t.id) ?? new Set<string>(),
+      ]),
+    ),
+  };
 }
 
 describe('computeThreatRadarRow', () => {
@@ -78,37 +176,12 @@ describe('computeThreatRadarRow', () => {
     const s1 = sess('s1', 1);
     const s2 = sess('s2', 2);
     const t = thr('th1', 'Villain');
-    const threatSessionIds = new Map([['th1', new Set(['s2'])]]);
-    const snap: BackstageSnapshot = {
+    const snap = baseSnapshot({
       sessions: [s1, s2],
-      threads: [],
-      threadSessionIds: new Map(),
-      npcs: [],
-      npcSessionIds: new Map(),
       threats: [t],
-      locations: [],
-      locationSessionIds: new Map(),
-      clues: [],
-      clueSessionIds: new Map(),
-      activeThreats: [t],
-      threatSessionIds,
-      threatClues: new Map([['th1', []]]),
-      threatThreadIds: new Map([['th1', []]]),
-      threatClocks: new Map([
-        [
-          'th1',
-          [{ filled: 9, segments: 10, isActive: true, isCompleted: false }],
-        ],
-      ]),
-      threatFootprintSessionIds: footprintFor('th1', {
-        threatSessionIds,
-        threatThreadIds: new Map([['th1', []]]),
-        threatClues: new Map([['th1', []]]),
-        threadSessionIds: new Map(),
-        clueSessionIds: new Map(),
-        npcSessionIds: new Map(),
-      }),
-    };
+      threatSessionIds: new Map([['th1', new Set(['s2'])]]),
+      threatClocks: new Map([['th1', [{ filled: 9, segments: 10, isActive: true, isCompleted: false }]]]),
+    });
     const row = computeThreatRadarRow(snap, t);
     expect(row.clockCritical).toBe(true);
     expect(row.tier).toBeGreaterThanOrEqual(3);
@@ -117,45 +190,16 @@ describe('computeThreatRadarRow', () => {
   it('long absence of footprint increases heat vs recent footprint', () => {
     const sessions = [sess('s1', 1), sess('s2', 2), sess('s3', 3)];
     const t = thr('th1', 'Ghost');
-    const absentTs = new Map<string, Set<string>>([['th1', new Set(['s1'])]]);
-    const absent: BackstageSnapshot = {
+    const absent = baseSnapshot({
       sessions,
-      threads: [],
-      threadSessionIds: new Map(),
-      npcs: [],
-      npcSessionIds: new Map(),
       threats: [t],
-      locations: [],
-      locationSessionIds: new Map(),
-      clues: [],
-      clueSessionIds: new Map(),
-      activeThreats: [t],
-      threatSessionIds: absentTs,
-      threatClues: new Map([['th1', []]]),
-      threatThreadIds: new Map([['th1', []]]),
-      threatClocks: new Map([['th1', []]]),
-      threatFootprintSessionIds: footprintFor('th1', {
-        threatSessionIds: absentTs,
-        threatThreadIds: new Map([['th1', []]]),
-        threatClues: new Map([['th1', []]]),
-        threadSessionIds: new Map(),
-        clueSessionIds: new Map(),
-        npcSessionIds: new Map(),
-      }),
-    };
-    const recentTs = new Map([['th1', new Set(['s3'])]]);
-    const recent: BackstageSnapshot = {
-      ...absent,
-      threatSessionIds: recentTs,
-      threatFootprintSessionIds: footprintFor('th1', {
-        threatSessionIds: recentTs,
-        threatThreadIds: new Map([['th1', []]]),
-        threatClues: new Map([['th1', []]]),
-        threadSessionIds: new Map(),
-        clueSessionIds: new Map(),
-        npcSessionIds: new Map(),
-      }),
-    };
+      threatSessionIds: new Map([['th1', new Set(['s1'])]]),
+    });
+    const recent = baseSnapshot({
+      sessions,
+      threats: [t],
+      threatSessionIds: new Map([['th1', new Set(['s3'])]]),
+    });
     const rAbsent = computeThreatRadarRow(absent, t);
     const rRecent = computeThreatRadarRow(recent, t);
     expect(rAbsent.heat).toBeGreaterThan(rRecent.heat);
@@ -165,34 +209,15 @@ describe('computeThreatRadarRow', () => {
     const s1 = sess('s1', 1);
     const thrd = thread('w1', 'Case', 'active');
     const villain = thr('th1', 'Boss');
-    const threatSessionIds = new Map([['th1', new Set(['s1'])]]);
-    const threadSessionIds = new Map([['w1', new Set(['s1'])]]);
-    const threatClues = new Map([['th1', [{ clueId: 'c1', discovered: false }, { clueId: 'c2', discovered: true }]]]);
-    const snap: BackstageSnapshot = {
+    const snap = baseSnapshot({
       sessions: [s1],
-      threads: [thrd],
-      threadSessionIds,
-      npcs: [],
-      npcSessionIds: new Map(),
       threats: [villain],
-      locations: [],
-      locationSessionIds: new Map(),
-      clues: [],
-      clueSessionIds: new Map(),
-      activeThreats: [villain],
-      threatSessionIds,
-      threatClues,
+      threads: [thrd],
+      threatSessionIds: new Map([['th1', new Set(['s1'])]]),
+      threadSessionIds: new Map([['w1', new Set(['s1'])]]),
+      threatClues: new Map([['th1', [{ clueId: 'c1', discovered: false }, { clueId: 'c2', discovered: true }]]]),
       threatThreadIds: new Map([['th1', ['w1']]]),
-      threatClocks: new Map([['th1', []]]),
-      threatFootprintSessionIds: footprintFor('th1', {
-        threatSessionIds,
-        threatThreadIds: new Map([['th1', ['w1']]]),
-        threatClues,
-        threadSessionIds,
-        clueSessionIds: new Map(),
-        npcSessionIds: new Map(),
-      }),
-    };
+    });
     const row = computeThreatRadarRow(snap, villain);
     expect(row.narrativeGap).toBe(true);
   });
@@ -200,34 +225,12 @@ describe('computeThreatRadarRow', () => {
   it('sets clockTickHint soon when fill is mid-range but not critical', () => {
     const s1 = sess('s1', 1);
     const t = thr('th1', 'Slow burn');
-    const threatSessionIds = new Map([['th1', new Set(['s1'])]]);
-    const snap: BackstageSnapshot = {
+    const snap = baseSnapshot({
       sessions: [s1],
-      threads: [],
-      threadSessionIds: new Map(),
-      npcs: [],
-      npcSessionIds: new Map(),
       threats: [t],
-      locations: [],
-      locationSessionIds: new Map(),
-      clues: [],
-      clueSessionIds: new Map(),
-      activeThreats: [t],
-      threatSessionIds,
-      threatClues: new Map([['th1', []]]),
-      threatThreadIds: new Map([['th1', []]]),
-      threatClocks: new Map([
-        ['th1', [{ filled: 6, segments: 10, isActive: true, isCompleted: false }]],
-      ]),
-      threatFootprintSessionIds: footprintFor('th1', {
-        threatSessionIds,
-        threatThreadIds: new Map([['th1', []]]),
-        threatClues: new Map([['th1', []]]),
-        threadSessionIds: new Map(),
-        clueSessionIds: new Map(),
-        npcSessionIds: new Map(),
-      }),
-    };
+      threatSessionIds: new Map([['th1', new Set(['s1'])]]),
+      threatClocks: new Map([['th1', [{ filled: 6, segments: 10, isActive: true, isCompleted: false }]]]),
+    });
     const row = computeThreatRadarRow(snap, t);
     expect(row.clockCritical).toBe(false);
     expect(row.clockTickHint).toBe('soon');
@@ -238,7 +241,7 @@ describe('computeThreatRadarRow', () => {
     const sessions = [sess('s1', 1), sess('s2', 2), sess('s3', 3)];
     const hot = thr('th-hot', 'Hot', 'predator');
     const cold = thr('th-cold', 'Cold', 'mystery');
-    const hotTs = new Map([
+    const threatSessionIds = new Map([
       ['th-hot', new Set(['s1'])],
       ['th-cold', new Set(['s1', 's2', 's3'])],
     ]);
@@ -246,19 +249,10 @@ describe('computeThreatRadarRow', () => {
       ['th-hot', [{ clueId: 'x1', discovered: false }, { clueId: 'x2', discovered: false }]],
       ['th-cold', []],
     ]);
-    const snap: BackstageSnapshot = {
+    const snap = baseSnapshot({
       sessions,
-      threads: [],
-      threadSessionIds: new Map(),
-      npcs: [],
-      npcSessionIds: new Map(),
       threats: [hot, cold],
-      locations: [],
-      locationSessionIds: new Map(),
-      clues: [],
-      clueSessionIds: new Map(),
-      activeThreats: [hot, cold],
-      threatSessionIds: hotTs,
+      threatSessionIds,
       threatClues,
       threatThreadIds: new Map([
         ['th-hot', []],
@@ -268,37 +262,7 @@ describe('computeThreatRadarRow', () => {
         ['th-hot', [{ filled: 8, segments: 10, isActive: true, isCompleted: false }]],
         ['th-cold', []],
       ]),
-      threatFootprintSessionIds: new Map([
-        [
-          'th-hot',
-          footprintFor('th-hot', {
-            threatSessionIds: hotTs,
-            threatThreadIds: new Map([
-              ['th-hot', []],
-              ['th-cold', []],
-            ]),
-            threatClues,
-            threadSessionIds: new Map(),
-            clueSessionIds: new Map(),
-            npcSessionIds: new Map(),
-          }).get('th-hot')!,
-        ],
-        [
-          'th-cold',
-          footprintFor('th-cold', {
-            threatSessionIds: hotTs,
-            threatThreadIds: new Map([
-              ['th-hot', []],
-              ['th-cold', []],
-            ]),
-            threatClues,
-            threadSessionIds: new Map(),
-            clueSessionIds: new Map(),
-            npcSessionIds: new Map(),
-          }).get('th-cold')!,
-        ],
-      ]),
-    };
+    });
     const rows = computeAllThreatRadarRows(snap);
     const picks = rows.filter((r) => r.isSpotlightSuggestion);
     expect(picks.length).toBe(1);
@@ -313,34 +277,114 @@ describe('computeThreatRadarRow', () => {
     const s1 = sess('s1', 1);
     const t = thr('th1', 'Indirect', 'living_world');
     const thrd = thread('w1', 'Arc', 'active');
-    const threatSessionIds = new Map<string, Set<string>>([['th1', new Set()]]);
-    const threadSessionIds = new Map([['w1', new Set(['s1'])]]);
-    const snap: BackstageSnapshot = {
+    const snap = baseSnapshot({
       sessions: [s1],
-      threads: [thrd],
-      threadSessionIds,
-      npcs: [],
-      npcSessionIds: new Map(),
       threats: [t],
-      locations: [],
-      locationSessionIds: new Map(),
-      clues: [],
-      clueSessionIds: new Map(),
-      activeThreats: [t],
-      threatSessionIds,
-      threatClues: new Map([['th1', []]]),
+      threads: [thrd],
+      threatSessionIds: new Map([['th1', new Set()]]),
+      threadSessionIds: new Map([['w1', new Set(['s1'])]]),
       threatThreadIds: new Map([['th1', ['w1']]]),
-      threatClocks: new Map([['th1', []]]),
-      threatFootprintSessionIds: footprintFor('th1', {
-        threatSessionIds,
-        threatThreadIds: new Map([['th1', ['w1']]]),
-        threatClues: new Map([['th1', []]]),
-        threadSessionIds,
-        clueSessionIds: new Map(),
-        npcSessionIds: new Map(),
-      }),
-    };
+    });
     const row = computeThreatRadarRow(snap, t);
     expect(row.scalars.footprintPresence).toBeGreaterThan(0);
+  });
+
+  it('living world rises when network (threads/npc/factions) disappears from sessions', () => {
+    const sessions = [sess('s1', 1), sess('s2', 2), sess('s3', 3)];
+    const t = thr('th1', 'Żywy front', 'living_world');
+    const th = thread('w1', 'Wątek', 'active');
+    const f = faction('f1', 'Bractwo');
+    const sparse = baseSnapshot({
+      sessions,
+      threats: [t],
+      threads: [th],
+      factions: [f],
+      threatThreadIds: new Map([['th1', ['w1']]]),
+      threadSessionIds: new Map([['w1', new Set(['s1'])]]),
+      threatFactionIds: new Map([['th1', new Set(['f1'])]]),
+      factionSessionIds: new Map([['f1', new Set(['s1'])]]),
+    });
+    const active = baseSnapshot({
+      sessions,
+      threats: [t],
+      threads: [th],
+      factions: [f],
+      threatThreadIds: new Map([['th1', ['w1']]]),
+      threadSessionIds: new Map([['w1', new Set(['s2', 's3'])]]),
+      threatFactionIds: new Map([['th1', new Set(['f1'])]]),
+      factionSessionIds: new Map([['f1', new Set(['s2', 's3'])]]),
+    });
+
+    expect(computeThreatRadarRow(sparse, t).heat).toBeGreaterThan(computeThreatRadarRow(active, t).heat);
+  });
+
+  it('mystery reacts stronger to unresolved clues present in sessions than to merely undiscovered clues', () => {
+    const sessions = [sess('s1', 1), sess('s2', 2), sess('s3', 3)];
+    const t = thr('th1', 'Sekret', 'mystery');
+    const withOpportunity = baseSnapshot({
+      sessions,
+      threats: [t],
+      threatClues: new Map([['th1', [{ clueId: 'c1', discovered: false }, { clueId: 'c2', discovered: false }]]]),
+      clueSessionIds: new Map([
+        ['c1', new Set(['s3'])],
+        ['c2', new Set(['s2'])],
+      ]),
+    });
+    const withoutOpportunity = baseSnapshot({
+      sessions,
+      threats: [t],
+      threatClues: new Map([['th1', [{ clueId: 'c1', discovered: false }, { clueId: 'c2', discovered: false }]]]),
+      clueSessionIds: new Map([
+        ['c1', new Set()],
+        ['c2', new Set()],
+      ]),
+    });
+
+    expect(computeThreatRadarRow(withOpportunity, t).heat).toBeGreaterThan(
+      computeThreatRadarRow(withoutOpportunity, t).heat,
+    );
+  });
+
+  it('predator ramps up when table gets closer to truth', () => {
+    const sessions = [sess('s1', 1), sess('s2', 2), sess('s3', 3)];
+    const t = thr('th1', 'Łowca', 'predator');
+    const threadClosed = thread('w1', 'Śledztwo', 'completed');
+    const threadOpen = thread('w1', 'Śledztwo', 'active');
+
+    const nearTruth = baseSnapshot({
+      sessions,
+      threats: [t],
+      threads: [threadClosed],
+      threatThreadIds: new Map([['th1', ['w1']]]),
+      threadSessionIds: new Map([['w1', new Set(['s2', 's3'])]]),
+      threatClues: new Map([['th1', [{ clueId: 'c1', discovered: true }, { clueId: 'c2', discovered: true }]]]),
+    });
+    const farTruth = baseSnapshot({
+      sessions,
+      threats: [t],
+      threads: [threadOpen],
+      threatThreadIds: new Map([['th1', ['w1']]]),
+      threadSessionIds: new Map([['w1', new Set(['s2', 's3'])]]),
+      threatClues: new Map([['th1', [{ clueId: 'c1', discovered: false }, { clueId: 'c2', discovered: false }]]]),
+    });
+
+    expect(computeThreatRadarRow(nearTruth, t).heat).toBeGreaterThan(computeThreatRadarRow(farTruth, t).heat);
+  });
+
+  it('avalanche accelerates with clock progress', () => {
+    const sessions = [sess('s1', 1), sess('s2', 2), sess('s3', 3), sess('s4', 4)];
+    const t = thr('th1', 'Lawina', 'avalanche');
+    const low = baseSnapshot({
+      sessions,
+      threats: [t],
+      threatClocks: new Map([['th1', [{ filled: 2, segments: 10, isActive: true, isCompleted: false }]]]),
+    });
+    const high = baseSnapshot({
+      sessions,
+      threats: [t],
+      threatClocks: new Map([['th1', [{ filled: 8, segments: 10, isActive: true, isCompleted: false }]]]),
+    });
+
+    expect(computeThreatRadarRow(high, t).heat).toBeGreaterThan(computeThreatRadarRow(low, t).heat);
   });
 });

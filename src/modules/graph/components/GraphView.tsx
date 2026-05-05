@@ -43,13 +43,15 @@ function getGraphRelationLabel(type: RelationType): string {
 interface GraphViewProps {
   visibleTypes: Set<EntityType>;
   visibleRelations: Set<RelationType>;
+  searchQuery?: string;
 }
 
-export function GraphView({ visibleTypes, visibleRelations }: GraphViewProps) {
+export function GraphView({ visibleTypes, visibleRelations, searchQuery = '' }: GraphViewProps) {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const graphData = useGraphData(visibleTypes, visibleRelations);
+  const normalizedQuery = searchQuery.trim().toLowerCase();
 
   const [tooltip, setTooltip] = useState<{ x: number; y: number; label: string } | null>(null);
 
@@ -103,10 +105,22 @@ export function GraphView({ visibleTypes, visibleRelations }: GraphViewProps) {
     );
   }
 
-  if (graphData.nodes.length === 0) {
+  const filteredData = (() => {
+    if (!normalizedQuery) return graphData;
+    const nodes = graphData.nodes.filter((node) => {
+      if (node.name.toLowerCase().includes(normalizedQuery)) return true;
+      if (node.type.toLowerCase().includes(normalizedQuery)) return true;
+      return node.tags.some((tag) => tag.toLowerCase().includes(normalizedQuery));
+    });
+    const nodeIds = new Set(nodes.map((node) => node.id));
+    const links = graphData.links.filter((link) => nodeIds.has(String(link.source)) && nodeIds.has(String(link.target)));
+    return { nodes, links };
+  })();
+
+  if (filteredData.nodes.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <p className="text-sm text-surface-400">Brak encji do wyświetlenia.</p>
+        <p className="text-sm text-surface-400">Brak encji pasujących do bieżących filtrów.</p>
       </div>
     );
   }
@@ -116,7 +130,7 @@ export function GraphView({ visibleTypes, visibleRelations }: GraphViewProps) {
       <ForceGraph2D
         width={dimensions.width}
         height={dimensions.height}
-        graphData={{ nodes: graphData.nodes as object[], links: graphData.links as object[] }}
+        graphData={{ nodes: filteredData.nodes as object[], links: filteredData.links as object[] }}
         nodeCanvasObject={nodeCanvasObject}
         nodeCanvasObjectMode={() => 'replace'}
         onNodeClick={handleNodeClick}

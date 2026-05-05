@@ -60,6 +60,17 @@ export interface GeneratorRollEngineOptions {
   seed?: string | number;
   withoutRepetition?: boolean;
   previousEntryIds?: string[];
+  evo?: {
+    enabled?: boolean;
+    /** Kontekst kampanii/sesji, np. tagi aktywnych encji. */
+    contextTags?: string[];
+    /** Ostatnie wyniki losowań, żeby promować świeżość. */
+    previousResults?: string[];
+    /** 0..1 — im wyżej, tym częściej mutacje/eksploracja. */
+    explorationRate?: number;
+    /** Liczba kroków selekcji; małe wartości dla wydajności UI. */
+    generations?: number;
+  };
 }
 
 export interface GeneratorRollLog {
