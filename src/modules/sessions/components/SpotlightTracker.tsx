@@ -60,9 +60,43 @@ interface SpotlightTrackerProps {
   sessionId: string;
   state: SpotlightState;
   onChange: (s: SpotlightState) => void;
+  isPaused?: boolean;
+  onPauseChange?: (isPaused: boolean) => void;
 }
 
-export function SpotlightTracker({ sessionId, state, onChange }: SpotlightTrackerProps) {
+function setSpotlightPaused(state: SpotlightState, isPaused: boolean): SpotlightState {
+  if (state.isPaused === isPaused) return state;
+
+  if (!isPaused) {
+    const resumeTimer = (t: TimerState): TimerState =>
+      t.startedAt !== null || t.elapsed > 0 ? timerRunning(timerNow(t)) : t;
+    return {
+      ...state,
+      isPaused: false,
+      mgTimer: resumeTimer(state.mgTimer),
+      mgTotalActiveTimer: state.mgActive ? resumeTimer(state.mgTotalActiveTimer) : state.mgTotalActiveTimer,
+      players: state.players.map((p) => ({
+        ...p,
+        waitTimer: resumeTimer(p.waitTimer),
+        totalActiveTimer: p.active ? resumeTimer(p.totalActiveTimer) : p.totalActiveTimer,
+      })),
+    };
+  }
+
+  return {
+    ...state,
+    isPaused: true,
+    mgTimer: timerPause(state.mgTimer),
+    mgTotalActiveTimer: timerPause(state.mgTotalActiveTimer),
+    players: state.players.map((p) => ({
+      ...p,
+      waitTimer: timerPause(p.waitTimer),
+      totalActiveTimer: timerPause(p.totalActiveTimer),
+    })),
+  };
+}
+
+export function SpotlightTracker({ sessionId, state, onChange, isPaused, onPauseChange }: SpotlightTrackerProps) {
   const { db } = useCampaign();
   const [spotlight, setSpotlight] = useState<SpotlightState>(() => state);
   const [, forceRender] = useState(0);
@@ -130,6 +164,11 @@ export function SpotlightTracker({ sessionId, state, onChange }: SpotlightTracke
   useEffect(() => {
     onChange(spotlight);
   }, [spotlight, onChange]);
+
+  useEffect(() => {
+    if (typeof isPaused !== 'boolean') return;
+    setSpotlight((prev) => setSpotlightPaused(prev, isPaused));
+  }, [isPaused]);
 
   // Tick every 100ms to keep display smooth
   useEffect(() => {
@@ -245,36 +284,10 @@ export function SpotlightTracker({ sessionId, state, onChange }: SpotlightTracke
   }, []);
 
   const handlePauseToggle = useCallback(() => {
-    setSpotlight((prev) => {
-      if (prev.isPaused) {
-        const resumeTimer = (t: TimerState): TimerState =>
-          t.startedAt !== null || t.elapsed > 0 ? timerRunning(timerNow(t)) : t;
-        return {
-          ...prev,
-          isPaused: false,
-          mgTimer: resumeTimer(prev.mgTimer),
-          mgTotalActiveTimer: prev.mgActive ? resumeTimer(prev.mgTotalActiveTimer) : prev.mgTotalActiveTimer,
-          players: prev.players.map((p) => ({
-            ...p,
-            waitTimer: resumeTimer(p.waitTimer),
-            totalActiveTimer: p.active ? resumeTimer(p.totalActiveTimer) : p.totalActiveTimer,
-          })),
-        };
-      } else {
-        return {
-          ...prev,
-          isPaused: true,
-          mgTimer: timerPause(prev.mgTimer),
-          mgTotalActiveTimer: timerPause(prev.mgTotalActiveTimer),
-          players: prev.players.map((p) => ({
-            ...p,
-            waitTimer: timerPause(p.waitTimer),
-            totalActiveTimer: timerPause(p.totalActiveTimer),
-          })),
-        };
-      }
-    });
-  }, []);
+    const nextPaused = !spotlight.isPaused;
+    setSpotlight((prev) => setSpotlightPaused(prev, nextPaused));
+    onPauseChange?.(nextPaused);
+  }, [onPauseChange, spotlight.isPaused]);
 
   if (!playerEntities) return null;
 

@@ -1,4 +1,4 @@
-import { Fragment, memo, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react';
+import { Fragment, memo, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { CheckCircle2, FileText, GitBranch, Tag } from 'lucide-react';
 import { CardAccentSection } from '@shared/components/CardAccentSection';
@@ -35,6 +35,7 @@ interface ThreadCardProps {
   onClick?: () => void;
   className?: string;
   questline?: ThreadQuestlineCardInfo;
+  actionSlot?: ReactNode;
 }
 
 function getQuestlineGroups(questline?: ThreadQuestlineCardInfo): ThreadQuestlineCardGroup[] {
@@ -63,6 +64,7 @@ export const ThreadCard = memo(function ThreadCard({
   onClick,
   className = '',
   questline,
+  actionSlot,
 }: ThreadCardProps) {
   const plainDescription = stripHtml(thread.description ?? '');
   const preview =
@@ -179,14 +181,21 @@ export const ThreadCard = memo(function ThreadCard({
           </CardAccentSection>
         )}
 
-        {thread.tags.length > 0 && (
-          <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
-            <Tag className="h-3.5 w-3.5 shrink-0 text-surface-500" />
-            {thread.tags.map((tag) => (
-              <span key={tag} className="app-pill-muted rounded-full px-2.5 py-1 text-xs">
-                {tag}
-              </span>
-            ))}
+        {(thread.tags.length > 0 || actionSlot) && (
+          <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-surface-200/50 pt-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              {thread.tags.length > 0 && (
+                <>
+                  <Tag className="h-3.5 w-3.5 shrink-0 text-surface-500" />
+                  {thread.tags.map((tag) => (
+                    <span key={tag} className="app-pill-muted rounded-full px-2.5 py-1 text-xs">
+                      {tag}
+                    </span>
+                  ))}
+                </>
+              )}
+            </div>
+            {actionSlot ? <div className="ml-auto flex shrink-0 items-center gap-1.5">{actionSlot}</div> : null}
           </div>
         )}
       </div>

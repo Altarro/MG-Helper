@@ -10,6 +10,7 @@ const factionFormSchema = z.object({
   name: z.string().min(1, 'Nazwa jest wymagana').max(200),
   goals: z.array(z.object({ value: z.string() })),
   resources: z.array(z.object({ value: z.string() })),
+  symbols: z.array(z.object({ value: z.string() })),
   description: z.string().max(100_000),
   tags: z.array(z.string()).max(50),
   imageId: z.string().nullish(),
@@ -22,6 +23,7 @@ export interface FactionFormValues {
   name: string;
   goals: string[];
   resources: string[];
+  symbols: string[];
   description: string;
   tags: string[];
   imageId?: string | null;
@@ -49,6 +51,7 @@ export function FactionForm({
       name: defaultValues?.name ?? '',
       goals: (defaultValues?.goals ?? []).map((v) => ({ value: v })),
       resources: (defaultValues?.resources ?? []).map((v) => ({ value: v })),
+      symbols: (defaultValues?.symbols ?? []).map((v) => ({ value: v })),
       description: defaultValues?.description ?? '',
       tags: defaultValues?.tags ?? [],
       imageId: defaultValues?.imageId ?? null,
@@ -60,12 +63,14 @@ export function FactionForm({
 
   const goalsArr = useFieldArray({ control, name: 'goals' });
   const resourcesArr = useFieldArray({ control, name: 'resources' });
+  const symbolsArr = useFieldArray({ control, name: 'symbols' });
 
   function handleValidSubmit(raw: FactionFormRaw) {
     return onSubmit({
       ...raw,
       goals: raw.goals.map((g) => g.value).filter(Boolean),
       resources: raw.resources.map((r) => r.value).filter(Boolean),
+      symbols: raw.symbols.map((s) => s.value).filter(Boolean),
       imageId: raw.imageId ?? null,
       imageAlt: raw.imageAlt ?? '',
     });
@@ -74,8 +79,8 @@ export function FactionForm({
   function renderList(
     label: string,
     addLabel: string,
-    arr: typeof goalsArr | typeof resourcesArr,
-    fieldName: 'goals' | 'resources',
+    arr: typeof goalsArr | typeof resourcesArr | typeof symbolsArr,
+    fieldName: 'goals' | 'resources' | 'symbols',
     placeholder: string,
   ) {
     return (
@@ -147,8 +152,9 @@ export function FactionForm({
         )}
       />
 
-      {renderList('Cele', 'Dodaj cel', goalsArr, 'goals', 'Brak celów — dodaj co frakcja chce osiągnąć.')}
-      {renderList('Zasoby', 'Dodaj zasób', resourcesArr, 'resources', 'Brak zasobów — dodaj co frakcja posiada.')}
+      {renderList('Cel', 'Dodaj cel', goalsArr, 'goals', 'Brak celów — dodaj co frakcja chce osiągnąć.')}
+      {renderList('Zasób', 'Dodaj zasób', resourcesArr, 'resources', 'Brak zasobów — dodaj co frakcja posiada.')}
+      {renderList('Symbol', 'Dodaj symbol', symbolsArr, 'symbols', 'Brak symboli — dodaj znaki, barwy albo hasła frakcji.')}
 
       <div className="flex flex-col gap-1.5">
         <label className="text-sm font-medium text-surface-800">Opis</label>

@@ -1,13 +1,40 @@
 import { useState, type ReactNode } from 'react';
+import { useLocation } from 'react-router';
 import { PrimarySidebar } from './PrimarySidebar';
 import { PrimaryTopBar } from './PrimaryTopBar';
 import { Menu } from 'lucide-react';
 import { useBackupReminder } from '@shared/hooks/useBackupReminder';
 import { useCampaign } from '@shared/db/CampaignContext';
+import { DetailScrollTopFab } from '@shared/components/DetailScrollTopFab';
+
+const PAGE_SCROLL_TOP_ROUTES = new Set([
+  '/',
+  '/backstage',
+  '/clocks',
+  '/clues',
+  '/factions',
+  '/fronts',
+  '/graph',
+  '/items',
+  '/locations',
+  '/notes',
+  '/npcs',
+  '/search',
+  '/sessions',
+  '/settings',
+  '/threats',
+  '/threads',
+]);
+
+function hasPageScrollTopFab(pathname: string): boolean {
+  if (PAGE_SCROLL_TOP_ROUTES.has(pathname)) return true;
+  return /^\/sessions\/[^/]+\/live$/.test(pathname);
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { campaignId } = useCampaign();
+  const { pathname } = useLocation();
   useBackupReminder(campaignId);
 
   return (
@@ -45,6 +72,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </PrimaryTopBar>
         </div>
         <main className="flex-1 px-5 py-5 lg:px-7 lg:py-6">{children}</main>
+        <DetailScrollTopFab enabled={hasPageScrollTopFab(pathname)} />
       </div>
     </div>
   );

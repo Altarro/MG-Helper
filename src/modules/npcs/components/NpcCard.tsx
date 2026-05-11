@@ -137,7 +137,7 @@ export const NpcCard = React.memo(function NpcCard({
         </CardAccentSection>
       )}
 
-      {!isPC && motivationPreview && (
+      {motivationPreview && (
         <CardAccentSection
           label="Motywacja"
           icon={Heart}
@@ -165,7 +165,7 @@ export const NpcCard = React.memo(function NpcCard({
         </CardAccentSection>
       )}
 
-      {playStylePreview && (
+      {!isPC && playStylePreview && (
         <CardAccentSection
           label="Sposób odgrywania"
           icon={MessageCircle}

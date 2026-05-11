@@ -31,6 +31,7 @@ export function FactionList() {
       stripHtml(f.description ?? '').toLowerCase().includes(lowerQuery) ||
       f.data.goals.some((goal) => goal.toLowerCase().includes(lowerQuery)) ||
       f.data.resources.some((resource) => resource.toLowerCase().includes(lowerQuery)) ||
+      (f.data.symbols ?? []).some((symbol) => symbol.toLowerCase().includes(lowerQuery)) ||
       f.tags.some((t) => t.toLowerCase().includes(lowerQuery)),
   );
   const filtered = queryMatchedFactions?.filter(
@@ -56,6 +57,7 @@ export function FactionList() {
         data: {
           goals: values.goals,
           resources: values.resources,
+          symbols: values.symbols,
           imageId: values.imageId ?? null,
           imageAlt: values.imageAlt ?? '',
         },

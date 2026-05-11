@@ -18,7 +18,7 @@ type TabId = 'radar' | 'matrix' | 'graph' | 'evo';
 
 export function BackstagePage() {
   const data = useBackstage();
-  const [tab, setTab] = useState<TabId>('radar');
+  const [tab, setTab] = useState<TabId>('matrix');
   const [clueFilter, setClueFilter] = useState<ClueMatrixFilter>('all');
   const [showFloatingTop, setShowFloatingTop] = useState(false);
 
@@ -49,11 +49,11 @@ export function BackstagePage() {
   } = data;
   const openThreadsCount = threads.filter((thread) => thread.data.status !== 'completed').length;
   const activeThreatsCount = threats.filter((threat) => threat.data.status !== 'completed').length;
-  const tabMeta: Array<{ id: TabId; label: string; icon: typeof Radar }> = [
-    { id: 'radar', label: 'Radar zagrożeń', icon: Radar },
+  const tabMeta: Array<{ id: TabId; label: string; icon: typeof Radar; inDevelopment?: boolean }> = [
     { id: 'matrix', label: 'Macierz sesji', icon: Table2 },
-    { id: 'graph', label: 'Graf relacji', icon: GitFork },
-    { id: 'evo', label: 'EvoGenerator', icon: Sparkles },
+    { id: 'graph', label: 'Graf relacji', icon: GitFork, inDevelopment: true },
+    { id: 'radar', label: 'Radar zagrożeń', icon: Radar, inDevelopment: true },
+    { id: 'evo', label: 'EvoGenerator', icon: Sparkles, inDevelopment: true },
   ];
   const topThreatActions = threatRows
     .filter((row) => row.tier >= 3 || row.isSpotlightSuggestion)
@@ -123,7 +123,7 @@ export function BackstagePage() {
         aria-label="Widok za kulisami"
         onKeyDown={handleTabsKeyDown}
       >
-        {tabMeta.map(({ id, label, icon: Icon }) => (
+        {tabMeta.map(({ id, label, icon: Icon, inDevelopment }) => (
           <button
             key={id}
             id={`backstage-tab-${id}`}
@@ -138,6 +138,11 @@ export function BackstagePage() {
           >
             <Icon className="h-4 w-4" aria-hidden />
             {label}
+            {inDevelopment ? (
+              <span className="rounded-full border border-orange-300/70 bg-orange-100 px-2 py-0.5 text-[10px] font-semibold tracking-[0.1em] text-orange-800 uppercase">
+                W budowie
+              </span>
+            ) : null}
           </button>
         ))}
       </div>

@@ -54,7 +54,12 @@ export function CustomScrollViewport({
     update();
     const inner = innerRef.current;
     if (!inner) return;
-    const ro = new ResizeObserver(() => update());
+    const ResizeObserverCtor = globalThis.ResizeObserver;
+    if (!ResizeObserverCtor) {
+      window.addEventListener('resize', update);
+      return () => window.removeEventListener('resize', update);
+    }
+    const ro = new ResizeObserverCtor(() => update());
     ro.observe(inner);
     return () => ro.disconnect();
   }, [update, remeasureKey, maxHeight]);

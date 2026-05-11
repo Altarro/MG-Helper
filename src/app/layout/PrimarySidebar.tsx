@@ -16,14 +16,12 @@ import {
   Theater,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
 import {
   getLiveSessionMarker,
   LIVE_SESSION_MARKER_UPDATED_EVENT,
   type LiveSessionMarker,
 } from '@modules/sessions/hooks/useLiveSessionState';
 import { useCampaign } from '@shared/db/CampaignContext';
-import { getSessionLifecycleStatus, type SessionData } from '@modules/sessions/types';
 import { trackNavigationClick } from '@shared/telemetry/navigationTelemetry';
 
 type NavItem = {
@@ -107,20 +105,8 @@ function SidebarLink({
 }
 
 export function PrimarySidebar({ onClose }: { onClose?: () => void }) {
-  const { campaignId, db } = useCampaign();
+  const { campaignId } = useCampaign();
   const [liveMarker, setLiveMarker] = useState<LiveSessionMarker | null>(() => getLiveSessionMarker());
-  const sessionsMeta = useLiveQuery(async () => {
-    const sessions = await db.entities.where('type').equals('session').toArray();
-    const cleanupPending = sessions.filter(
-      (entity) => getSessionLifecycleStatus(entity.data as unknown as SessionData) === 'cleanup_pending',
-    );
-    const latestPending = cleanupPending.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
-    return {
-      cleanupPendingCount: cleanupPending.length,
-      latestPendingId: latestPending?.id ?? null,
-      latestPendingName: latestPending?.name ?? null,
-    };
-  }, [db]);
 
   useEffect(() => {
     function syncLiveMarker() {
@@ -138,8 +124,6 @@ export function PrimarySidebar({ onClose }: { onClose?: () => void }) {
 
   const isLiveInCurrentCampaign =
     liveMarker && (!liveMarker.campaignId || liveMarker.campaignId === campaignId);
-  const cleanupPendingCount = sessionsMeta?.cleanupPendingCount ?? 0;
-  const hasPendingCleanup = cleanupPendingCount > 0;
 
   return (
     <aside className="flex w-sidebar flex-col border-r border-[rgba(18,45,66,0.12)] bg-[linear-gradient(180deg,rgba(223,225,218,0.95)_0%,rgba(210,212,203,0.98)_100%)] shadow-[inset_-1px_0_0_rgba(255,244,220,0.15)]">

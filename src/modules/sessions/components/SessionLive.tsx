@@ -13,6 +13,8 @@ import {
   clearLiveSessionMarker,
   clearLiveSessionState,
   getLiveSessionMarker,
+  LIVE_SESSION_MARKER_UPDATED_EVENT,
+  type LiveSessionMarker,
 } from '../hooks/useLiveSessionState';
 import { DetailNotFound } from '@shared/components/DetailNotFound';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
@@ -96,6 +98,7 @@ export function SessionLive() {
   const [sessionClockName, setSessionClockName] = useState('');
   const [sessionClockSegments, setSessionClockSegments] = useState<4 | 6>(4);
   const [sessionClockSaving, setSessionClockSaving] = useState(false);
+  const [liveMarker, setLiveMarkerState] = useState<LiveSessionMarker | null>(() => getLiveSessionMarker());
   const [lifecycleUndoStack, setLifecycleUndoStack] = useState<
     Array<Array<{ entityId: string; prevData: Record<string, unknown> }>>
   >([]);
@@ -119,8 +122,35 @@ export function SessionLive() {
   useEffect(() => {
     if (!session || !id) return;
     const title = session.name || `Sesja ${session.data.number}`;
-    setLiveSessionMarker({ sessionId: id, sessionName: title, isPaused: false, campaignId });
+    const currentMarker = getLiveSessionMarker();
+    const nextMarker = {
+      sessionId: id,
+      sessionName: title,
+      isPaused:
+        currentMarker?.sessionId === id
+          ? currentMarker.isPaused
+          : (spotlightState ?? DEFAULT_SPOTLIGHT).isPaused,
+      campaignId,
+    };
+    setLiveSessionMarker(nextMarker);
+    setLiveMarkerState(nextMarker);
   }, [campaignId, id, session]);
+
+  useEffect(() => {
+    function syncLiveMarker() {
+      setLiveMarkerState(getLiveSessionMarker());
+    }
+    window.addEventListener('storage', syncLiveMarker);
+    window.addEventListener('focus', syncLiveMarker);
+    window.addEventListener(LIVE_SESSION_MARKER_UPDATED_EVENT, syncLiveMarker);
+    const timeoutId = window.setTimeout(syncLiveMarker, 200);
+    return () => {
+      window.removeEventListener('storage', syncLiveMarker);
+      window.removeEventListener('focus', syncLiveMarker);
+      window.removeEventListener(LIVE_SESSION_MARKER_UPDATED_EVENT, syncLiveMarker);
+      window.clearTimeout(timeoutId);
+    };
+  }, []);
 
   useEffect(() => {
     if (session !== null || !id) return;
@@ -328,6 +358,22 @@ export function SessionLive() {
   }
 
   const title = session.name || `Sesja ${session.data.number}`;
+  const liveSessionId = session.id;
+  const liveMarkerIsCurrentSession = liveMarker?.sessionId === liveSessionId;
+  const sessionPaused = liveMarkerIsCurrentSession
+    ? liveMarker.isPaused
+    : (spotlightState ?? DEFAULT_SPOTLIGHT).isPaused;
+
+  function handleSpotlightPauseChange(isPaused: boolean) {
+    const nextMarker = {
+      sessionId: liveSessionId,
+      sessionName: title,
+      isPaused,
+      campaignId,
+    };
+    setLiveSessionMarker(nextMarker);
+    setLiveMarkerState(nextMarker);
+  }
 
   function panelTitle(section: NonNullable<typeof openSection>): string {
     if (section === 'npcs') return 'Postacie';
@@ -470,12 +516,14 @@ export function SessionLive() {
               <SessionNowPlayingPanel
                 scenes={Array.isArray(session.data.scenes) ? session.data.scenes : []}
                 plannedDurationMin={session.data.plannedDurationMin}
-                isPaused={(spotlightState ?? DEFAULT_SPOTLIGHT).isPaused}
+                isPaused={sessionPaused}
               />
               <SpotlightTracker
                 sessionId={session.id}
                 state={spotlightState ?? DEFAULT_SPOTLIGHT}
                 onChange={setSpotlightState}
+                isPaused={sessionPaused}
+                onPauseChange={handleSpotlightPauseChange}
               />
             </div>
           </aside>

@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Archive, FileText, Flag, Target } from 'lucide-react';
+import { Archive, FileText, Flag, Sparkles, Target } from 'lucide-react';
 import { CardAccentList, CardAccentSection } from '@shared/components/CardAccentSection';
 import { useAssetUrl } from '@shared/hooks/useAssetUrl';
 import { getFactionLifecycleStatus } from '@shared/utils/entityData';
@@ -28,6 +28,9 @@ export const FactionCard = memo(function FactionCard({ faction, onClick }: Facti
   const resourcesPreview = faction.data.resources
     .slice(0, 4)
     .map((resource) => applyPolishTypography(previewText(resource, 90)));
+  const symbolsPreview = (faction.data.symbols ?? [])
+    .slice(0, 4)
+    .map((symbol) => applyPolishTypography(previewText(symbol, 90)));
   const descriptionPreview = applyPolishTypography(previewText(stripHtml(faction.description ?? '')));
 
   return (
@@ -88,6 +91,18 @@ export const FactionCard = memo(function FactionCard({ faction, onClick }: Facti
           remeasureKey={resourcesPreview.join('|')}
         >
           <CardAccentList items={resourcesPreview} markerClassName="bg-warning-500/80" />
+        </CardAccentSection>
+      )}
+
+      {symbolsPreview.length > 0 && (
+        <CardAccentSection
+          label="Symbole"
+          icon={Sparkles}
+          tone="success"
+          maxLines={5}
+          remeasureKey={symbolsPreview.join('|')}
+        >
+          <CardAccentList items={symbolsPreview} markerClassName="bg-emerald-500/75" />
         </CardAccentSection>
       )}
 

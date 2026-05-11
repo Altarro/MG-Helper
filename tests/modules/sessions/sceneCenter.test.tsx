@@ -85,15 +85,15 @@ describe('SceneCenter', () => {
       expect(screen.getByText('Iria Fen')).toBeInTheDocument();
     });
 
-    const expandButton = screen.getByTitle(/Rozwi/i);
+    const expandButton = screen.getByLabelText(/Rozwi.*Iria Fen/i);
     const expandIcon = expandButton.querySelector('svg');
 
     expect(expandIcon).not.toBeNull();
     fireEvent.pointerDown(expandIcon!);
     fireEvent.click(expandIcon!);
 
-    const dialog = await screen.findByRole('dialog', { name: /Szczegóły NPC Iria Fen/i });
+    const dialog = await screen.findByRole('dialog', { name: /Kontekst postaci Iria Fen/i });
     expect(dialog).toBeInTheDocument();
-    expect(screen.getByText(/Pełny opis Iria Fen do modala/i)).toBeInTheDocument();
+    expect(screen.getByText(/opis Iria Fen do modala/i)).toBeInTheDocument();
   });
 });
