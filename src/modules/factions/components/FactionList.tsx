@@ -12,6 +12,7 @@ import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
 import type { FactionFormValues } from './FactionForm';
 import { getFactionLifecycleStatus } from '@shared/utils/entityData';
+import { stripHtml } from '@shared/utils/sanitize';
 
 export function FactionList() {
   const factions = useFactions();
@@ -27,6 +28,10 @@ export function FactionList() {
     (f) =>
       !lowerQuery ||
       f.name.toLowerCase().includes(lowerQuery) ||
+      stripHtml(f.description ?? '').toLowerCase().includes(lowerQuery) ||
+      f.data.goals.some((goal) => goal.toLowerCase().includes(lowerQuery)) ||
+      f.data.resources.some((resource) => resource.toLowerCase().includes(lowerQuery)) ||
+      (f.data.symbols ?? []).some((symbol) => symbol.toLowerCase().includes(lowerQuery)) ||
       f.tags.some((t) => t.toLowerCase().includes(lowerQuery)),
   );
   const filtered = queryMatchedFactions?.filter(
@@ -52,6 +57,7 @@ export function FactionList() {
         data: {
           goals: values.goals,
           resources: values.resources,
+          symbols: values.symbols,
           imageId: values.imageId ?? null,
           imageAlt: values.imageAlt ?? '',
         },
@@ -98,16 +104,18 @@ export function FactionList() {
           {query && <button type="button" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-surface-500 transition-colors hover:text-primary-700"><X className="h-4 w-4" /></button>}
         </div>
 
-        <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm text-surface-700">
-          <input
-            type="checkbox"
-            checked={hideDisbanded}
-            onChange={(e) => setHideDisbanded(e.target.checked)}
-            className="border-surface-300 accent-primary-600 h-4 w-4 rounded"
-          />
-          <span>Ukryj rozbite</span>
-          <FilterCountBadge selected={hideDisbanded} count={disbandedMatchingQuery} />
-        </label>
+        <div className="mt-6 flex flex-wrap gap-2.5">
+          <button
+            type="button"
+            onClick={() => setHideDisbanded((value) => !value)}
+            className={`rounded-full px-4 py-2 text-xs font-semibold tracking-[0.01em] transition-all ${
+              hideDisbanded ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+            }`}
+          >
+            <span>Ukryj rozbite</span>
+            <FilterCountBadge selected={hideDisbanded} count={disbandedMatchingQuery} />
+          </button>
+        </div>
       </section>
 
       {showForm && (
@@ -121,7 +129,9 @@ export function FactionList() {
         <LoadingSpinner />
       ) : filtered && filtered.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((f) => <FactionCard key={f.id} faction={f} />)}
+          {filtered.map((f) => (
+            <FactionCard key={f.id} faction={f} onClick={() => navigate(`/factions/${f.id}`)} />
+          ))}
         </div>
       ) : (
         <div className="app-panel rounded-[1.8rem] p-6">

@@ -1,5 +1,6 @@
 export * from './AnchoredPanel';
 export * from './Backdrop';
+export * from './CardAccentSection';
 export * from './CardScrollBlock';
 export * from './CollapsiblePanel';
 export * from './ConfirmDialog';

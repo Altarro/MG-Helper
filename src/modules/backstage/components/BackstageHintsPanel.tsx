@@ -1,21 +1,18 @@
 export function BackstageHintsPanel() {
   return (
     <section
-      className="rounded-xl border border-dashed border-surface-300 bg-white p-4 text-sm text-surface-600"
+      className="rounded-xl border border-surface-200 bg-white p-4 text-sm text-surface-600"
       data-testid="backstage-hints"
       aria-labelledby="backstage-hints-heading"
     >
       <h2 id="backstage-hints-heading" className="mb-2 text-xs font-semibold uppercase tracking-wide text-surface-500">
-        Podpowiedzi (AI)
+        Jak czytać „Za kulisami”
       </h2>
-      <p className="leading-relaxed">
-        Miejsce na podpowiedzi generowane przez model — jeszcze niepodłączone. Radar poniżej działa deterministycznie
-        z Twojej bazy.
-      </p>
-      <p className="mt-2 text-xs text-surface-500">
-        Każdy insight powinien kończyć się akcją. Jeśli sekcja nie prowadzi do decyzji, traktuj ją jako sygnał do
-        dopracowania danych źródłowych.
-      </p>
+      <ul className="space-y-1.5 text-xs leading-relaxed text-surface-600">
+        <li>Radar pokazuje, co najbardziej domaga się Twojej uwagi przed kolejną sesją.</li>
+        <li>Macierz pomaga sprawdzić, czy wątki, NPC i lokacje rzeczywiście żyją na stole.</li>
+        <li>Jeśli wynik brzmi nietrafnie, najczęściej brakuje powiązań między encjami.</li>
+      </ul>
     </section>
   );
 }

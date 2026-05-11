@@ -11,3 +11,4 @@ export * from './exportJson';
 export * from './exportFull';
 export * from './importJson';
 export * from './importFull';
+export * from './typography';

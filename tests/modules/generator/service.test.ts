@@ -119,5 +119,47 @@ describe('generator service', () => {
     expect(result.resultText.startsWith('Entry ')).toBe(true);
     expect(elapsedMs).toBeLessThan(500);
   });
+
+  it('evolutionary mode biases outcomes toward campaign context tags', () => {
+    const contextPack: GeneratorPack = {
+      ...basePack,
+      id: 'pack-context',
+      tables: [
+        ...basePack.tables,
+        {
+          id: 'ctx',
+          name: 'custom:ctx',
+          type: 'custom:ctx',
+          isActive: true,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          entries: [
+            { id: 'city', value: 'Kupiec z miasta', weight: 1, tags: ['miasto', 'handel'], isActive: true },
+            { id: 'wild', value: 'Postac z dziczy', weight: 1, tags: ['dzicz', 'tropienie'], isActive: true },
+          ],
+        },
+      ],
+    };
+
+    const results = Array.from({ length: 40 }, (_, index) =>
+      commitRollFromPack({
+        pack: contextPack,
+        kind: 'customTable',
+        customTableId: 'ctx',
+        options: {
+          seed: `ctx-${index}`,
+          evo: {
+            enabled: true,
+            contextTags: ['miasto', 'intryga'],
+            generations: 5,
+            explorationRate: 0.2,
+          },
+        },
+      }).resultText,
+    );
+    const cityHits = results.filter((value) => value.includes('miasta')).length;
+    const wildHits = results.filter((value) => value.includes('dziczy')).length;
+    expect(cityHits).toBeGreaterThan(wildHits);
+  });
 });
 

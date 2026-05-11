@@ -137,6 +137,7 @@ export function ClueSection({ parentId, title = 'Wskazówki', onRemoveRelation }
               key={item.clue.id}
               clue={item.clue}
               metaLabel={item.relation.meta?.clueStrength ? CLUE_STRENGTH_LABELS[item.relation.meta.clueStrength] : undefined}
+              metaTone={item.relation.meta?.clueStrength}
               onToggleDiscovered={handleToggleDiscovered}
               onRemove={onRemoveRelation ? () => onRemoveRelation(item) : undefined}
             />

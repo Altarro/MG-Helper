@@ -6,6 +6,7 @@ import {
   Trash2,
   X,
   BookOpen,
+  Brush,
   MapPin,
   Users,
   Package,
@@ -41,7 +42,7 @@ import { LocationPickerModal } from './LocationPickerModal';
 import type { SessionFormValues } from './SessionForm';
 import type { Entity } from '@shared/types/entity';
 import { removeEntityFromSession } from '../utils/liveSessionCommands';
-import { getSessionLifecycleStatus, type SessionData } from '../types';
+import { getSessionLifecycleStatus, getSessionProgressStatus, type SessionData } from '../types';
 
 function useSessionAppearances(db: MgHelperDb, sessionId: string | undefined) {
   return (
@@ -243,12 +244,17 @@ function SessionEntityColumn({
       : 'bg-[rgba(33,71,102,0.09)] text-primary-700';
 
   return (
-    <div className="app-card rounded-[1.5rem] p-4">
-      <div className="mb-4 flex items-center gap-2">
-        <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${iconShellClass}`}>
+    <div className="app-card group rounded-[1.65rem] p-4 transition-all hover:-translate-y-0.5">
+      <div className="mb-4 flex items-center gap-2 border-b border-[rgba(86,93,94,0.1)] pb-3">
+        <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${iconShellClass}`}>
           <Icon className="h-4 w-4" />
         </div>
-        <h3 className="text-primary-900 text-sm font-semibold tracking-[-0.02em]">{title}</h3>
+        <div className="min-w-0">
+          <h3 className="text-primary-900 text-base font-semibold tracking-[-0.03em]">{title}</h3>
+          <p className="text-surface-500 text-[11px] font-semibold tracking-wide uppercase">
+            Obecność
+          </p>
+        </div>
         <button
           type="button"
           onClick={onAdd}
@@ -262,28 +268,33 @@ function SessionEntityColumn({
       </div>
 
       {items.length === 0 ? (
-        <p className="text-surface-500 text-xs">Brak w sesji</p>
+        <p className="text-surface-500 rounded-2xl border border-dashed border-[rgba(86,93,94,0.16)] px-3 py-4 text-center text-xs">
+          Brak w sesji
+        </p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-2.5">
           {items.map((item) => (
-            <li key={item.id} className="group flex items-center pl-0 pr-0 relative">
+            <li
+              key={item.id}
+              className="group relative flex items-center rounded-2xl border border-[rgba(86,93,94,0.1)] bg-[rgba(255,250,240,0.14)] px-3 py-2.5"
+            >
               <Link
                 to={`${hrefBase}/${item.id}`}
-                className="text-primary-800 hover:text-primary-900 text-sm leading-6 transition-colors hover:underline flex-1 min-w-0 pl-0"
+                className="text-primary-800 hover:text-primary-900 min-w-0 flex-1 truncate text-sm leading-6 font-medium transition-colors hover:underline"
               >
                 {item.name}
               </Link>
               {onRemove && (
                 <button
                   type="button"
-                  className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 rounded p-1.5 hover:bg-[rgba(223,225,218,0.75)] transition-all focus:opacity-100"
-                  style={{marginRight: '0.25rem'}} // 1rem = 16px, 0.25rem = 4px, matches left padding
+                  className="absolute top-1/2 right-0 -translate-y-1/2 rounded p-1.5 opacity-0 transition-all group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-[rgba(223,225,218,0.75)] focus:opacity-100"
+                  style={{ marginRight: '0.25rem' }} // 1rem = 16px, 0.25rem = 4px, matches left padding
                   title={`Usuń z sesji: ${item.name}`}
                   aria-label={`Usuń z sesji: ${item.name}`}
                   onClick={() => onRemove(item.id, item.name)}
                   tabIndex={0}
                 >
-                  <X className="h-3.5 w-3.5 text-danger-600" />
+                  <X className="text-danger-600 h-3.5 w-3.5" />
                 </button>
               )}
             </li>
@@ -325,7 +336,10 @@ export function SessionDetail() {
     if (!session || isEditing) return [];
     const d = session.data as unknown as SessionData;
     const items: { id: string; label: string }[] = [];
-    if (d.summary) items.push({ id: 'session-detail-streszczenie', label: 'Streszczenie' });
+    if (d.sessionGoal) items.push({ id: 'session-detail-cel', label: 'Cel sesji' });
+    if (getSessionProgressStatus(d) === 'completed' && d.summary) {
+      items.push({ id: 'session-detail-streszczenie', label: 'Streszczenie' });
+    }
     if (d.plannedDurationMin || (d.scenes?.length ?? 0) > 0) {
       items.push({ id: 'session-detail-sceny', label: 'Sceny' });
     }
@@ -385,6 +399,8 @@ export function SessionDetail() {
           ...(session.data as unknown as SessionData),
           number: values.number,
           date: values.date,
+          sessionGoal: values.sessionGoal,
+          progressStatus: values.progressStatus,
           summary: values.summary,
           plannedDurationMin: values.plannedDurationMin,
           scenes: values.scenes,
@@ -448,6 +464,8 @@ export function SessionDetail() {
         liveRunStartedAt: new Date().toISOString(),
         liveRunEndedAt: undefined,
         spotlightSummary: undefined,
+        progressStatus: 'planned',
+        summary: '',
       },
     });
     void navigate(`/sessions/${session.id}/live`);
@@ -495,83 +513,128 @@ export function SessionDetail() {
         Sesje
       </Link>
 
-      <section className="app-panel-strong rounded-[2rem] px-6 py-7 lg:px-8 lg:py-8">
-        <div className="flex flex-wrap items-start justify-between gap-5">
-          <div className="max-w-3xl">
-            <div className="text-primary-700 mb-3 inline-flex items-center rounded-full border border-[rgba(33,71,102,0.16)] bg-[rgba(111,146,164,0.12)] px-3 py-1 text-[11px] font-semibold tracking-[0.18em] uppercase">
-              Sesja
+      <section className="app-panel-strong overflow-hidden rounded-[2.2rem] p-0">
+        <div className="grid gap-0 xl:grid-cols-[minmax(0,1.2fr)_minmax(26rem,0.8fr)]">
+          <div className="relative px-6 py-7 lg:px-8 lg:py-8">
+            <div className="absolute inset-y-0 left-0 w-1.5 bg-[linear-gradient(180deg,var(--color-primary-500)_0%,var(--color-warning-500)_100%)]" />
+            <div className="text-primary-700 mb-4 inline-flex items-center rounded-full border border-[rgba(33,71,102,0.16)] bg-[rgba(111,146,164,0.12)] px-3 py-1 text-[11px] font-semibold tracking-[0.18em] uppercase">
+              Odprawa sesji
             </div>
-            <div className="flex items-start gap-3">
-              <div className="mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[rgba(33,71,102,0.09)]">
-                <BookOpen className="text-primary-700 h-5 w-5" />
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.25rem] bg-[rgba(33,71,102,0.12)] shadow-[inset_0_1px_0_rgba(255,250,240,0.24)]">
+                <BookOpen className="text-primary-800 h-6 w-6" />
               </div>
-              <div>
-                <h1 className="text-primary-900 text-3xl font-semibold tracking-[-0.04em] lg:text-[2.1rem]">
+              <div className="min-w-0">
+                <h1 className="text-primary-900 text-[2.35rem] leading-[0.98] font-semibold tracking-[-0.06em] lg:text-[3.4rem]">
                   {title}
                 </h1>
-                {formattedDate && (
-                  <p className="text-surface-600 mt-2 text-sm leading-7">{formattedDate}</p>
-                )}
-                <p className="mt-2">
-                  <span className="rounded-full border border-[rgba(86,93,94,0.14)] bg-[rgba(223,225,218,0.75)] px-2.5 py-1 text-xs text-surface-700">
-                    {reportStatusLabel}
-                  </span>
-                </p>
               </div>
+            </div>
+            <div className="mt-5 flex flex-wrap gap-2.5">
+              {formattedDate && (
+                <span className="app-pill-muted rounded-full px-3 py-1.5 text-xs font-medium">
+                  {formattedDate}
+                </span>
+              )}
+              <span className="app-pill rounded-full px-3 py-1.5 text-xs font-medium">
+                {reportStatusLabel}
+              </span>
+              <span className="app-pill-muted rounded-full px-3 py-1.5 text-xs font-medium">
+                Status: {getSessionProgressStatus(session.data) === 'completed' ? 'zakończona' : 'zaplanowana'}
+              </span>
+              {session.data.plannedDurationMin && (
+                <span className="app-pill-muted rounded-full px-3 py-1.5 text-xs font-medium">
+                  Plan: {session.data.plannedDurationMin} min
+                </span>
+              )}
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
-            <Link
-              to={`/sessions/${session.id}/report`}
-              className="app-button-secondary inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium"
-            >
-              <FileText className="h-4 w-4" />
-              Raport
-            </Link>
-            <Link
-              to="#"
-              onClick={(event) => {
-                event.preventDefault();
-                handleStartLive();
-              }}
-              className="app-accent inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-transform hover:-translate-y-0.5"
-            >
-              <Zap className="h-4 w-4" />
-              Na żywo
-            </Link>
-            <Link
-              to={`/sessions/${session.id}/cleanup`}
-              className="app-button-secondary inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium"
-            >
-              <MapPin className="h-4 w-4" />
-              Sprzątaj sesję
-            </Link>
-            <button
-              type="button"
-              onClick={() => setIsEditing(!isEditing)}
-              className="app-button-secondary inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium"
-            >
-              {isEditing ? (
-                <>
-                  <X className="h-4 w-4" />
-                  Anuluj
-                </>
-              ) : (
-                <>
-                  <Edit2 className="h-4 w-4" />
-                  Edytuj
-                </>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirmDelete(true)}
-              className="app-button-danger inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium transition-colors"
-            >
-              <Trash2 className="h-4 w-4" />
-              Usuń
-            </button>
+          <div className="flex flex-col justify-between gap-5 border-t border-[rgba(86,93,94,0.1)] bg-[rgba(255,250,240,0.11)] p-5 lg:p-6 xl:border-t-0 xl:border-l">
+            <div className="grid auto-rows-fr grid-cols-3 gap-2">
+              <div className="flex min-h-[6.25rem] flex-col justify-between rounded-2xl border border-[rgba(86,93,94,0.1)] bg-[rgba(223,225,218,0.55)] p-3">
+                <p className="text-surface-900 text-2xl font-semibold tracking-[-0.04em]">
+                  {appearances.npcs.length +
+                    appearances.locations.length +
+                    appearances.items.length}
+                </p>
+                <p className="text-surface-500 mt-1 text-[11px] font-semibold tracking-wide uppercase">
+                  Encje
+                </p>
+              </div>
+              <div className="flex min-h-[6.25rem] flex-col justify-between rounded-2xl border border-[rgba(86,93,94,0.1)] bg-[rgba(223,225,218,0.55)] p-3">
+                <p className="text-surface-900 text-2xl font-semibold tracking-[-0.04em]">
+                  {appearances.threads.length + appearances.clues.length}
+                </p>
+                <p className="text-surface-500 mt-1 text-[11px] font-semibold tracking-wide uppercase">
+                  Narracja
+                </p>
+              </div>
+              <div className="flex min-h-[6.25rem] flex-col justify-between rounded-2xl border border-[rgba(86,93,94,0.1)] bg-[rgba(223,225,218,0.55)] p-3">
+                <p className="text-surface-900 text-2xl font-semibold tracking-[-0.04em]">
+                  {appearances.threats.length}
+                </p>
+                <p className="text-surface-500 mt-1 text-[11px] font-semibold tracking-wide uppercase">
+                  Presja
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <div className="grid grid-cols-3 gap-2">
+                <Link
+                  to="#"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    handleStartLive();
+                  }}
+                  className="app-accent inline-flex w-full min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-2xl px-3 py-2.5 text-sm font-semibold transition-transform hover:-translate-y-0.5"
+                >
+                  <Zap className="h-4 w-4" />
+                  Na żywo
+                </Link>
+                <Link
+                  to={`/sessions/${session.id}/cleanup`}
+                  className="app-button-secondary inline-flex w-full min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-2xl px-3 py-2.5 text-sm font-medium"
+                >
+                  <Brush className="h-4 w-4" />
+                  Sprzątaj sesję
+                </Link>
+                <Link
+                  to={`/sessions/${session.id}/report`}
+                  className="app-button-secondary inline-flex w-full min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-2xl px-3 py-2.5 text-sm font-medium"
+                >
+                  <FileText className="h-4 w-4" />
+                  Raport
+                </Link>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(!isEditing)}
+                  className="app-button-secondary inline-flex w-full min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-2xl px-3 py-2.5 text-sm font-medium"
+                >
+                  {isEditing ? (
+                    <>
+                      <X className="h-4 w-4" />
+                      Anuluj
+                    </>
+                  ) : (
+                    <>
+                      <Edit2 className="h-4 w-4" />
+                      Edytuj
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(true)}
+                  className="app-button-danger inline-flex w-full min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-2xl px-3 py-2.5 text-sm font-medium transition-colors"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Usuń
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -601,6 +664,8 @@ export function SessionDetail() {
               number: session.data.number,
               date: session.data.date,
               name: session.name,
+              sessionGoal: session.data.sessionGoal,
+              progressStatus: getSessionProgressStatus(session.data),
               summary: session.data.summary,
               plannedDurationMin: session.data.plannedDurationMin,
               scenes: session.data.scenes ?? [],
@@ -614,7 +679,18 @@ export function SessionDetail() {
         </div>
       )}
 
-      {!isEditing && session.data.summary && (
+      {!isEditing && session.data.sessionGoal && (
+        <section id="session-detail-cel" className="app-panel rounded-[1.8rem] p-5 lg:p-6">
+          <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-[0.18em] uppercase">
+            Cel sesji
+          </h2>
+          <p className="text-surface-800 max-w-[90ch] text-sm leading-7">{session.data.sessionGoal}</p>
+        </section>
+      )}
+
+      {!isEditing &&
+        getSessionProgressStatus(session.data) === 'completed' &&
+        session.data.summary && (
         <section id="session-detail-streszczenie" className="app-panel rounded-[1.8rem] p-5 lg:p-6">
           <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-[0.18em] uppercase">
             Streszczenie
@@ -623,30 +699,35 @@ export function SessionDetail() {
         </section>
       )}
 
-      {!isEditing && (session.data.plannedDurationMin || (session.data.scenes?.length ?? 0) > 0) && (
-        <section id="session-detail-sceny" className="app-panel rounded-[1.8rem] p-5 lg:p-6">
-          <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-[0.18em] uppercase">
-            Sceny
-          </h2>
-          {session.data.plannedDurationMin && (
-            <p className="mb-3 text-sm text-surface-700">
-              Planowany czas sesji: <span className="font-semibold">{session.data.plannedDurationMin} min</span>
-            </p>
-          )}
-          {(session.data.scenes?.length ?? 0) > 0 ? (
-            <ol className="flex list-decimal flex-col gap-2 pl-5">
-              {(session.data.scenes ?? []).map((scene, index) => (
-                <li key={`${scene.name}-${index}`} className="text-sm text-surface-800">
-                  <p className="font-medium">{scene.name} <span className="text-surface-500">({scene.estimatedDurationMin} min)</span></p>
-                  {scene.goal && <p className="text-xs text-surface-600">{scene.goal}</p>}
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <p className="text-xs text-surface-500">Brak scen.</p>
-          )}
-        </section>
-      )}
+      {!isEditing &&
+        (session.data.plannedDurationMin || (session.data.scenes?.length ?? 0) > 0) && (
+          <section id="session-detail-sceny" className="app-panel rounded-[1.8rem] p-5 lg:p-6">
+            <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-[0.18em] uppercase">
+              Sceny
+            </h2>
+            {session.data.plannedDurationMin && (
+              <p className="text-surface-700 mb-3 text-sm">
+                Planowany czas sesji:{' '}
+                <span className="font-semibold">{session.data.plannedDurationMin} min</span>
+              </p>
+            )}
+            {(session.data.scenes?.length ?? 0) > 0 ? (
+              <ol className="flex list-decimal flex-col gap-2 pl-5">
+                {(session.data.scenes ?? []).map((scene, index) => (
+                  <li key={`${scene.name}-${index}`} className="text-surface-800 text-sm">
+                    <p className="font-medium">
+                      {scene.name}{' '}
+                      <span className="text-surface-500">({scene.estimatedDurationMin} min)</span>
+                    </p>
+                    {scene.goal && <p className="text-surface-600 text-xs">{scene.goal}</p>}
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="text-surface-500 text-xs">Brak scen.</p>
+            )}
+          </section>
+        )}
 
       {!isEditing && session.description && (
         <section id="session-detail-zapisy-html" className="app-panel rounded-[1.8rem] p-5 lg:p-6">
@@ -671,7 +752,10 @@ export function SessionDetail() {
       )}
 
       {!isEditing && (
-        <section id="session-detail-encje" className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+        <section
+          id="session-detail-encje"
+          className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6"
+        >
           <SessionEntityColumn
             title="Postacie"
             count={appearances.npcs.length}

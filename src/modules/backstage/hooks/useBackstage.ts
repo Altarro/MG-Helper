@@ -18,6 +18,7 @@ import type { Clue } from '@modules/clues/types';
 import type { Clock } from '@modules/clocks/types';
 import { isCompleted } from '@modules/clocks/types';
 import { loadThreatRadarWeights } from '../radarSettings';
+import { isFaction, type Faction } from '@modules/factions/types';
 
 export interface BackstageData {
   sessions: Session[];
@@ -25,6 +26,8 @@ export interface BackstageData {
   threadSessionIds: Map<string, Set<string>>;
   npcs: Npc[];
   npcSessionIds: Map<string, Set<string>>;
+  factions: Faction[];
+  factionSessionIds: Map<string, Set<string>>;
   threats: Threat[];
   threatSessionIds: Map<string, Set<string>>;
   locations: Location[];
@@ -45,6 +48,7 @@ function buildSnapshot(entities: Entity[], relations: Relation[]): BackstageSnap
   const sessions = entities.filter(isSession).sort((a, b) => (a.data.number ?? 0) - (b.data.number ?? 0));
   const threads = entities.filter(isThread).sort((a, b) => a.name.localeCompare(b.name));
   const npcs = entities.filter(isNpc).sort((a, b) => a.name.localeCompare(b.name));
+  const factions = entities.filter(isFaction).sort((a, b) => a.name.localeCompare(b.name, 'pl'));
   const threatsAll = entities.filter(isThreat).sort((a, b) => a.name.localeCompare(b.name, 'pl'));
   const locations = entities.filter(isNamedLocation).sort((a, b) => a.name.localeCompare(b.name, 'pl'));
   const clues = entities.filter(isClue).sort((a, b) => a.name.localeCompare(b.name, 'pl'));
@@ -54,6 +58,7 @@ function buildSnapshot(entities: Entity[], relations: Relation[]): BackstageSnap
   const npcIds = new Set(npcs.map((n) => n.id));
   const allThreatIds = new Set(threatsAll.map((t) => t.id));
   const activeThreatIds = new Set(activeThreats.map((t) => t.id));
+  const factionIds = new Set(factions.map((f) => f.id));
   const locationIds = new Set(locations.map((l) => l.id));
   const clueIds = new Set(clues.map((c) => c.id));
 
@@ -65,6 +70,11 @@ function buildSnapshot(entities: Entity[], relations: Relation[]): BackstageSnap
   const npcSessionIds = new Map<string, Set<string>>();
   for (const npc of npcs) {
     npcSessionIds.set(npc.id, new Set());
+  }
+
+  const factionSessionIds = new Map<string, Set<string>>();
+  for (const faction of factions) {
+    factionSessionIds.set(faction.id, new Set());
   }
 
   const locationSessionIds = new Map<string, Set<string>>();
@@ -86,6 +96,9 @@ function buildSnapshot(entities: Entity[], relations: Relation[]): BackstageSnap
   const threatClueSeen = new Map<string, Set<string>>();
   const threatThreadIds = new Map<string, string[]>();
   const threatNpcIds = new Map<string, Set<string>>();
+  const threatFactionIds = new Map<string, Set<string>>();
+  const npcFactionIds = new Map<string, Set<string>>();
+  const locationFactionIds = new Map<string, Set<string>>();
   const threatClocks = new Map<
     string,
     {
@@ -103,6 +116,7 @@ function buildSnapshot(entities: Entity[], relations: Relation[]): BackstageSnap
     threatClueSeen.set(tid, new Set());
     threatThreadIds.set(tid, []);
     threatNpcIds.set(tid, new Set());
+    threatFactionIds.set(tid, new Set());
     threatClocks.set(tid, []);
   }
 
@@ -180,7 +194,41 @@ function buildSnapshot(entities: Entity[], relations: Relation[]): BackstageSnap
         threatNpcIds.get(eb.id)?.add(ea.id);
       } else if (ea.type === 'threat' && eb.type === 'npc' && activeThreatIds.has(ea.id)) {
         threatNpcIds.get(ea.id)?.add(eb.id);
+      } else if (ea.type === 'faction' && eb.type === 'threat' && activeThreatIds.has(eb.id)) {
+        threatFactionIds.get(eb.id)?.add(ea.id);
+      } else if (ea.type === 'threat' && eb.type === 'faction' && activeThreatIds.has(ea.id)) {
+        threatFactionIds.get(ea.id)?.add(eb.id);
       }
+    }
+    if (rel.type === 'belongs_to') {
+      if (npcIds.has(rel.sourceId) && factionIds.has(rel.targetId)) {
+        if (!npcFactionIds.has(rel.sourceId)) npcFactionIds.set(rel.sourceId, new Set());
+        npcFactionIds.get(rel.sourceId)?.add(rel.targetId);
+      }
+      if (locationIds.has(rel.sourceId) && factionIds.has(rel.targetId)) {
+        if (!locationFactionIds.has(rel.sourceId)) locationFactionIds.set(rel.sourceId, new Set());
+        locationFactionIds.get(rel.sourceId)?.add(rel.targetId);
+      }
+    }
+  }
+
+  for (const [npcId, factionSet] of npcFactionIds) {
+    const npcSessions = npcSessionIds.get(npcId);
+    if (!npcSessions) continue;
+    for (const factionId of factionSet) {
+      const factionSessions = factionSessionIds.get(factionId);
+      if (!factionSessions) continue;
+      for (const sid of npcSessions) factionSessions.add(sid);
+    }
+  }
+
+  for (const [locationId, factionSet] of locationFactionIds) {
+    const locationSessions = locationSessionIds.get(locationId);
+    if (!locationSessions) continue;
+    for (const factionId of factionSet) {
+      const factionSessions = factionSessionIds.get(factionId);
+      if (!factionSessions) continue;
+      for (const sid of locationSessions) factionSessions.add(sid);
     }
   }
 
@@ -197,6 +245,9 @@ function buildSnapshot(entities: Entity[], relations: Relation[]): BackstageSnap
     for (const npcId of threatNpcIds.get(tid) ?? []) {
       for (const sid of npcSessionIds.get(npcId) ?? []) fp.add(sid);
     }
+    for (const factionId of threatFactionIds.get(tid) ?? []) {
+      for (const sid of factionSessionIds.get(factionId) ?? []) fp.add(sid);
+    }
     threatFootprintSessionIds.set(tid, fp);
   }
 
@@ -206,6 +257,8 @@ function buildSnapshot(entities: Entity[], relations: Relation[]): BackstageSnap
     threadSessionIds,
     npcs,
     npcSessionIds,
+    factions,
+    factionSessionIds,
     threats: threatsAll,
     locations,
     locationSessionIds,
@@ -215,6 +268,8 @@ function buildSnapshot(entities: Entity[], relations: Relation[]): BackstageSnap
     threatSessionIds,
     threatClues,
     threatThreadIds,
+    threatNpcIds,
+    threatFactionIds,
     threatClocks,
     threatFootprintSessionIds,
   };
@@ -226,16 +281,33 @@ function buildSnapshot(entities: Entity[], relations: Relation[]): BackstageSnap
 export function useBackstage(): BackstageData | undefined {
   const { db, campaignId } = useCampaign();
   return useLiveQuery(async () => {
-    const [entities, relAppears, relClues, relAffects, relTracks, relRelated] = await Promise.all([
-      db.entities.toArray(),
+    const [entities, relAppears, relClues, relAffects, relTracks, relRelated, relBelongsTo] = await Promise.all([
+      db.entities.where('type').anyOf([
+        'session',
+        'thread',
+        'npc',
+        'faction',
+        'threat',
+        'location',
+        'clue',
+        'clock',
+      ]).toArray(),
       db.relations.where('type').equals('appears_in').toArray(),
       db.relations.where('type').equals('clues_for').toArray(),
       db.relations.where('type').equals('affects').toArray(),
       db.relations.where('type').equals('tracks').toArray(),
       db.relations.where('type').equals('related_to').toArray(),
+      db.relations.where('type').equals('belongs_to').toArray(),
     ]);
 
-    const relations: Relation[] = [...relAppears, ...relClues, ...relAffects, ...relTracks, ...relRelated];
+    const relations: Relation[] = [
+      ...relAppears,
+      ...relClues,
+      ...relAffects,
+      ...relTracks,
+      ...relRelated,
+      ...relBelongsTo,
+    ];
     const snapshot = buildSnapshot(entities, relations);
     const threatRows = computeAllThreatRadarRows(snapshot, loadThreatRadarWeights(campaignId));
 
@@ -245,6 +317,8 @@ export function useBackstage(): BackstageData | undefined {
       threadSessionIds: snapshot.threadSessionIds,
       npcs: snapshot.npcs,
       npcSessionIds: snapshot.npcSessionIds,
+      factions: snapshot.factions,
+      factionSessionIds: snapshot.factionSessionIds,
       threats: snapshot.threats,
       threatSessionIds: snapshot.threatSessionIds,
       locations: snapshot.locations,

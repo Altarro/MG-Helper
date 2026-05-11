@@ -3,20 +3,55 @@ import { useCampaign } from '@shared/db/CampaignContext';
 import { Link } from 'react-router';
 import { LocationBreadcrumb } from './LocationBreadcrumb';
 import { ThreatSceneCard, LocationSceneCard } from './SceneCards';
-import { useState, useEffect, useImperativeHandle, forwardRef, useRef, useCallback } from 'react';
-import { AlertTriangle, Eye, Ear, Wind, Hand, ExternalLink, X, Maximize2, MapPin } from 'lucide-react';
+import { useState, useEffect, useImperativeHandle, forwardRef, useRef, useCallback, type ReactNode } from 'react';
+import {
+  AlertTriangle,
+  Crown,
+  Ear,
+  Eye,
+  Hand,
+  Heart,
+  MapPin,
+  Maximize2,
+  MessageCircle,
+  Skull,
+  Target,
+  Unlink,
+  User,
+  Wind,
+} from 'lucide-react';
 import { toast } from 'sonner';
+import { ConfirmDialog } from '@shared/components/ConfirmDialog';
+import { ClueSection } from '@shared/components/ClueSection';
+import { DetailSection } from '@shared/components/DetailSection';
+import { Modal } from '@shared/components/Modal';
+import { NarrativeLinksSection } from '@shared/components/NarrativeLinksSection';
+import { RelationPicker } from '@shared/components/RelationPicker';
+import { isFaction } from '@modules/factions/types';
+import { isFront, isThreat } from '@modules/fronts/types';
 import { LOCATION_TYPE_LABELS } from '@modules/locations/types';
-import { isNpc } from '@modules/npcs/types';
-import { THREAD_KIND_LABELS } from '@modules/threads/types';
-import { isPlayerNpc } from '@shared/utils/entityData';
+import { isNpc, type Npc } from '@modules/npcs/types';
+import { isThread, type Thread } from '@modules/threads/types';
+import { ThreadCard, type ThreadQuestlineCardInfo } from '@modules/threads/components/ThreadCard';
+import { getNpcLifecycleStatus, isPlayerNpc } from '@shared/utils/entityData';
 import type { Entity } from '@shared/types';
+import { CardAccentSection } from '@shared/components/CardAccentSection';
+import { useAssetUrl } from '@shared/hooks/useAssetUrl';
+import { useRelatedEntities } from '@shared/hooks/useRelatedEntities';
+import { applyPolishTypography } from '@shared/utils/typography';
+import { deleteRelation, removeContainment, updateEntity } from '@shared/db/operations';
+import {
+  getThreadDerivationKindLabel,
+  THREAD_DERIVATION_KIND_OPTIONS,
+  type ThreadDerivationKindOption,
+} from '@shared/domain/storyContracts';
 import {
   useContainedNpcIds,
   useDraftSceneNpcs,
   useLiveLocation,
 } from '../hooks/useLiveSessionQueries';
 import { createNamedSceneFromDraft } from '../utils/liveSessionCommands';
+import { getDraftLocationId } from '../utils/draftScene';
 
 const DANGER_LABELS = ['Bezpieczna', 'Spokojnie', 'Umiarkowane', 'Niebezpiecznie', 'Śmiertelnie', 'Apokaliptyczne'];
 const DANGER_COLORS = [
@@ -27,6 +62,17 @@ const DANGER_COLORS = [
   'text-red-700 bg-red-100',
   'text-purple-700 bg-purple-100',
 ];
+const NPC_CARD_TEXT_MAX_CHARS = 150;
+const THREAD_RESOLUTION_PRESETS = [
+  'Wątek został domknięty przy stole.',
+  'Bohaterowie rozwiązali sprawę i ponoszą jej konsekwencje.',
+  'Wątek wygasł, ale zostawił otwarte następstwa.',
+];
+
+function previewText(value: string | undefined, maxChars = NPC_CARD_TEXT_MAX_CHARS): string {
+  const text = (value ?? '').trim();
+  return text.length > maxChars ? `${text.slice(0, maxChars).trimEnd()}...` : text;
+}
 
 function LocationInfoCard({ locationId }: { locationId: string }) {
   const location = useLiveLocation(locationId);
@@ -106,117 +152,338 @@ function LocationInfoCard({ locationId }: { locationId: string }) {
   );
 }
 
-function NpcDetailModal({ npcId, sessionId, onClose }: { npcId: string; sessionId: string; onClose: () => void }) {
+function NpcContextModal({ npcId, onClose }: { npcId: string; onClose: () => void }) {
   const { db } = useCampaign();
   const npc = useLiveQuery(() => db.entities.get(npcId), [db, npcId]);
   if (!npc || !isNpc(npc)) return null;
-  const data = npc.data;
-  const isPC = isPlayerNpc(npc);
+
+  const hasTraitDetails =
+    npc.data.instinct || npc.data.motivation || npc.data.appearance || npc.data.playStyle;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-5"
       onMouseDown={onClose}
     >
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={`Szczegóły NPC ${npc.name}`}
-        className="relative w-full max-w-md rounded-2xl border border-surface-200 bg-white shadow-xl"
-        onMouseDown={(e) => e.stopPropagation()}
+        aria-label={`Kontekst postaci ${npc.name}`}
+        className="relative w-full max-w-5xl"
+        onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="flex items-center gap-2 border-b border-surface-100 px-5 py-3">
-          {isPC && <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">Gracz</span>}
-          <h2 className="flex-1 truncate text-base font-bold text-surface-900">{npc.name}</h2>
-          <Link
-            to={`/npcs/${npc.id}`}
-            state={{ returnToSessionLive: sessionId }}
-            className="text-surface-400 hover:text-surface-600"
-            onClick={onClose}
-            aria-label="Otwórz pełny detal NPC"
-          >
-            <ExternalLink className="h-4 w-4" />
-          </Link>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Zamknij detal NPC"
-            className="text-surface-400 hover:text-surface-600"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="flex flex-col gap-3 px-5 py-4 text-sm">
-          {data.playerName && <p className="text-surface-500 italic">{data.playerName}</p>}
+        <DetailSection
+          sectionId="npc-live-kontekst"
+          title="Kontekst postaci"
+          tone="accent"
+          contentClassName="flex flex-col gap-4"
+        >
           {npc.description && (
-            <div
-              className="prose prose-sm max-w-none text-surface-700"
-              dangerouslySetInnerHTML={{ __html: npc.description }}
-            />
+            <div className="rounded-[1.25rem] border border-[rgba(150,50,75,0.32)] bg-[linear-gradient(180deg,rgba(235,165,185,0.55)_0%,rgba(205,110,135,0.32)_100%)] px-5 py-4 shadow-[0_12px_24px_rgba(90,30,50,0.1),inset_0_1px_0_rgba(255,245,248,0.42)]">
+              <h2 className="mb-2 text-xs font-semibold tracking-wide text-[rgb(92,28,48)] uppercase">Opis</h2>
+              <div
+                className="prose prose-sm text-surface-800 max-w-none"
+                dangerouslySetInnerHTML={{ __html: npc.description }}
+              />
+            </div>
           )}
-          {data.instinct && (
-            <div><span className="font-semibold text-surface-600">Instynkt: </span><span className="text-surface-700">{data.instinct}</span></div>
+
+          {hasTraitDetails && (
+            <div className="app-panel flex flex-col gap-3 rounded-[1.4rem] p-5">
+              {npc.data.instinct && (
+                <div>
+                  <p className="text-surface-400 mb-0.5 text-xs font-medium tracking-wide uppercase">
+                    Instynkt
+                  </p>
+                  <p className="text-surface-700 text-sm italic">{npc.data.instinct}</p>
+                </div>
+              )}
+              {npc.data.motivation && (
+                <div>
+                  <p className="text-surface-400 mb-0.5 text-xs font-medium tracking-wide uppercase">
+                    Motywacja
+                  </p>
+                  <p className="text-surface-700 text-sm">{npc.data.motivation}</p>
+                </div>
+              )}
+              {npc.data.appearance && (
+                <div>
+                  <p className="text-surface-400 mb-0.5 text-xs font-medium tracking-wide uppercase">
+                    Wygląd
+                  </p>
+                  <p className="text-surface-700 text-sm whitespace-pre-wrap">{npc.data.appearance}</p>
+                </div>
+              )}
+              {npc.data.playStyle && (
+                <div>
+                  <p className="text-surface-400 mb-0.5 text-xs font-medium tracking-wide uppercase">
+                    Sposób odgrywania
+                  </p>
+                  <p className="text-surface-700 text-sm whitespace-pre-wrap">{npc.data.playStyle}</p>
+                </div>
+              )}
+            </div>
           )}
-          {data.motivation && (
-            <div><span className="font-semibold text-surface-600">Motywacja: </span><span className="text-surface-700">{data.motivation}</span></div>
+
+          {!npc.description && !hasTraitDetails && (
+            <p className="text-surface-500 text-sm">Ta postać nie ma jeszcze uzupełnionego kontekstu.</p>
           )}
-          {data.appearance && (
-            <div><span className="font-semibold text-surface-600">Wygląd: </span><span className="text-surface-700">{data.appearance}</span></div>
-          )}
-          {data.playStyle && (
-            <div><span className="font-semibold text-surface-600">Odgrywanie: </span><span className="text-surface-700">{data.playStyle}</span></div>
-          )}
-        </div>
+        </DetailSection>
       </div>
     </div>
   );
 }
 
-function NpcInlineCard({ npcId, sessionId, onClose }: { npcId: string; sessionId: string; onClose: () => void }) {
+function InlineCardActions({
+  expandLabel,
+  closeLabel,
+  onExpand,
+  onClose,
+}: {
+  expandLabel: string;
+  closeLabel: string;
+  onExpand: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-end gap-1.5">
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onExpand();
+        }}
+        className="app-pill-muted inline-flex h-7 w-7 items-center justify-center rounded-full text-surface-600 transition-colors hover:text-primary-800"
+        aria-label={expandLabel}
+      >
+        <Maximize2 className="h-3 w-3" aria-hidden />
+      </button>
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onClose();
+        }}
+        className="app-pill-muted inline-flex h-7 w-7 items-center justify-center rounded-full text-surface-600 transition-colors hover:text-danger-700"
+        aria-label={closeLabel}
+      >
+        <Unlink className="h-3 w-3" aria-hidden />
+      </button>
+    </div>
+  );
+}
+
+function SceneNpcCard({ npc, actionSlot }: { npc: Npc; actionSlot?: ReactNode }) {
+  const isPC = isPlayerNpc(npc);
+  const isDead = getNpcLifecycleStatus({ data: npc.data }) === 'completed';
+  const thumbUrl = useAssetUrl(npc.data?.imageId ?? null, { thumb: true });
+  const instinctPreview = applyPolishTypography(previewText(npc.data?.instinct));
+  const motivationPreview = applyPolishTypography(previewText(npc.data?.motivation));
+  const appearancePreview = applyPolishTypography(previewText(npc.data?.appearance));
+  const playStylePreview = applyPolishTypography(previewText(npc.data?.playStyle));
+
+  return (
+    <article
+      className={`app-card flex w-full cursor-default flex-col gap-4 rounded-[1.35rem] p-5 text-left ${
+        isDead ? 'opacity-90' : ''
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        {thumbUrl ? (
+          <img
+            src={thumbUrl}
+            alt={npc.data?.imageAlt || npc.name}
+            className="h-12 w-12 shrink-0 rounded-2xl object-cover shadow-[0_4px_10px_rgba(18,45,66,0.12)]"
+          />
+        ) : (
+          <div
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl shadow-[inset_0_1px_0_rgba(255,250,240,0.24)] ${
+              isPC ? 'bg-[rgba(242,196,88,0.18)]' : 'bg-[rgba(33,71,102,0.12)]'
+            }`}
+          >
+            {isPC ? (
+              <Crown className="text-warning-600 h-4 w-4" />
+            ) : (
+              <User className="text-primary-800 h-4 w-4" />
+            )}
+          </div>
+        )}
+
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+          <p className="text-surface-900 min-w-0 text-[1.32rem] leading-tight font-semibold tracking-[-0.02em]">
+            {npc.name}
+          </p>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+            {isPC && (
+              <span className="app-danger-pill rounded-full px-2.5 py-1 text-xs font-medium">
+                Gracz
+              </span>
+            )}
+            {isPC && npc.data?.playerName && (
+              <span className="app-pill-muted rounded-full px-2.5 py-1 text-xs font-medium">
+                {npc.data.playerName}
+              </span>
+            )}
+            {isDead && (
+              <span className="border-danger-300/50 bg-danger-50 text-danger-800 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold">
+                <Skull className="h-3 w-3" aria-hidden />
+                Nie żyje
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {!isPC && instinctPreview && (
+        <CardAccentSection
+          label="Instynkt"
+          icon={Target}
+          tone="primary"
+          maxLines={3}
+          remeasureKey={instinctPreview}
+        >
+          <p className="text-surface-700 text-sm leading-6 whitespace-pre-wrap">
+            {instinctPreview}
+          </p>
+        </CardAccentSection>
+      )}
+
+      {isPC && motivationPreview && (
+        <CardAccentSection
+          label="Motywacja"
+          icon={Heart}
+          tone="warning"
+          maxLines={3}
+          remeasureKey={motivationPreview}
+        >
+          <p className="text-surface-700 text-sm leading-6 whitespace-pre-wrap">
+            {motivationPreview}
+          </p>
+        </CardAccentSection>
+      )}
+
+      {appearancePreview && (
+        <CardAccentSection
+          label="Wygląd"
+          icon={Eye}
+          tone="primary"
+          maxLines={3}
+          remeasureKey={appearancePreview}
+        >
+          <p className="text-surface-700 text-sm leading-6 whitespace-pre-wrap">
+            {appearancePreview}
+          </p>
+        </CardAccentSection>
+      )}
+
+      {!isPC && playStylePreview && (
+        <CardAccentSection
+          label="Sposób odgrywania"
+          icon={MessageCircle}
+          tone="success"
+          maxLines={3}
+          remeasureKey={playStylePreview}
+        >
+          <p className="text-surface-700 text-sm leading-6 whitespace-pre-wrap">
+            {playStylePreview}
+          </p>
+        </CardAccentSection>
+      )}
+
+      {actionSlot ? (
+        <div className="mt-auto flex items-center justify-end border-t border-surface-200/50 pt-3">
+          {actionSlot}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function NpcInlineCard({ npcId, onClose }: { npcId: string; onClose: () => void }) {
   const { db } = useCampaign();
   const npc = useLiveQuery(() => db.entities.get(npcId), [db, npcId]);
   const [expanded, setExpanded] = useState(false);
   if (!npc || !isNpc(npc)) return null;
-  const data = npc.data;
-  const isPC = isPlayerNpc(npc);
 
   return (
     <>
-      {expanded && <NpcDetailModal npcId={npcId} sessionId={sessionId} onClose={() => setExpanded(false)} />}
-      <div
-        className="flex shrink-0 flex-col rounded-2xl border border-surface-200/90 bg-white shadow-sm transition-shadow hover:shadow-md"
-        style={{ width: 'calc(25% - 22px)', minWidth: '190px' }}
-      >
-        <div className="flex select-none items-center gap-1.5 rounded-t-2xl border-b border-surface-100 bg-surface-50 px-3 py-2">
-          {isPC && <span className="shrink-0 rounded-full bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700">Gracz</span>}
-          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-surface-800">{npc.name}</span>
-          <button onClick={() => setExpanded(true)} className="text-surface-400 hover:text-surface-600" title="Rozwiń">
-            <Maximize2 className="h-3.5 w-3.5" />
-          </button>
-          <button onClick={onClose} className="text-surface-400 hover:text-surface-600">
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <div className="flex flex-col gap-1.5 px-3 py-3 text-sm">
-          {data.playerName && <p className="text-surface-500 italic">{data.playerName}</p>}
-          {data.instinct && (
-            <div><span className="font-medium text-surface-600">Instynkt: </span><span className="text-surface-800">{data.instinct}</span></div>
-          )}
-          {data.motivation && (
-            <div><span className="font-medium text-surface-600">Motywacja: </span><span className="text-surface-800">{data.motivation}</span></div>
-          )}
-          {data.playStyle && (
-            <div><span className="font-medium text-surface-600">Odgrywanie: </span><span className="text-surface-800">{data.playStyle}</span></div>
-          )}
-        </div>
+      {expanded && <NpcContextModal npcId={npcId} onClose={() => setExpanded(false)} />}
+      <div className="relative w-[22rem] shrink-0">
+        <SceneNpcCard
+          npc={npc}
+          actionSlot={
+            <InlineCardActions
+              expandLabel={`Rozwiń kartę postaci: ${npc.name}`}
+              closeLabel={`Odepnij kartę postaci: ${npc.name}`}
+              onExpand={() => setExpanded(true)}
+              onClose={onClose}
+            />
+          }
+        />
       </div>
     </>
   );
 }
 
-function NpcScrollRow({ npcIds, sessionId, onClose }: { npcIds: string[]; sessionId: string; onClose: (id: string) => void }) {
+type SceneNpcFactionGroup = {
+  faction: Entity | null;
+  npcIds: string[];
+};
+
+function NpcFactionGroups({
+  npcIds,
+  sessionId,
+  onClose,
+}: {
+  npcIds: string[];
+  sessionId: string;
+  onClose: (id: string) => void;
+}) {
+  const { db } = useCampaign();
   const rowRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ startX: number; scrollLeft: number } | null>(null);
+  const npcIdKey = npcIds.join('|');
+  const groups = useLiveQuery(async (): Promise<SceneNpcFactionGroup[]> => {
+    if (npcIds.length === 0) return [];
+
+    const relations = await db.relations
+      .where('sourceId')
+      .anyOf(npcIds)
+      .filter((relation) => relation.type === 'belongs_to')
+      .toArray();
+    const factionIds = [...new Set(relations.map((relation) => relation.targetId))];
+    const factionEntities =
+      factionIds.length > 0 ? await db.entities.where('id').anyOf(factionIds).toArray() : [];
+    const factionById = new Map(factionEntities.filter(isFaction).map((faction) => [faction.id, faction]));
+    const factionIdByNpcId = new Map<string, string>();
+
+    for (const relation of relations) {
+      if (factionById.has(relation.targetId) && !factionIdByNpcId.has(relation.sourceId)) {
+        factionIdByNpcId.set(relation.sourceId, relation.targetId);
+      }
+    }
+
+    const buckets = new Map<string, SceneNpcFactionGroup>();
+    const ensureBucket = (faction: Entity | null) => {
+      const key = faction?.id ?? '__no_faction__';
+      const existing = buckets.get(key);
+      if (existing) return existing;
+      const created: SceneNpcFactionGroup = { faction, npcIds: [] };
+      buckets.set(key, created);
+      return created;
+    };
+
+    for (const npcId of npcIds) {
+      const faction = factionById.get(factionIdByNpcId.get(npcId) ?? '') ?? null;
+      ensureBucket(faction).npcIds.push(npcId);
+    }
+
+    return [...buckets.values()].sort((a, b) => {
+      if (!a.faction && b.faction) return 1;
+      if (a.faction && !b.faction) return -1;
+      return (a.faction?.name ?? '').localeCompare(b.faction?.name ?? '', 'pl');
+    });
+  }, [db, npcIdKey]);
 
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const el = rowRef.current;
@@ -234,80 +501,658 @@ function NpcScrollRow({ npcIds, sessionId, onClose }: { npcIds: string[]; sessio
   }, []);
 
   const onPointerUp = useCallback(() => { drag.current = null; }, []);
+  const resolvedGroups = groups ?? [];
+  if (resolvedGroups.length === 0) return null;
 
   return (
     <div
       ref={rowRef}
-      className="npc-scroll-row flex gap-4 overflow-x-auto px-5 pt-5 pb-2 cursor-grab select-none active:cursor-grabbing"
+      className="npc-scroll-row flex w-full items-start gap-4 overflow-x-auto px-5 pt-5 pb-2 cursor-grab select-none active:cursor-grabbing"
       style={{ scrollbarWidth: 'none' }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
     >
-      {npcIds.map((id) => (
-        <NpcInlineCard key={id} npcId={id} sessionId={sessionId} onClose={() => onClose(id)} />
-      ))}
+      {resolvedGroups.map((group) => {
+        const groupKey = group.faction?.id ?? 'no-faction';
+        return (
+          <section
+            key={groupKey}
+            className="inline-flex w-max max-w-none shrink-0 flex-col rounded-[1.45rem] border border-primary-300/50 bg-[rgba(248,248,245,0.32)] px-3 py-3 shadow-sm"
+          >
+            <div className="mb-2 px-1">
+              {group.faction ? (
+                <Link
+                  to={`/factions/${group.faction.id}`}
+                  state={{ returnToSessionLive: sessionId }}
+                  className="text-primary-800 text-sm font-semibold tracking-[-0.01em] hover:underline"
+                >
+                  {group.faction.name}
+                </Link>
+              ) : (
+                <span className="text-surface-500 text-sm font-semibold tracking-[-0.01em]">Bez frakcji</span>
+              )}
+            </div>
+            <div className="flex w-max max-w-none flex-nowrap items-start gap-4 pb-1">
+              {group.npcIds.map((id) => (
+                <NpcInlineCard key={`${groupKey}:${id}`} npcId={id} onClose={() => onClose(id)} />
+              ))}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }
 
-function ThreadInlineCard({ thread }: { thread: Entity }) {
-  const threadKind = (thread.data.kind as keyof typeof THREAD_KIND_LABELS | undefined) ?? 'side';
-  return (
-    <div
-      className="flex shrink-0 flex-col rounded-2xl border border-surface-200/90 bg-white shadow-sm transition-shadow hover:shadow-md"
-      style={{ width: 'calc(25% - 22px)', minWidth: '190px' }}
-    >
-      <div className="flex select-none items-center gap-1.5 rounded-t-2xl border-b border-surface-100 bg-surface-50 px-3 py-2">
-        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-surface-800">{thread.name}</span>
-        <span className="shrink-0 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">
-          {THREAD_KIND_LABELS[threadKind]}
-        </span>
-      </div>
-      <div className="flex flex-1 flex-col gap-1.5 px-3 py-3 text-sm">
-        {thread.description ? (
-          <p className="line-clamp-3 text-surface-700">{thread.description}</p>
-        ) : (
-          <p className="text-surface-400">Wątek przypięty do sceny.</p>
-        )}
-      </div>
-    </div>
-  );
+function normalizeThreadDerivationKind(value: unknown): ThreadDerivationKindOption | null {
+  return typeof value === 'string' && THREAD_DERIVATION_KIND_OPTIONS.includes(value as ThreadDerivationKindOption)
+    ? (value as ThreadDerivationKindOption)
+    : null;
 }
 
-function ThreadScrollRow({ threads }: { threads: Entity[] }) {
-  const rowRef = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ startX: number; scrollLeft: number } | null>(null);
+function useThreadQuestlineCardInfo(threadId: string): ThreadQuestlineCardInfo | undefined {
+  const { db } = useCampaign();
+  return useLiveQuery(async () => {
+    const [parentRelations, childRelations] = await Promise.all([
+      db.relations
+        .where('sourceId')
+        .equals(threadId)
+        .filter((relation) => relation.type === 'derives_from')
+        .toArray(),
+      db.relations
+        .where('targetId')
+        .equals(threadId)
+        .filter((relation) => relation.type === 'derives_from')
+        .toArray(),
+    ]);
 
-  const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    const el = rowRef.current;
-    if (!el) return;
-    if (e.target instanceof Element && e.target.closest('button, a, input, textarea, select, [role="button"]')) {
+    const parentIds = parentRelations.map((relation) => relation.targetId);
+    const childIds = childRelations.map((relation) => relation.sourceId);
+    const ids = [...new Set([...parentIds, ...childIds])];
+    if (ids.length === 0) return { parents: [], children: [] };
+
+    const entities = await db.entities.where('id').anyOf(ids).toArray();
+    const threadById = new Map(entities.filter((entity) => entity.type === 'thread').map((thread) => [thread.id, thread]));
+
+    const parents = parentRelations
+      .map((relation) => {
+        const thread = threadById.get(relation.targetId);
+        if (!thread) return null;
+        return {
+          id: thread.id,
+          name: thread.name,
+          label: 'Wynika z',
+        };
+      })
+      .filter((item): item is ThreadQuestlineCardInfo['parents'][number] => item !== null)
+      .sort((a, b) => a.name.localeCompare(b.name, 'pl'));
+
+    const children = childRelations
+      .map((relation) => {
+        const thread = threadById.get(relation.sourceId);
+        if (!thread) return null;
+        const kind = normalizeThreadDerivationKind(relation.meta?.threadDerivationKind);
+        return {
+          id: thread.id,
+          name: thread.name,
+          label: kind ? getThreadDerivationKindLabel(kind) : 'Rozwinięcie',
+        };
+      })
+      .filter((item): item is ThreadQuestlineCardInfo['children'][number] => item !== null)
+      .sort((a, b) => a.name.localeCompare(b.name, 'pl'));
+
+    return { parents, children };
+  }, [db, threadId]);
+}
+
+function ThreadContextModal({ thread, onClose }: { thread: Thread; sessionId: string; onClose: () => void }) {
+  const { db } = useCampaign();
+  const relatedThreats = useRelatedEntities(thread.id, {
+    relationTypes: ['affects'],
+    direction: 'both',
+    otherTypes: ['threat'],
+  });
+  const relatedContextLinks = useRelatedEntities(thread.id, {
+    relationTypes: ['related_to'],
+    direction: 'both',
+    otherTypes: ['faction', 'location', 'npc', 'item'],
+  });
+  const [showThreatPicker, setShowThreatPicker] = useState(false);
+  const [showContextLinksPicker, setShowContextLinksPicker] = useState(false);
+  const [completionModalOpen, setCompletionModalOpen] = useState(false);
+  const [completionSaving, setCompletionSaving] = useState(false);
+  const [completionResolution, setCompletionResolution] = useState('');
+  const [completionResolutionError, setCompletionResolutionError] = useState('');
+  const [unlinkConfirm, setUnlinkConfirm] = useState<{
+    relationId: string;
+    title: string;
+    description: string;
+  } | null>(null);
+  const isCompleted = thread.data.status === 'completed';
+
+  function handleToggleStatus() {
+    if (thread.data.status === 'active') {
+      setCompletionResolution(thread.data.resolution ?? '');
+      setCompletionResolutionError('');
+      setCompletionModalOpen(true);
       return;
     }
-    e.currentTarget.setPointerCapture(e.pointerId);
-    drag.current = { startX: e.clientX, scrollLeft: el.scrollLeft };
+
+    void handleReactivateThread();
+  }
+
+  async function handleReactivateThread() {
+    try {
+      await updateEntity(db, thread.id, {
+        data: { ...thread.data, status: 'active', resolution: '' },
+      });
+      toast.success('Wątek reaktywowany');
+    } catch {
+      toast.error('Nie udało się zaktualizować statusu');
+    }
+  }
+
+  async function handleConfirmCompleteThread() {
+    const trimmed = completionResolution.trim();
+    if (trimmed.length === 0) {
+      setCompletionResolutionError('Podaj rozwiązanie lub efekt zakończenia wątku');
+      toast.error('Podaj rozwiązanie / efekt');
+      return;
+    }
+
+    setCompletionSaving(true);
+    try {
+      await updateEntity(db, thread.id, {
+        data: {
+          ...thread.data,
+          status: 'completed',
+          resolution: trimmed,
+        },
+      });
+      toast.success('Wątek zakończony');
+      setCompletionModalOpen(false);
+    } catch {
+      toast.error('Nie udało się zakończyć wątku');
+    } finally {
+      setCompletionSaving(false);
+    }
+  }
+
+  async function handleConfirmUnlink() {
+    if (!unlinkConfirm) return;
+    try {
+      await deleteRelation(db, unlinkConfirm.relationId);
+      toast.success('Powiązanie usunięte');
+      setUnlinkConfirm(null);
+    } catch {
+      toast.error('Nie udało się usunąć powiązania');
+    }
+  }
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-5 lg:items-center"
+        onMouseDown={onClose}
+      >
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Kontekst wątku ${thread.name}`}
+          className="relative w-full max-w-5xl"
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <DetailSection
+            sectionId="thread-live-kontekst"
+            title="Kontekst wątku"
+            tone="accent"
+            action={
+              <button
+                type="button"
+                onClick={handleToggleStatus}
+                className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                  isCompleted
+                    ? 'app-button-secondary'
+                    : 'border border-emerald-300/70 bg-emerald-100/80 text-emerald-800 shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] hover:bg-emerald-100'
+                }`}
+              >
+                {isCompleted ? 'Reaktywuj wątek' : 'Oznacz jako zakończony'}
+              </button>
+            }
+            contentClassName="flex flex-col gap-5 lg:gap-6"
+          >
+            {thread.description && (
+              <div className="rounded-[1.2rem] border border-emerald-300/45 bg-emerald-100/55 px-5 py-4">
+                <h2 className="text-emerald-800 mb-2 text-xs font-semibold tracking-wide uppercase">
+                  Opis
+                </h2>
+                <div
+                  className="prose prose-sm text-surface-700 max-w-none"
+                  dangerouslySetInnerHTML={{ __html: thread.description }}
+                />
+              </div>
+            )}
+
+            {thread.data.resolution && (
+              <div>
+                <h2 className="text-surface-500 mb-1 text-xs font-semibold tracking-wide uppercase">
+                  Rozwiązanie / efekt
+                </h2>
+                <p className="app-danger-card text-surface-800 rounded-[1.3rem] px-4 py-3 text-sm whitespace-pre-wrap">
+                  {thread.data.resolution}
+                </p>
+              </div>
+            )}
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="app-panel rounded-[1.3rem] p-4">
+                <NarrativeLinksSection
+                  title="Powiązania"
+                  items={relatedContextLinks}
+                  emptyMessage="Ten wątek nie ma jeszcze podpiętych powiązań."
+                  actionLabel="+ Dodaj powiązanie"
+                  onAction={() => setShowContextLinksPicker(true)}
+                  onRemoveItem={(item) =>
+                    setUnlinkConfirm({
+                      relationId: item.relation.id,
+                      title: 'Usunąć powiązanie?',
+                      description: `Czy na pewno chcesz usunąć powiązanie z „${item.entity.name}" z tego widoku wątku?`,
+                    })}
+                  removeAriaLabel={(item) => `Usuń powiązanie ${item.entity.name} z tego widoku`}
+                />
+              </div>
+
+              <div className="app-panel rounded-[1.3rem] p-4">
+                <NarrativeLinksSection
+                  title="Powiązane zagrożenia"
+                  items={relatedThreats}
+                  emptyMessage="Ten wątek działa niezależnie od zagrożeń."
+                  actionLabel="+ Dodaj zagrożenie"
+                  onAction={() => setShowThreatPicker(true)}
+                  onRemoveItem={(item) =>
+                    setUnlinkConfirm({
+                      relationId: item.relation.id,
+                      title: 'Usunąć powiązane zagrożenie?',
+                      description: `Czy na pewno chcesz usunąć zagrożenie „${item.entity.name}" z tego widoku wątku?`,
+                    })}
+                  removeAriaLabel={(item) => `Usuń zagrożenie ${item.entity.name} z tego widoku`}
+                />
+              </div>
+            </div>
+
+            <div className="app-panel rounded-[1.3rem] p-4">
+              <ClueSection
+                parentId={thread.id}
+                title="Wskazówki wątku"
+                onRemoveRelation={(item) =>
+                  setUnlinkConfirm({
+                    relationId: item.relation.id,
+                    title: 'Usunąć wskazówkę z widoku?',
+                    description: `Czy na pewno chcesz usunąć wskazówkę „${item.clue.name}" z tego widoku wątku?`,
+                  })}
+              />
+            </div>
+          </DetailSection>
+        </div>
+      </div>
+
+      {showThreatPicker && (
+        <RelationPicker
+          sourceId={thread.id}
+          sourceType="thread"
+          initialTargetType="threat"
+          initialRelationType="affects"
+          lockTargetType
+          lockRelationType
+          onClose={() => setShowThreatPicker(false)}
+        />
+      )}
+
+      {showContextLinksPicker && (
+        <RelationPicker
+          sourceId={thread.id}
+          sourceType="thread"
+          initialTargetType="npc"
+          initialRelationType="related_to"
+          lockRelationType
+          allowedTargetTypes={['faction', 'location', 'npc', 'item']}
+          onClose={() => setShowContextLinksPicker(false)}
+        />
+      )}
+
+      {completionModalOpen && (
+        <Modal title="Rozwiązanie / efekt" onClose={() => setCompletionModalOpen(false)}>
+          <p className="text-surface-600 text-sm">
+            Opisz, jak wątek został zamknięty albo jaki efekt zostawia w kampanii.
+          </p>
+          <textarea
+            value={completionResolution}
+            onChange={(event) => {
+              setCompletionResolution(event.target.value);
+              if (completionResolutionError) setCompletionResolutionError('');
+            }}
+            rows={4}
+            className="app-input text-surface-800 mt-3 w-full rounded-[1.2rem] px-4 py-3 text-sm"
+            placeholder="Co stało się po zakończeniu wątku?"
+            aria-invalid={completionResolutionError ? 'true' : 'false'}
+          />
+          {completionResolutionError && (
+            <p className="mt-2 text-xs text-red-600">{completionResolutionError}</p>
+          )}
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {THREAD_RESOLUTION_PRESETS.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => {
+                  setCompletionResolution(preset);
+                  if (completionResolutionError) setCompletionResolutionError('');
+                }}
+                className="app-button-secondary rounded-full px-3 py-1.5 text-xs font-medium"
+              >
+                {preset}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-6 flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setCompletionModalOpen(false)}
+              className="app-button-secondary rounded-full px-4 py-2 text-sm font-medium"
+            >
+              Anuluj
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleConfirmCompleteThread()}
+              disabled={completionSaving}
+              className="app-button-primary rounded-full px-4 py-2 text-sm font-medium disabled:opacity-50"
+            >
+              {completionSaving ? 'Zapisywanie...' : 'Zakończ wątek'}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      <ConfirmDialog
+        open={Boolean(unlinkConfirm)}
+        title={unlinkConfirm?.title ?? 'Usunąć powiązanie?'}
+        description={unlinkConfirm?.description ?? ''}
+        onConfirm={() => void handleConfirmUnlink()}
+        onCancel={() => setUnlinkConfirm(null)}
+      />
+    </>
+  );
+}
+
+function ThreadInlineCard({
+  thread,
+  sessionId,
+  onClose,
+}: {
+  thread: Thread;
+  sessionId: string;
+  onClose: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const questline = useThreadQuestlineCardInfo(thread.id);
+
+  return (
+    <>
+      {expanded && <ThreadContextModal thread={thread} sessionId={sessionId} onClose={() => setExpanded(false)} />}
+      <div className="relative w-[22rem] shrink-0">
+        <ThreadCard
+          thread={thread}
+          questline={questline}
+          className="cursor-default hover:translate-y-0"
+          actionSlot={
+            <InlineCardActions
+              expandLabel={`Rozwiń kartę wątku: ${thread.name}`}
+              closeLabel={`Odepnij kartę wątku: ${thread.name}`}
+              onExpand={() => setExpanded(true)}
+              onClose={onClose}
+            />
+          }
+        />
+      </div>
+    </>
+  );
+}
+
+type SceneThreadThreatGroup = {
+  threat: Entity | null;
+  threads: Thread[];
+};
+
+type SceneThreadFrontGroup = {
+  front: Entity | null;
+  threatGroups: SceneThreadThreatGroup[];
+};
+
+function SceneThreadGroups({
+  threads,
+  sessionId,
+  onClose,
+}: {
+  threads: Thread[];
+  sessionId: string;
+  onClose: (id: string) => void;
+}) {
+  const { db } = useCampaign();
+  const rowRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ startX: number; scrollLeft: number } | null>(null);
+  const groups = useLiveQuery(async (): Promise<SceneThreadFrontGroup[]> => {
+    if (threads.length === 0) return [];
+
+    const threadById = new Map(threads.map((thread) => [thread.id, thread]));
+    const threadIds = threads.map((thread) => thread.id);
+    const [outgoingAffects, incomingAffects] = await Promise.all([
+      db.relations
+        .where('sourceId')
+        .anyOf(threadIds)
+        .filter((relation) => relation.type === 'affects')
+        .toArray(),
+      db.relations
+        .where('targetId')
+        .anyOf(threadIds)
+        .filter((relation) => relation.type === 'affects')
+        .toArray(),
+    ]);
+
+    const threatIdsByThreadId = new Map<string, Set<string>>();
+    for (const threadId of threadIds) threatIdsByThreadId.set(threadId, new Set<string>());
+
+    for (const relation of outgoingAffects) {
+      if (threadById.has(relation.sourceId)) {
+        threatIdsByThreadId.get(relation.sourceId)?.add(relation.targetId);
+      }
+    }
+    for (const relation of incomingAffects) {
+      if (threadById.has(relation.targetId)) {
+        threatIdsByThreadId.get(relation.targetId)?.add(relation.sourceId);
+      }
+    }
+
+    const candidateThreatIds = [...new Set([...threatIdsByThreadId.values()].flatMap((ids) => [...ids]))];
+    const threatEntities =
+      candidateThreatIds.length > 0
+        ? await db.entities.where('id').anyOf(candidateThreatIds).toArray()
+        : [];
+    const threatById = new Map(threatEntities.filter(isThreat).map((threat) => [threat.id, threat]));
+    const validThreatIds = new Set(threatById.keys());
+
+    const threatFrontRelations =
+      validThreatIds.size > 0
+        ? await db.relations
+            .where('sourceId')
+            .anyOf([...validThreatIds])
+            .filter((relation) => relation.type === 'belongs_to')
+            .toArray()
+        : [];
+    const frontIds = [...new Set(threatFrontRelations.map((relation) => relation.targetId))];
+    const frontEntities =
+      frontIds.length > 0 ? await db.entities.where('id').anyOf(frontIds).toArray() : [];
+    const frontById = new Map(frontEntities.filter(isFront).map((front) => [front.id, front]));
+    const frontIdByThreatId = new Map<string, string>();
+    for (const relation of threatFrontRelations) {
+      if (validThreatIds.has(relation.sourceId) && frontById.has(relation.targetId)) {
+        frontIdByThreatId.set(relation.sourceId, relation.targetId);
+      }
+    }
+
+    const frontBuckets = new Map<string, SceneThreadFrontGroup>();
+    const ensureFrontBucket = (front: Entity | null) => {
+      const key = front?.id ?? '__no_front__';
+      const existing = frontBuckets.get(key);
+      if (existing) return existing;
+      const created: SceneThreadFrontGroup = { front, threatGroups: [] };
+      frontBuckets.set(key, created);
+      return created;
+    };
+
+    const threatBucketsByFrontKey = new Map<string, Map<string, SceneThreadThreatGroup>>();
+    const ensureThreatBucket = (front: Entity | null, threat: Entity | null) => {
+      const frontBucket = ensureFrontBucket(front);
+      const frontKey = front?.id ?? '__no_front__';
+      const threatKey = threat?.id ?? '__no_threat__';
+      const threatBuckets = threatBucketsByFrontKey.get(frontKey) ?? new Map<string, SceneThreadThreatGroup>();
+      threatBucketsByFrontKey.set(frontKey, threatBuckets);
+      const existing = threatBuckets.get(threatKey);
+      if (existing) return existing;
+      const created: SceneThreadThreatGroup = { threat, threads: [] };
+      threatBuckets.set(threatKey, created);
+      frontBucket.threatGroups.push(created);
+      return created;
+    };
+
+    for (const thread of threads) {
+      const threatIds = [...(threatIdsByThreadId.get(thread.id) ?? new Set<string>())].filter((id) =>
+        validThreatIds.has(id),
+      );
+
+      if (threatIds.length === 0) {
+        ensureThreatBucket(null, null).threads.push(thread);
+        continue;
+      }
+
+      for (const threatId of threatIds) {
+        const threat = threatById.get(threatId);
+        if (!threat) continue;
+        const front = frontById.get(frontIdByThreatId.get(threatId) ?? '') ?? null;
+        ensureThreatBucket(front, threat).threads.push(thread);
+      }
+    }
+
+    return [...frontBuckets.values()]
+      .map((frontGroup) => ({
+        ...frontGroup,
+        threatGroups: frontGroup.threatGroups
+          .map((threatGroup) => ({
+            ...threatGroup,
+            threads: threatGroup.threads.sort((a, b) => a.name.localeCompare(b.name, 'pl')),
+          }))
+          .sort((a, b) => (a.threat?.name ?? 'Bez zagrożenia').localeCompare(b.threat?.name ?? 'Bez zagrożenia', 'pl')),
+      }))
+      .sort((a, b) => (a.front?.name ?? 'Bez frontu').localeCompare(b.front?.name ?? 'Bez frontu', 'pl'));
+  }, [db, threads]);
+
+  const onPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const element = rowRef.current;
+    if (!element) return;
+    if (event.target instanceof Element && event.target.closest('button, a, input, textarea, select, [role="button"]')) {
+      return;
+    }
+    event.currentTarget.setPointerCapture(event.pointerId);
+    drag.current = { startX: event.clientX, scrollLeft: element.scrollLeft };
   }, []);
 
-  const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+  const onPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (!drag.current || !rowRef.current) return;
-    rowRef.current.scrollLeft = drag.current.scrollLeft - (e.clientX - drag.current.startX);
+    rowRef.current.scrollLeft = drag.current.scrollLeft - (event.clientX - drag.current.startX);
   }, []);
 
-  const onPointerUp = useCallback(() => { drag.current = null; }, []);
+  const stopDrag = useCallback(() => {
+    drag.current = null;
+  }, []);
+
+  const resolvedGroups = groups ?? [];
+  if (resolvedGroups.length === 0) return null;
 
   return (
     <div
       ref={rowRef}
-      className="thread-scroll-row flex gap-4 overflow-x-auto px-5 pt-3 pb-2 cursor-grab select-none active:cursor-grabbing"
+      className="thread-scroll-row flex w-full items-start gap-4 overflow-x-auto px-5 pt-3 pb-2"
       style={{ scrollbarWidth: 'none' }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
+      onPointerUp={stopDrag}
+      onPointerCancel={stopDrag}
+      onPointerLeave={stopDrag}
     >
-      {threads.map((thread) => (
-        <ThreadInlineCard key={thread.id} thread={thread} />
-      ))}
+      {resolvedGroups.map((frontGroup) => {
+        const frontKey = frontGroup.front?.id ?? 'no-front';
+        return (
+          <section
+            key={frontKey}
+            className="inline-flex w-max max-w-none shrink-0 flex-col rounded-[1.45rem] border border-danger-300/50 bg-[rgba(248,248,245,0.32)] px-3 py-3 shadow-sm"
+          >
+            <div className="mb-2 px-1">
+              {frontGroup.front ? (
+                <Link
+                  to={`/fronts/${frontGroup.front.id}`}
+                  state={{ returnToSessionLive: sessionId }}
+                  className="text-danger-700 text-sm font-semibold tracking-[-0.01em] hover:underline"
+                >
+                  {frontGroup.front.name}
+                </Link>
+              ) : (
+                <span className="text-surface-500 text-sm font-semibold tracking-[-0.01em]">Bez frontu</span>
+              )}
+            </div>
+
+            <div className="flex w-max max-w-none flex-nowrap items-start gap-3">
+              {frontGroup.threatGroups.map((threatGroup) => {
+                const threatKey = threatGroup.threat?.id ?? 'no-threat';
+                return (
+                  <section
+                    key={`${frontKey}:${threatKey}`}
+                    className="inline-flex w-max max-w-none shrink-0 flex-col rounded-[1.25rem] border border-warning-400/60 bg-[rgba(248,248,245,0.34)] px-3 py-3"
+                  >
+                    <div className="mb-2 px-1">
+                      {threatGroup.threat ? (
+                        <Link
+                          to={`/threats/${threatGroup.threat.id}`}
+                          state={{ returnToSessionLive: sessionId }}
+                          className="text-warning-700 text-sm font-semibold tracking-[-0.01em] hover:underline"
+                        >
+                          {threatGroup.threat.name}
+                        </Link>
+                      ) : (
+                        <span className="text-surface-500 text-sm font-semibold tracking-[-0.01em]">
+                          Bez zagrożenia
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex w-max max-w-none flex-nowrap items-start gap-4 pb-1">
+                      {threatGroup.threads.map((thread) => (
+                        <ThreadInlineCard
+                          key={`${frontKey}:${threatKey}:${thread.id}`}
+                          thread={thread}
+                          sessionId={sessionId}
+                          onClose={() => onClose(thread.id)}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }
@@ -342,21 +1187,20 @@ export const SceneCenter = forwardRef<SceneCenterHandle, SceneCenterProps>(funct
 
   const draftSceneNpcs = useDraftSceneNpcs(sessionId);
   const sceneNpcIds = useContainedNpcIds(currentLocationId);
-  const [closedNpcIds, setClosedNpcIds] = useState<Set<string>>(new Set());
 
-  // Reset closed cards when location changes
-  useEffect(() => {
-    setClosedNpcIds(new Set());
-  }, [currentLocationId]);
-
-  function handleCloseNpcCard(id: string) {
-    setClosedNpcIds((prev) => new Set([...prev, id]));
+  async function handleCloseNpcCard(id: string) {
+    try {
+      const sceneLocationId = currentLocationId ?? getDraftLocationId(sessionId);
+      await removeContainment(db, id, sceneLocationId);
+    } catch {
+      toast.error('Nie udało się odpiąć postaci ze sceny');
+    }
   }
 
   const visibleSceneNpcIds = (currentLocationId === null
     ? draftSceneNpcs.map((n) => n.id)
     : sceneNpcIds
-  ).filter((id) => !closedNpcIds.has(id));
+  );
   const currentLocation = useLiveLocation(currentLocationId);
 
   useImperativeHandle(ref, () => ({
@@ -388,7 +1232,7 @@ export const SceneCenter = forwardRef<SceneCenterHandle, SceneCenterProps>(funct
   }, [db, openCardIds]) ?? new Map<string, Entity>();
   const openSceneThreads = openCardIds
     .map((entityId) => openEntities.get(entityId))
-    .filter((entity): entity is Entity => entity !== undefined && entity.type === 'thread');
+    .filter((entity): entity is Thread => entity !== undefined && isThread(entity));
 
   function handleWrappedLocationChange(id: string | null) {
     if (id === currentLocationId) return;
@@ -511,7 +1355,7 @@ export const SceneCenter = forwardRef<SceneCenterHandle, SceneCenterProps>(funct
             <div className="px-5 pt-4 pb-0">
               <span className="text-[10px] font-semibold uppercase tracking-wide text-surface-400">Postacie</span>
             </div>
-            <NpcScrollRow npcIds={visibleSceneNpcIds} sessionId={sessionId} onClose={handleCloseNpcCard} />
+            <NpcFactionGroups npcIds={visibleSceneNpcIds} sessionId={sessionId} onClose={handleCloseNpcCard} />
           </>
         )}
         {openSceneThreads.length > 0 && (
@@ -519,7 +1363,7 @@ export const SceneCenter = forwardRef<SceneCenterHandle, SceneCenterProps>(funct
             <div className="px-5 pt-3 pb-0">
               <span className="text-[10px] font-semibold uppercase tracking-wide text-surface-400">Wątki</span>
             </div>
-            <ThreadScrollRow threads={openSceneThreads} />
+            <SceneThreadGroups threads={openSceneThreads} sessionId={sessionId} onClose={onCloseCard} />
           </>
         )}
 

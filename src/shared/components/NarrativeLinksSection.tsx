@@ -5,13 +5,21 @@ import { EntityTypeBadge } from './EntityTypeBadge';
 import { InlineEmptyState } from './InlineEmptyState';
 import { useThreatDetailPath } from '@shared/hooks/useThreatDetailPath';
 import { getEntityDetailPath } from '@shared/utils/entityTypeMeta';
+import type { ClueStrengthOption } from '@shared/domain/storyContracts';
 import type { RelatedEntityItem } from '@shared/hooks/useRelatedEntities';
+
+const META_TONE_CLASSES: Record<ClueStrengthOption, string> = {
+  weak: 'border-[#d9c486]/70 bg-[#f3e8bd]/70 text-[#7b5c10]',
+  standard: 'border-primary-200/70 bg-primary-100/70 text-primary-800',
+  strong: 'border-emerald-300/70 bg-emerald-100/80 text-emerald-800',
+};
 
 interface NarrativeLinksSectionProps {
   title: string;
   items: RelatedEntityItem[] | undefined;
   emptyMessage: string;
   meta?: (item: RelatedEntityItem) => string | null | undefined;
+  metaTone?: (item: RelatedEntityItem) => ClueStrengthOption | null | undefined;
   actions?: ReactNode;
   actionLabel?: string;
   onAction?: () => void;
@@ -23,11 +31,13 @@ interface NarrativeLinksSectionProps {
 function NarrativeEntityRow({
   item,
   meta,
+  metaTone,
   onRemoveItem,
   removeAriaLabel,
 }: {
   item: RelatedEntityItem;
   meta?: (item: RelatedEntityItem) => string | null | undefined;
+  metaTone?: (item: RelatedEntityItem) => ClueStrengthOption | null | undefined;
   onRemoveItem?: (item: RelatedEntityItem) => void;
   removeAriaLabel?: (item: RelatedEntityItem) => string;
 }) {
@@ -38,6 +48,7 @@ function NarrativeEntityRow({
   const directPath = getEntityDetailPath(item.entity.type, item.entity.id);
   const detailPath = item.entity.type === 'threat' ? (threatPath ?? null) : directPath;
   const metaText = meta?.(item);
+  const tone = metaTone?.(item);
   const returnToSessionLive =
     typeof location.state === 'object' &&
     location.state !== null &&
@@ -53,7 +64,15 @@ function NarrativeEntityRow({
           <span className="text-surface-800 truncate font-medium">{item.entity.name}</span>
           <EntityTypeBadge type={item.entity.type} size="sm" />
         </div>
-        {metaText && <p className="text-surface-500 mt-1 text-xs leading-5">{metaText}</p>}
+        {metaText && (
+          <span
+            className={`mt-2 inline-flex w-fit rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+              tone ? META_TONE_CLASSES[tone] : 'app-pill-muted'
+            }`}
+          >
+            {metaText}
+          </span>
+        )}
       </div>
       <ChevronRight className="text-surface-300 h-4 w-4 shrink-0" />
     </>
@@ -99,6 +118,7 @@ export function NarrativeLinksSection({
   items,
   emptyMessage,
   meta,
+  metaTone,
   actions,
   actionLabel,
   onAction,
@@ -132,6 +152,7 @@ export function NarrativeLinksSection({
               key={`${item.relation.id}-${item.entity.id}`}
               item={item}
               meta={meta}
+              metaTone={metaTone}
               onRemoveItem={onRemoveItem}
               removeAriaLabel={removeAriaLabel}
             />

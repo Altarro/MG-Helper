@@ -1,7 +1,8 @@
 import { memo } from 'react';
 import { Link } from 'react-router';
-import { Shield } from 'lucide-react';
-import { CardScrollBlock } from '@shared/components/CardScrollBlock';
+import { Shield, Target, Scale } from 'lucide-react';
+import { CardAccentList, CardAccentSection } from '@shared/components/CardAccentSection';
+import { applyPolishTypography } from '@shared/utils/typography';
 import { FRONT_CATEGORY_LABELS } from '../types';
 import type { Front } from '../types';
 
@@ -12,6 +13,8 @@ interface FrontCardProps {
 export const FrontCard = memo(function FrontCard({ front }: FrontCardProps) {
   const { name, data, tags } = front;
   const categoryLabel = FRONT_CATEGORY_LABELS[data.category];
+  const goalText = applyPolishTypography(data.goal);
+  const stakesText = data.stakes.map((stake) => applyPolishTypography(stake));
 
   return (
     <Link
@@ -31,25 +34,27 @@ export const FrontCard = memo(function FrontCard({ front }: FrontCardProps) {
       </div>
 
       {data.goal && (
-        <CardScrollBlock label="Cel frontu" contentClassName="pr-0.5" maxLines={5} remeasureKey={data.goal}>
-          <p className="text-sm leading-6 whitespace-pre-wrap text-surface-700">{data.goal}</p>
-        </CardScrollBlock>
+        <CardAccentSection
+          label="Cel frontu"
+          icon={Target}
+          tone="primary"
+          maxLines={5}
+          remeasureKey={goalText}
+        >
+          <p className="text-sm leading-6 whitespace-pre-wrap text-surface-700">{goalText}</p>
+        </CardAccentSection>
       )}
 
       {data.stakes.length > 0 && (
-        <CardScrollBlock
+        <CardAccentSection
           label="Stawki"
-          contentClassName="pr-0.5"
-          remeasureKey={data.stakes.join('\u0001')}
+          icon={Scale}
+          tone="warning"
+          maxLines={5}
+          remeasureKey={stakesText.join('\u0001')}
         >
-          <ul className="list-inside list-disc text-sm leading-6 text-surface-700 [&>li+li]:mt-1">
-            {data.stakes.map((stake, index) => (
-              <li key={`${front.id}-stake-${index}`} className="marker:text-surface-400 pl-0.5">
-                {stake}
-              </li>
-            ))}
-          </ul>
-        </CardScrollBlock>
+          <CardAccentList items={stakesText} markerClassName="bg-warning-500/80" />
+        </CardAccentSection>
       )}
 
       {tags && tags.length > 0 && (

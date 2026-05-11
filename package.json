@@ -17,6 +17,7 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc -b --noEmit",
     "test:encoding": "vitest run tests/shared/encodingSmoke.test.ts",
+    "check:seed": "node scripts/check-seed-entrypoints.mjs",
     "spellcheck": "cspell lint --no-progress",
     "spellcheck:collect": "node scripts/cspell-collect-words.mjs"
   },

@@ -21,6 +21,8 @@ export function useGeneratorRoll(options: UseGeneratorRollOptions) {
   const [pendingCommitCount, setPendingCommitCount] = useState(0);
   const [seed, setSeed] = useState<string>('');
   const [withoutRepetition, setWithoutRepetition] = useState(false);
+  const [evoEnabled, setEvoEnabled] = useState(true);
+  const [evoContextTags, setEvoContextTags] = useState<string[]>([]);
   const { lastRoll, rollHistory, pushRoll, removeRoll, clearRollHistory } = useGeneratorRollHistory({
     limit: historyLimit,
   });
@@ -44,6 +46,12 @@ export function useGeneratorRoll(options: UseGeneratorRollOptions) {
       ...defaultRollOptions,
       seed: seed.trim() ? seed.trim() : defaultRollOptions?.seed,
       withoutRepetition,
+      evo: {
+        ...(defaultRollOptions?.evo ?? {}),
+        enabled: evoEnabled,
+        contextTags: evoContextTags.length > 0 ? evoContextTags : (defaultRollOptions?.evo?.contextTags ?? []),
+        previousResults: rollHistory.map((item) => item.resultText).slice(0, 24),
+      },
     };
   }
 
@@ -142,6 +150,10 @@ export function useGeneratorRoll(options: UseGeneratorRollOptions) {
     setSeed,
     withoutRepetition,
     setWithoutRepetition,
+    evoEnabled,
+    setEvoEnabled,
+    evoContextTags,
+    setEvoContextTags,
     isCommitting: pendingCommitCount > 0,
     lastRoll,
     rollHistory,

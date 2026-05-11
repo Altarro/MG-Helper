@@ -57,7 +57,7 @@ function NpcLocationHistoryModal({
   onNavigate: (path: string) => void;
 }) {
   return (
-    <Modal title="Historia lokacji NPC" size="md" onClose={onClose}>
+    <Modal title="Historia lokacji postaci" size="md" onClose={onClose}>
       {entries.length === 0 ? (
         <p className="text-surface-500 text-sm">Brak zapisanej historii lokacji.</p>
       ) : (
@@ -283,7 +283,7 @@ export function NpcDetail() {
       toast.success(`Postać „${npc!.name}” usunięta`);
       navigate('/npcs');
     } catch {
-      toast.error('Nie udało się usunąć NPC');
+      toast.error('Nie udało się usunąć postaci');
     }
   }
 
@@ -340,7 +340,7 @@ export function NpcDetail() {
         className="text-surface-500 hover:text-primary-700 mb-4 flex items-center gap-1.5 text-sm"
       >
         <ArrowLeft className="h-4 w-4" />
-        {returnToSessionLive ? 'Sesja na żywo' : 'NPC'}
+        {returnToSessionLive ? 'Sesja na żywo' : 'Postacie'}
       </button>
 
       {editing ? (
@@ -615,7 +615,7 @@ export function NpcDetail() {
           >
             {sessionAppearances.length === 0 ? (
               <p className="text-surface-500 text-sm">
-                NPC nie jest jeszcze podpięty do żadnej sesji.
+                Postać nie jest jeszcze podpięta do żadnej sesji.
               </p>
             ) : (
               <div className="flex flex-wrap gap-2">
@@ -694,7 +694,7 @@ export function NpcDetail() {
 
       <ConfirmDialog
         open={showDeleteConfirm}
-        title="Usuń NPC"
+        title="Usuń postać"
         description={`Czy na pewno chcesz usunąć „${npc.name}"?`}
         confirmLabel="Usuń"
         destructive
@@ -726,7 +726,7 @@ export function NpcDetail() {
 
       {showLocationPicker && (
         <LocationPickerModal
-          title="Ustaw aktualną lokację NPC"
+          title="Ustaw aktualną lokację postaci"
           emptySelectionLabel="Brak lokacji"
           currentLocationId={
             currentLocation && !isDraftLocation(currentLocation) ? currentLocation.id : null

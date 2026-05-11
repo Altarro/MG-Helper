@@ -30,8 +30,11 @@ import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
 import { formatPolishThreadCount } from '@shared/utils/polishPlural';
 import { reorderEntities } from '@shared/utils/dnd';
+import { getThreadDerivationKindLabel } from '@shared/domain/storyContracts';
 import type { Thread } from '../types';
 import type { ThreadFormValues } from './ThreadForm';
+import type { Relation } from '@shared/types/relation';
+import type { ThreadDerivationKindOption } from '@shared/domain/storyContracts';
 
 type FilterTab = 'all' | 'active' | 'completed';
 
@@ -40,6 +43,10 @@ const TAB_LABELS: Record<FilterTab, string> = {
   active: 'Aktywne',
   completed: 'Zakończone',
 };
+
+function resolveQuestlineKind(relation: Relation): ThreadDerivationKindOption | null {
+  return relation.meta?.threadDerivationKind ?? null;
+}
 
 export function ThreadList() {
   const threads = useThreads();
@@ -62,6 +69,11 @@ export function ThreadList() {
   const threatLinks = useLiveQuery(async () => {
     const relations = await db.relations.toArray();
     return relations.filter((relation) => relation.type === 'affects');
+  }, [db]);
+
+  const questlineLinks = useLiveQuery(async () => {
+    const relations = await db.relations.toArray();
+    return relations.filter((relation) => relation.type === 'derives_from');
   }, [db]);
 
   const threatMap = useMemo(
@@ -89,6 +101,52 @@ export function ThreadList() {
 
     return map;
   }, [threatLinks, threatMap]);
+
+  const threadMap = useMemo(
+    () => new Map((threads ?? []).map((thread) => [thread.id, thread])),
+    [threads],
+  );
+
+  const threadQuestlineMap = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        parents: { id: string; name: string; label: string }[];
+        children: { id: string; name: string; label: string }[];
+      }
+    >();
+
+    function ensure(threadId: string) {
+      const existing = map.get(threadId);
+      if (existing) return existing;
+      const created = { parents: [], children: [] };
+      map.set(threadId, created);
+      return created;
+    }
+
+    for (const relation of questlineLinks ?? []) {
+      const child = threadMap.get(relation.sourceId);
+      const parent = threadMap.get(relation.targetId);
+      if (!child || !parent) continue;
+
+      const kind = resolveQuestlineKind(relation);
+      const childLabel = 'Wynika z';
+      const parentLabel = kind ? getThreadDerivationKindLabel(kind) : 'Rozwinięcie';
+
+      ensure(child.id).parents.push({
+        id: parent.id,
+        name: parent.name,
+        label: childLabel,
+      });
+      ensure(parent.id).children.push({
+        id: child.id,
+        name: child.name,
+        label: parentLabel,
+      });
+    }
+
+    return map;
+  }, [questlineLinks, threadMap]);
 
   const lowerQuery = query.trim().toLowerCase();
   const queryMatchedThreads = threads?.filter((thread) => {
@@ -366,6 +424,7 @@ export function ThreadList() {
                   <ThreadCard
                     key={`${section.threat.id}:${thread.id}`}
                     thread={thread}
+                    questline={threadQuestlineMap.get(thread.id)}
                     onClick={() => navigate(`/threads/${thread.id}`)}
                   />
                 ))}
@@ -394,6 +453,7 @@ export function ThreadList() {
                   <ThreadCard
                     key={thread.id}
                     thread={thread}
+                    questline={threadQuestlineMap.get(thread.id)}
                     onClick={() => navigate(`/threads/${thread.id}`)}
                   />
                 ))}
@@ -418,6 +478,7 @@ export function ThreadList() {
                   <SortableThreadCard
                     key={thread.id}
                     thread={thread}
+                    questline={threadQuestlineMap.get(thread.id)}
                     onClick={() => navigate(`/threads/${thread.id}`)}
                   />
                 ))}
@@ -428,6 +489,7 @@ export function ThreadList() {
                 <div className="rounded-[1.35rem] opacity-[0.85] shadow-2xl">
                   <ThreadCard
                     thread={activeDragThread}
+                    questline={threadQuestlineMap.get(activeDragThread.id)}
                     onClick={() => navigate(`/threads/${activeDragThread.id}`)}
                   />
                 </div>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router';
+import { useParams, useNavigate, Link, useLocation } from 'react-router';
 import { ArrowLeft, Edit2, Trash2, X, Flag, Users, MapPin, Plus, Search } from 'lucide-react';
 import { useFactionById } from '../hooks/useFactionById';
 import { FactionForm } from './FactionForm';
@@ -11,6 +11,8 @@ import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { EntityDetailPortrait } from '@shared/components/EntityDetailPortrait';
 import { NotesList } from '@modules/notes/components/NotesList';
+import { RelationList } from '@shared/components/RelationList';
+import { RelationPicker } from '@shared/components/RelationPicker';
 import {
   deleteEntity,
   updateEntity,
@@ -29,6 +31,7 @@ import { getFactionLifecycleStatus } from '@shared/utils/entityData';
 import { withLifecycleStatus } from '@shared/types/entityLifecycle';
 import { Modal } from '@shared/components/Modal';
 import { useEntitiesByType } from '@shared/hooks/useEntitiesByType';
+import { getEntityDetailPath } from '@shared/utils/entityTypeMeta';
 
 type FactionAttachment = {
   relationId: string;
@@ -80,8 +83,13 @@ function useFactionLocations(db: MgHelperDb, factionId: string | undefined) {
 export function FactionDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { db } = useCampaign();
   const { faction } = useFactionById(id);
+  const returnToSessionLive = (location.state as { returnToSessionLive?: string } | null)
+    ?.returnToSessionLive;
+  const backPath = returnToSessionLive ? `/sessions/${returnToSessionLive}/live` : '/factions';
+  const backLabel = returnToSessionLive ? 'Sesja na żywo' : 'Frakcje';
   const members = useFactionMembers(db, id);
   const locations = useFactionLocations(db, id);
   const npcs = useEntitiesByType('npc');
@@ -92,6 +100,7 @@ export function FactionDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showMemberPicker, setShowMemberPicker] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [showRelationPicker, setShowRelationPicker] = useState(false);
   const [memberQuery, setMemberQuery] = useState('');
   const [locationQuery, setLocationQuery] = useState('');
   const [assigningEntityId, setAssigningEntityId] = useState<string | null>(null);
@@ -126,13 +135,14 @@ export function FactionDetail() {
   const factionTocItems = useMemo(() => {
     if (!faction || isEditing) return [];
     const items: { id: string; label: string }[] = [];
-    if (faction.data.goals.length > 0 || faction.data.resources.length > 0) {
+    if (faction.data.goals.length > 0 || faction.data.resources.length > 0 || (faction.data.symbols ?? []).length > 0) {
       items.push({ id: 'faction-detail-kontekst', label: 'Kontekst' });
     }
     if (faction.description) items.push({ id: 'faction-detail-opis', label: 'Opis' });
     items.push(
       { id: 'faction-detail-headquarters', label: 'Siedziby' },
       { id: 'faction-detail-members', label: 'Członkowie' },
+      { id: 'faction-detail-relacje', label: 'Relacje' },
       { id: 'faction-detail-notatki', label: 'Notatki' },
       { id: 'faction-detail-tagi', label: 'Tagi' },
     );
@@ -146,8 +156,8 @@ export function FactionDetail() {
         icon={Flag}
         title="Frakcja nie znaleziona"
         description="Mogła zostać usunięta albo odnośnik jest nieaktualny."
-        to="/factions"
-        linkLabel="Wróć do listy frakcji"
+        to={backPath}
+        linkLabel={returnToSessionLive ? 'Wróć do sesji na żywo' : 'Wróć do listy frakcji'}
       />
     );
   }
@@ -165,6 +175,7 @@ export function FactionDetail() {
           {
             goals: values.goals,
             resources: values.resources,
+            symbols: values.symbols,
             imageId: nextImageId,
             imageAlt: values.imageAlt ?? '',
           },
@@ -187,7 +198,7 @@ export function FactionDetail() {
     try {
       await deleteEntity(db, faction!.id);
       toast.success(`Frakcja „${faction!.name}" usunięta`);
-      navigate('/factions');
+      navigate(backPath);
     } catch {
       toast.error('Nie udało się usunąć');
     }
@@ -241,13 +252,20 @@ export function FactionDetail() {
     }
   }
 
+  function handleNavigateToEntity(entity: Entity) {
+    const detailPath = getEntityDetailPath(entity.type, entity.id);
+    if (detailPath) {
+      navigate(detailPath);
+    }
+  }
+
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
       <Link
-        to="/factions"
+        to={backPath}
         className="text-surface-500 hover:text-primary-700 flex w-fit items-center gap-1.5 text-sm"
       >
-        <ArrowLeft className="h-4 w-4" /> Frakcje
+        <ArrowLeft className="h-4 w-4" /> {backLabel}
       </Link>
 
       <div className="app-panel-strong flex flex-col gap-5 rounded-[1.9rem] border border-white/40 px-6 py-6 shadow-[0_28px_60px_rgba(18,45,66,0.12)] lg:flex-row lg:items-start lg:justify-between lg:px-7">
@@ -321,6 +339,7 @@ export function FactionDetail() {
               name: faction.name,
               goals: faction.data.goals,
               resources: faction.data.resources,
+              symbols: faction.data.symbols ?? [],
               description: faction.description,
               tags: faction.tags,
               imageId: faction.data.imageId ?? null,
@@ -334,7 +353,7 @@ export function FactionDetail() {
       )}
 
       {!isEditing &&
-        (faction.data.goals.length > 0 || faction.data.resources.length > 0) && (
+        (faction.data.goals.length > 0 || faction.data.resources.length > 0 || (faction.data.symbols ?? []).length > 0) && (
           <DetailSection
             sectionId="faction-detail-kontekst"
             title="Kontekst frakcji"
@@ -367,6 +386,25 @@ export function FactionDetail() {
                         {i + 1}
                       </span>
                       <span className="text-surface-700 min-w-0 text-sm leading-6 break-words">{r}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {(faction.data.symbols ?? []).length > 0 && (
+              <div className="rounded-[1.25rem] border border-[rgba(62,131,111,0.32)] bg-[linear-gradient(180deg,rgba(174,226,204,0.36)_0%,rgba(92,154,135,0.22)_100%)] p-5 shadow-[0_12px_24px_rgba(28,89,72,0.1),inset_0_1px_0_rgba(245,255,250,0.36)]">
+                <h2 className="mb-3 text-xs font-semibold tracking-wide text-[rgb(33,94,78)] uppercase">Symbole</h2>
+                <ul className="m-0 grid list-none grid-cols-1 gap-2 p-0 sm:grid-cols-2">
+                  {(faction.data.symbols ?? []).map((symbol, i) => (
+                    <li
+                      key={i}
+                      className="flex min-w-0 items-start gap-2 rounded-[1rem] border border-[rgba(62,131,111,0.18)] bg-[rgba(239,248,242,0.58)] px-3.5 py-3"
+                    >
+                      <span className="mt-0.5 inline-flex h-fit shrink-0 rounded-full border border-[rgba(62,131,111,0.22)] bg-[rgba(219,242,231,0.74)] px-2 py-0.5 text-[11px] font-semibold text-[rgb(43,103,85)] tabular-nums">
+                        {i + 1}
+                      </span>
+                      <span className="text-surface-700 min-w-0 text-sm leading-6 break-words">{symbol}</span>
                     </li>
                   ))}
                 </ul>
@@ -491,6 +529,25 @@ export function FactionDetail() {
             </ul>
           )}
         </div>
+      )}
+
+      {!isEditing && (
+        <DetailSection
+          sectionId="faction-detail-relacje"
+          title="Relacje"
+          action={
+            <button
+              type="button"
+              onClick={() => setShowRelationPicker(true)}
+              className="app-button-secondary flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Dodaj
+            </button>
+          }
+        >
+          <RelationList entityId={faction.id} onNavigate={handleNavigateToEntity} />
+        </DetailSection>
       )}
 
       <div id="faction-detail-notatki">
@@ -627,6 +684,14 @@ export function FactionDetail() {
             </ul>
           </div>
         </Modal>
+      )}
+
+      {showRelationPicker && (
+        <RelationPicker
+          sourceId={faction.id}
+          sourceType="faction"
+          onClose={() => setShowRelationPicker(false)}
+        />
       )}
     </div>
   );

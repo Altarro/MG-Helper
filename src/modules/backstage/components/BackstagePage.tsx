@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ArrowUp, Theater } from 'lucide-react';
+import { useEffect, useState, type KeyboardEvent } from 'react';
+import { ArrowUp, GitFork, Radar, Sparkles, Table2, Theater } from 'lucide-react';
 import { scrollWindowToElementId } from '@shared/utils/scrollToAnchor';
 import { useBackstage } from '../hooks/useBackstage';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
@@ -12,12 +12,13 @@ import { ThreatRadarPanel } from './ThreatRadarPanel';
 import { BackstageSummaryPanel } from './BackstageSummaryPanel';
 import { BackstageHintsPanel } from './BackstageHintsPanel';
 import { GraphPage } from '@modules/graph/components/GraphPage';
+import { BackstageEvoGeneratorPanel } from './BackstageEvoGeneratorPanel';
 
-type TabId = 'radar' | 'matrix' | 'graph';
+type TabId = 'radar' | 'matrix' | 'graph' | 'evo';
 
 export function BackstagePage() {
   const data = useBackstage();
-  const [tab, setTab] = useState<TabId>('radar');
+  const [tab, setTab] = useState<TabId>('matrix');
   const [clueFilter, setClueFilter] = useState<ClueMatrixFilter>('all');
   const [showFloatingTop, setShowFloatingTop] = useState(false);
 
@@ -46,6 +47,14 @@ export function BackstagePage() {
     clueSessionIds,
     threatRows,
   } = data;
+  const openThreadsCount = threads.filter((thread) => thread.data.status !== 'completed').length;
+  const activeThreatsCount = threats.filter((threat) => threat.data.status !== 'completed').length;
+  const tabMeta: Array<{ id: TabId; label: string; icon: typeof Radar; inDevelopment?: boolean }> = [
+    { id: 'matrix', label: 'Macierz sesji', icon: Table2 },
+    { id: 'graph', label: 'Graf relacji', icon: GitFork, inDevelopment: true },
+    { id: 'radar', label: 'Radar zagrożeń', icon: Radar, inDevelopment: true },
+    { id: 'evo', label: 'EvoGenerator', icon: Sparkles, inDevelopment: true },
+  ];
   const topThreatActions = threatRows
     .filter((row) => row.tier >= 3 || row.isSpotlightSuggestion)
     .slice(0, 3)
@@ -63,21 +72,44 @@ export function BackstagePage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  function handleTabsKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const index = tabMeta.findIndex((item) => item.id === tab);
+    if (event.key === 'Home') {
+      setTab(tabMeta[0]!.id);
+      return;
+    }
+    if (event.key === 'End') {
+      setTab(tabMeta[tabMeta.length - 1]!.id);
+      return;
+    }
+    const delta = event.key === 'ArrowRight' ? 1 : -1;
+    const next = (index + delta + tabMeta.length) % tabMeta.length;
+    setTab(tabMeta[next]!.id);
+  }
+
   return (
     <div className="flex min-h-0 flex-col gap-6 p-6" data-testid="backstage-page">
       <section className="app-panel-strong shrink-0 rounded-[2rem] px-6 py-7 lg:px-8 lg:py-8">
-        <div className="text-primary-700 mb-3 inline-flex items-center gap-2 rounded-full border border-[rgba(33,71,102,0.16)] bg-[rgba(111,146,164,0.12)] px-3 py-1 text-[11px] font-semibold tracking-[0.18em] uppercase">
+        <div className="text-primary-700 mb-3 inline-flex items-center gap-2 rounded-full border border-primary-200 bg-primary-50 px-3 py-1 text-[11px] font-semibold tracking-[0.18em] uppercase">
           <Theater className="h-3.5 w-3.5 shrink-0" aria-hidden />
           Prowadzenie
         </div>
         <h1 className="text-primary-900 text-3xl font-semibold tracking-[-0.04em] lg:text-[2.2rem]">Za kulisami</h1>
         <p className="text-surface-700 mt-2 max-w-[62ch] text-sm leading-7 lg:text-[0.98rem]">
-          Spokojna odprawa przed sesją: co wymaga decyzji narratora, a co może poczekać. Radar patrzy tylko na to, co
-          już zapisałeś w kampanii — bez zgadywania spoza bazy.
+          Miejsce do spokojnej odprawy przed sesją. Widzisz tu, co naprawdę wymaga Twojej decyzji, a co może jeszcze
+          poczekać.
         </p>
       </section>
 
       <BackstageSummaryPanel
+        stats={{
+          activeThreats: activeThreatsCount,
+          openThreads: openThreadsCount,
+          sessionCount: sessions.length,
+          clueCount: clues.length,
+        }}
         actions={[
           ...topThreatActions,
           { id: 'backstage-graph', label: 'Otwórz graf relacji', href: '/graph' },
@@ -86,62 +118,60 @@ export function BackstagePage() {
       <BackstageHintsPanel />
 
       <div
-        className="flex gap-1 rounded-xl border border-surface-200 bg-surface-100/80 p-1 text-sm shrink-0"
+        className="flex flex-wrap gap-1 rounded-xl border border-surface-200 bg-surface-100/80 p-1 text-sm shrink-0"
         role="tablist"
         aria-label="Widok za kulisami"
+        onKeyDown={handleTabsKeyDown}
       >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'radar'}
-          className={`rounded-lg px-4 py-2 font-medium transition-colors ${
-            tab === 'radar' ? 'bg-white text-primary-800 shadow-sm' : 'text-surface-600 hover:text-surface-900'
-          }`}
-          onClick={() => setTab('radar')}
-        >
-          Radar zagrożeń
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'matrix'}
-          className={`rounded-lg px-4 py-2 font-medium transition-colors ${
-            tab === 'matrix' ? 'bg-white text-primary-800 shadow-sm' : 'text-surface-600 hover:text-surface-900'
-          }`}
-          onClick={() => setTab('matrix')}
-        >
-          Macierz sesji
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'graph'}
-          className={`rounded-lg px-4 py-2 font-medium transition-colors ${
-            tab === 'graph' ? 'bg-white text-primary-800 shadow-sm' : 'text-surface-600 hover:text-surface-900'
-          }`}
-          onClick={() => setTab('graph')}
-        >
-          Graf relacji
-        </button>
+        {tabMeta.map(({ id, label, icon: Icon, inDevelopment }) => (
+          <button
+            key={id}
+            id={`backstage-tab-${id}`}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            aria-controls={`backstage-panel-${id}`}
+            className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 font-medium transition-colors ${
+              tab === id ? 'bg-white text-primary-800 shadow-sm' : 'text-surface-600 hover:text-surface-900'
+            }`}
+            onClick={() => setTab(id)}
+          >
+            <Icon className="h-4 w-4" aria-hidden />
+            {label}
+            {inDevelopment ? (
+              <span className="rounded-full border border-orange-300/70 bg-orange-100 px-2 py-0.5 text-[10px] font-semibold tracking-[0.1em] text-orange-800 uppercase">
+                W budowie
+              </span>
+            ) : null}
+          </button>
+        ))}
       </div>
 
       {tab === 'radar' && (
-        <section aria-labelledby="radar-heading" className="min-h-0 space-y-3">
+        <section
+          id="backstage-panel-radar"
+          role="tabpanel"
+          aria-labelledby="backstage-tab-radar"
+          className="min-h-0 space-y-3"
+        >
           <h2 id="radar-heading" className="text-sm font-semibold text-surface-800">
             Radar zagrożeń
           </h2>
           <p className="text-xs text-surface-500">
-            Kolory i kolejność to podpowiedź pilności (pięć stopni). Słupki: ślad na stole (wątek / wskazówka / NPC
-            „powiązany z” / zagrożenie), presja od ostatniego ticku zegara w przód, udział wątków zakończonych,
-            udział wskazówek nieodkrytych — wagi zależą od archetypu ustawionego na karcie zagrożenia. Żółty baner to
-            najsilniejsza sugestia „na stole teraz”; apka nie zapisuje ticków ani ruchów za Ciebie.
+            Traktuj to jak briefing: wyżej są sprawy pilniejsze, niżej te spokojniejsze. Kliknij zagrożenie, żeby od
+            razu przejść do decyzji.
           </p>
           <ThreatRadarPanel rows={threatRows} />
         </section>
       )}
 
       {tab === 'matrix' && (
-        <section aria-labelledby="matrix-heading" className="min-h-0 space-y-8">
+        <section
+          id="backstage-panel-matrix"
+          role="tabpanel"
+          aria-labelledby="backstage-tab-matrix"
+          className="min-h-0 space-y-8"
+        >
           <div id="matrix-heading" className="-mt-2.5 flex flex-wrap items-center gap-2">
             <div className="flex flex-wrap items-center gap-2">
               {([
@@ -155,7 +185,7 @@ export function BackstagePage() {
                   key={sectionId}
                   type="button"
                   onClick={() => scrollToMatrixSection(sectionId)}
-                  className="rounded-full border border-surface-200 bg-white px-3 py-1.5 text-[11px] font-semibold tracking-wide text-surface-700 hover:bg-surface-50 hover:text-surface-900"
+                  className="rounded-full border border-surface-200 bg-white px-3 py-1.5 text-[11px] font-semibold tracking-wide text-surface-700 transition-colors hover:bg-surface-50 hover:text-surface-900"
                 >
                   {label}
                 </button>
@@ -217,18 +247,44 @@ export function BackstagePage() {
         </section>
       )}
       {tab === 'graph' && (
-        <section aria-labelledby="graph-heading" className="min-h-0 space-y-3">
+        <section
+          id="backstage-panel-graph"
+          role="tabpanel"
+          aria-labelledby="backstage-tab-graph"
+          className="min-h-0 space-y-3"
+        >
+          {/* Graf korzysta z własnego hooka danych (useGraphData), a nie stanu useBackstage. */}
           <h2 id="graph-heading" className="text-sm font-semibold text-surface-800">
             Graf relacji
           </h2>
-          <GraphPage />
+          <p className="text-xs text-surface-500">
+            Wizualny podgląd połączeń między encjami. Użyj gotowych widoków, żeby szybko przełączyć perspektywę.
+          </p>
+          <GraphPage embedded />
+        </section>
+      )}
+      {tab === 'evo' && (
+        <section
+          id="backstage-panel-evo"
+          role="tabpanel"
+          aria-labelledby="backstage-tab-evo"
+          className="min-h-0 space-y-3"
+        >
+          <h2 id="evo-heading" className="text-sm font-semibold text-surface-800">
+            EvoGenerator
+          </h2>
+          <p className="text-xs text-surface-500">
+            Generator inspiracji przed sesją: NPC, lokacje, zdarzenia i własne tabele z dopasowaniem do kontekstu
+            kampanii.
+          </p>
+          <BackstageEvoGeneratorPanel />
         </section>
       )}
       {tab === 'matrix' && showFloatingTop && (
         <button
           type="button"
           onClick={scrollToTop}
-          className="fixed bottom-6 right-6 z-30 inline-flex h-10 w-10 items-center justify-center rounded-full border border-surface-200 bg-white/70 text-surface-700 shadow-sm backdrop-blur-sm transition-opacity duration-200 opacity-55 hover:opacity-100"
+          className="fixed bottom-6 right-6 z-30 inline-flex h-10 w-10 items-center justify-center rounded-full border border-surface-200 bg-white text-surface-700 shadow-sm backdrop-blur-sm transition-colors hover:bg-surface-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
           title="Powrót na górę"
           aria-label="Powrót na górę"
         >

@@ -102,9 +102,9 @@ describe('ClueDetail', () => {
       expect(screen.getByText('Opactwo Przyzwania')).toBeInTheDocument();
       expect(screen.getByText('Ksiaze i Sekrety Miasta')).toBeInTheDocument();
 
-      expect(screen.getByText(/Mocna wskazówka: 1/i)).toBeInTheDocument();
-      expect(screen.getByText(/Standardowa wskazówka: 1/i)).toBeInTheDocument();
-      expect(screen.getByText(/Luźny trop: 1/i)).toBeInTheDocument();
+      expect(screen.getByText(/Mocna wskazówka/i)).toBeInTheDocument();
+      expect(screen.getByText(/Standardowa wskazówka/i)).toBeInTheDocument();
+      expect(screen.getByText(/Luźny trop/i)).toBeInTheDocument();
     });
   });
 });

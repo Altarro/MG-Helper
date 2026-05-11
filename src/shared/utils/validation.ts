@@ -130,6 +130,7 @@ export const factionSchema = baseEntitySchema.extend({
   data: z.object({
     goals: z.array(z.string().max(500)).max(10).default([]),
     resources: z.array(z.string().max(500)).max(20).default([]),
+    symbols: z.array(z.string().max(500)).max(20).default([]),
     status: z.enum(LIFECYCLE_STATUSES).optional(),
     ...imageRefFields,
   }).default({}),

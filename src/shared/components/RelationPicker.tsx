@@ -198,7 +198,7 @@ export function RelationPicker({
 
         {relationType === 'derives_from' && sourceType === 'thread' && targetType === 'thread' && (
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-surface-600">Typ questline</label>
+            <label className="text-xs font-medium text-surface-600">Typ linii wątku</label>
             <select
               value={relationMeta?.threadDerivationKind ?? 'followup'}
               onChange={(e) =>

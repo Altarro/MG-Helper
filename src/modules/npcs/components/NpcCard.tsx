@@ -1,27 +1,63 @@
 import React from 'react';
-import { User, Crown, Skull } from 'lucide-react';
-import type { Npc } from '../types';
+import { Link } from 'react-router';
+import {
+  Crown,
+  Eye,
+  FileText,
+  Heart,
+  MapPin,
+  MessageCircle,
+  Skull,
+  Target,
+  User,
+} from 'lucide-react';
+import { CardAccentSection } from '@shared/components/CardAccentSection';
 import { useAssetUrl } from '@shared/hooks/useAssetUrl';
 import { getNpcLifecycleStatus } from '@shared/utils/entityData';
+import { stripHtml } from '@shared/utils/sanitize';
+import { applyPolishTypography } from '@shared/utils/typography';
+import type { Npc } from '../types';
+
+const TEXT_MAX_CHARS = 150;
 
 interface NpcCardProps {
   npc: Npc;
   onClick?: () => void;
+  currentLocationName?: string;
+  currentLocationId?: string;
 }
 
-export const NpcCard = React.memo(function NpcCard({ npc, onClick }: NpcCardProps) {
+function previewText(value: string | undefined, maxChars = TEXT_MAX_CHARS): string {
+  const text = (value ?? '').trim();
+  return text.length > maxChars ? `${text.slice(0, maxChars).trimEnd()}...` : text;
+}
+
+export const NpcCard = React.memo(function NpcCard({
+  npc,
+  onClick,
+  currentLocationName,
+  currentLocationId,
+}: NpcCardProps) {
   const isPC = npc.data?.isPC === true;
   const isDead = getNpcLifecycleStatus({ data: npc.data }) === 'completed';
   const thumbUrl = useAssetUrl(npc.data?.imageId ?? null, { thumb: true });
+  const instinctPreview = applyPolishTypography(previewText(npc.data?.instinct));
+  const motivationPreview = applyPolishTypography(previewText(npc.data?.motivation));
+  const appearancePreview = applyPolishTypography(previewText(npc.data?.appearance));
+  const playStylePreview = applyPolishTypography(previewText(npc.data?.playStyle));
+  const descriptionPreview = applyPolishTypography(previewText(stripHtml(npc.description ?? '')));
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`app-card flex w-full flex-col gap-3 rounded-[1.35rem] p-5 text-left transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/35 ${
+    <article
+      className={`app-card group focus-visible:ring-primary-500/35 flex w-full cursor-pointer flex-col gap-4 rounded-[1.35rem] p-5 text-left transition-all hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:outline-none ${
         isDead ? 'opacity-90' : ''
       }`}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => (e.key === 'Enter' || e.key === ' ') && onClick() : undefined}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex items-center gap-3">
         {thumbUrl ? (
           <img
             src={thumbUrl}
@@ -29,50 +65,148 @@ export const NpcCard = React.memo(function NpcCard({ npc, onClick }: NpcCardProp
             className="h-12 w-12 shrink-0 rounded-2xl object-cover shadow-[0_4px_10px_rgba(18,45,66,0.12)]"
           />
         ) : (
-          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${isPC ? 'bg-[rgba(242,196,88,0.16)]' : 'bg-[rgba(33,71,102,0.09)]'}`}>
-            {isPC ? <Crown className="h-4 w-4 text-warning-600" /> : <User className="h-4 w-4 text-primary-700" />}
+          <div
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl shadow-[inset_0_1px_0_rgba(255,250,240,0.24)] ${isPC ? 'bg-[rgba(242,196,88,0.18)]' : 'bg-[rgba(33,71,102,0.12)]'}`}
+          >
+            {isPC ? (
+              <Crown className="text-warning-600 h-4 w-4" />
+            ) : (
+              <User className="text-primary-800 h-4 w-4" />
+            )}
           </div>
         )}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="truncate text-[1.02rem] font-semibold tracking-[-0.02em] text-surface-900">{npc.name}</p>
+
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-surface-900 group-hover:text-primary-800 min-w-0 text-[1.32rem] leading-tight font-semibold tracking-[-0.02em]">
+              {npc.name}
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
             {isPC && (
-              <span className="app-danger-pill shrink-0 rounded-full px-2.5 py-1 text-xs font-medium">
+              <span className="app-danger-pill rounded-full px-2.5 py-1 text-xs font-medium">
                 Gracz
               </span>
             )}
+            {isPC && npc.data?.playerName && (
+              <span className="app-pill-muted rounded-full px-2.5 py-1 text-xs font-medium">
+                {npc.data.playerName}
+              </span>
+            )}
             {isDead && (
-              <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-danger-300/50 bg-danger-50 px-2 py-0.5 text-[10px] font-semibold text-danger-800">
+              <span className="border-danger-300/50 bg-danger-50 text-danger-800 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold">
                 <Skull className="h-3 w-3" aria-hidden />
                 Nie żyje
               </span>
             )}
           </div>
-          {isPC && npc.data?.playerName && (
-            <p className="mt-1 truncate text-xs font-medium uppercase tracking-[0.12em] text-warning-600">{npc.data.playerName}</p>
-          )}
-          {!isPC && npc.data?.instinct && (
-            <p className="mt-1 truncate text-sm italic text-surface-600">{npc.data.instinct}</p>
-          )}
         </div>
       </div>
 
-      {!isPC && npc.data?.motivation && (
-        <p className="text-sm leading-6 text-surface-700">{npc.data.motivation}</p>
+      {currentLocationName && (
+        <div className="flex">
+          {currentLocationId ? (
+            <Link 
+              to={`/locations/${currentLocationId}`}
+              onClick={(event) => event.stopPropagation()}
+              className="app-parent-location-pill inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+            >
+              <MapPin className="h-3 w-3" aria-hidden />
+              Aktualna lokacja: {currentLocationName}
+            </Link>
+          ) : (
+            <span className="app-pill-muted inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium">
+              <MapPin className="h-3 w-3" aria-hidden />
+              Aktualna lokacja: {currentLocationName}
+            </span>
+          )}
+        </div>
+      )}
+
+      {!isPC && instinctPreview && (
+        <CardAccentSection
+          label="Instynkt"
+          icon={Target}
+          tone="primary"
+          maxLines={3}
+          remeasureKey={instinctPreview}
+        >
+          <p className="text-surface-700 text-sm leading-6 whitespace-pre-wrap">
+            {instinctPreview}
+          </p>
+        </CardAccentSection>
+      )}
+
+      {motivationPreview && (
+        <CardAccentSection
+          label="Motywacja"
+          icon={Heart}
+          tone="warning"
+          maxLines={3}
+          remeasureKey={motivationPreview}
+        >
+          <p className="text-surface-700 text-sm leading-6 whitespace-pre-wrap">
+            {motivationPreview}
+          </p>
+        </CardAccentSection>
+      )}
+
+      {appearancePreview && (
+        <CardAccentSection
+          label="Wygląd"
+          icon={Eye}
+          tone="primary"
+          maxLines={3}
+          remeasureKey={appearancePreview}
+        >
+          <p className="text-surface-700 text-sm leading-6 whitespace-pre-wrap">
+            {appearancePreview}
+          </p>
+        </CardAccentSection>
+      )}
+
+      {!isPC && playStylePreview && (
+        <CardAccentSection
+          label="Sposób odgrywania"
+          icon={MessageCircle}
+          tone="success"
+          maxLines={3}
+          remeasureKey={playStylePreview}
+        >
+          <p className="text-surface-700 text-sm leading-6 whitespace-pre-wrap">
+            {playStylePreview}
+          </p>
+        </CardAccentSection>
+      )}
+
+      {descriptionPreview && (
+        <CardAccentSection
+          label="Opis"
+          icon={FileText}
+          tone="surface"
+          maxLines={4}
+          remeasureKey={descriptionPreview}
+        >
+          <p className="text-surface-700 text-sm leading-6 whitespace-pre-wrap">
+            {descriptionPreview}
+          </p>
+        </CardAccentSection>
       )}
 
       {npc.tags.length > 0 && (
-        <div className="mt-auto flex flex-wrap gap-2">
+        <div className="mt-auto flex flex-wrap gap-2 border-t border-[rgba(86,93,94,0.1)] pt-3">
           {npc.tags.slice(0, 4).map((tag) => (
             <span key={tag} className="app-pill-muted rounded-full px-2.5 py-1 text-xs">
               {tag}
             </span>
           ))}
           {npc.tags.length > 4 && (
-            <span className="app-pill-muted rounded-full px-2.5 py-1 text-xs">+{npc.tags.length - 4}</span>
+            <span className="app-pill-muted rounded-full px-2.5 py-1 text-xs">
+              +{npc.tags.length - 4}
+            </span>
           )}
         </div>
       )}
-    </button>
+    </article>
   );
 });

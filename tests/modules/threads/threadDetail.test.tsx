@@ -125,7 +125,7 @@ describe('ThreadDetail', () => {
     fireEvent.click(screen.getByRole('button', { name: /\+ Konsekwencja/i }));
 
     const dialog = await screen.findByRole('dialog', { name: /Podepnij istniejący wątek pochodny/i });
-    expect(within(dialog).getByText(/Wątki już podpięte do tego miejsca questline są zablokowane/i)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Wątki już podpięte do tego miejsca linii wątku są zablokowane/i)).toBeInTheDocument();
 
     const linkedThreadButton = await within(dialog).findByRole('button', { name: /Dziennik Strazniczki/i });
     expect(linkedThreadButton).toBeDisabled();

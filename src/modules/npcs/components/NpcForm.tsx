@@ -187,7 +187,7 @@ export function NpcForm({
 
       {/* Description */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-surface-800">Notatki</label>
+        <label className="text-sm font-medium text-surface-800">Opis</label>
         <Controller
           name="description"
           control={control}

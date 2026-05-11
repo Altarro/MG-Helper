@@ -3,7 +3,9 @@ import type { Entity } from '@shared/types/entity';
 export interface SessionData {
   number: number;   // session number (e.g. 1, 2, ...)
   date: string;     // ISO date string "YYYY-MM-DD"
-  summary: string;  // short plain-text summary
+  sessionGoal?: string;
+  summary: string;  // post-session summary
+  progressStatus?: SessionProgressStatus;
   status?: SessionLifecycleStatus;
   reportAvailable?: boolean;
   reportGeneratedAt?: string;
@@ -34,12 +36,21 @@ export const SESSION_LIFECYCLE_STATUSES = [
 
 export type SessionLifecycleStatus = (typeof SESSION_LIFECYCLE_STATUSES)[number];
 
+export const SESSION_PROGRESS_STATUSES = ['planned', 'completed'] as const;
+export type SessionProgressStatus = (typeof SESSION_PROGRESS_STATUSES)[number];
+
 export function getSessionLifecycleStatus(data: SessionData): SessionLifecycleStatus {
   const status = data.status;
   if (status === 'live' || status === 'cleanup_pending' || status === 'cleanup_completed') {
     return status;
   }
   return 'cleanup_completed';
+}
+
+export function getSessionProgressStatus(data: SessionData): SessionProgressStatus {
+  const status = data.progressStatus;
+  if (status === 'planned' || status === 'completed') return status;
+  return data.summary?.trim() ? 'completed' : 'planned';
 }
 
 export interface SessionScene {
