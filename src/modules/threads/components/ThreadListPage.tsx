@@ -31,7 +31,7 @@ import { toast } from 'sonner';
 import { formatPolishThreadCount } from '@shared/utils/polishPlural';
 import { reorderEntities } from '@shared/utils/dnd';
 import { getThreadDerivationKindLabel } from '@shared/domain/storyContracts';
-import type { Thread } from '../types';
+import { getThreadStakes, type Thread } from '../types';
 import type { ThreadFormValues } from './ThreadForm';
 import type { Relation } from '@shared/types/relation';
 import type { ThreadDerivationKindOption } from '@shared/domain/storyContracts';
@@ -158,6 +158,7 @@ export function ThreadList() {
       !lowerQuery ||
       thread.name.toLowerCase().includes(lowerQuery) ||
       thread.tags.some((tag) => tag.toLowerCase().includes(lowerQuery)) ||
+      getThreadStakes(thread).some((stake) => stake.toLowerCase().includes(lowerQuery)) ||
       relatedThreats.some((threat) => threat.name.toLowerCase().includes(lowerQuery))
     );
   });
@@ -216,7 +217,8 @@ export function ThreadList() {
           status: values.status,
           kind: values.kind,
           priority: values.priority,
-          resolution: values.resolution,
+          stakes: values.stakes,
+          resolution: values.status === 'completed' ? values.resolution : '',
         },
       });
       toast.success(`Wątek "${values.name}" utworzony`);

@@ -43,6 +43,7 @@ export interface ThreadData {
   status: ThreadStatus;
   kind?: ThreadKind;
   priority?: ThreadPriority;
+  stakes?: string[];
   resolution?: string;
   sortOrder?: number;
 }
@@ -51,4 +52,8 @@ export type Thread = Entity & { type: 'thread'; data: ThreadData };
 
 export function isThread(entity: Entity): entity is Thread {
   return entity.type === 'thread';
+}
+
+export function getThreadStakes(thread: { data: ThreadData }): string[] {
+  return Array.isArray(thread.data.stakes) ? thread.data.stakes : [];
 }

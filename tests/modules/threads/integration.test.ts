@@ -20,6 +20,7 @@ describe('Threads integration', () => {
         status: 'active',
         kind: 'main',
         priority: 'high',
+        stakes: ['Gildia przejmie port', 'Klucznik straci twarz'],
         resolution: 'Klucznik okazal sie sobowtorem',
       },
     });
@@ -30,6 +31,10 @@ describe('Threads integration', () => {
     expect((stored!.data as { status: string }).status).toBe('active');
     expect((stored!.data as { kind: string }).kind).toBe('main');
     expect((stored!.data as { priority: string }).priority).toBe('high');
+    expect((stored!.data as { stakes: string[] }).stakes).toEqual([
+      'Gildia przejmie port',
+      'Klucznik straci twarz',
+    ]);
     expect((stored!.data as { resolution: string }).resolution).toBe('Klucznik okazal sie sobowtorem');
   });
 

@@ -21,7 +21,7 @@ import { useRelatedEntities } from '@shared/hooks/useRelatedEntities';
 import { deleteEntity, deleteRelation, updateEntity } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { toast } from 'sonner';
-import { THREAD_KIND_LABELS, THREAD_PRIORITY_LABELS, THREAD_STATUS_LABELS } from '../types';
+import { getThreadStakes, THREAD_KIND_LABELS, THREAD_PRIORITY_LABELS, THREAD_STATUS_LABELS } from '../types';
 import {
   getThreadDerivationDirectionLabel,
   getThreadDerivationKindLabel,
@@ -31,6 +31,7 @@ import {
 import { formatDate } from '@shared/utils/date';
 import type { ThreadFormValues } from './ThreadForm';
 import { ThreadQuestlinePickerModal } from './ThreadQuestlinePickerModal';
+import { ThreadStakesList } from './ThreadStakesList';
 
 const THREAD_RESOLUTION_PRESETS = [
   'Wątek został domknięty przy stole.',
@@ -133,6 +134,7 @@ export function ThreadDetail() {
           status: values.status,
           kind: values.kind,
           priority: values.priority,
+          stakes: values.stakes,
           resolution: values.resolution,
         },
       });
@@ -216,6 +218,7 @@ export function ThreadDetail() {
   }
 
   const isCompleted = thread.data.status === 'completed';
+  const threadStakes = getThreadStakes(thread);
   const resolvedChildThreads = childThreads ?? [];
   const childGroups = THREAD_DERIVATION_KIND_OPTIONS.map((kind) => ({
     kind,
@@ -295,6 +298,7 @@ export function ThreadDetail() {
               status: thread.data.status,
               kind: thread.data.kind ?? 'side',
               priority: thread.data.priority ?? 'normal',
+              stakes: threadStakes,
               resolution: thread.data.resolution ?? '',
             }}
             onSubmit={handleUpdate}
@@ -333,6 +337,15 @@ export function ThreadDetail() {
                   className="prose prose-sm text-surface-700 max-w-none"
                   dangerouslySetInnerHTML={{ __html: thread.description }}
                 />
+              </div>
+            )}
+
+            {threadStakes.length > 0 && (
+              <div>
+                <h2 className="text-surface-500 mb-2 text-xs font-semibold tracking-wide uppercase">
+                  Stawki
+                </h2>
+                <ThreadStakesList stakes={threadStakes} />
               </div>
             )}
 

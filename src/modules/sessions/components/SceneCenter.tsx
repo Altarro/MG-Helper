@@ -31,8 +31,9 @@ import { isFaction } from '@modules/factions/types';
 import { isFront, isThreat } from '@modules/fronts/types';
 import { LOCATION_TYPE_LABELS } from '@modules/locations/types';
 import { isNpc, type Npc } from '@modules/npcs/types';
-import { isThread, type Thread } from '@modules/threads/types';
+import { getThreadStakes, isThread, type Thread } from '@modules/threads/types';
 import { ThreadCard, type ThreadQuestlineCardInfo } from '@modules/threads/components/ThreadCard';
+import { ThreadStakesList } from '@modules/threads/components/ThreadStakesList';
 import { getNpcLifecycleStatus, isPlayerNpc } from '@shared/utils/entityData';
 import type { Entity } from '@shared/types';
 import { CardAccentSection } from '@shared/components/CardAccentSection';
@@ -630,6 +631,7 @@ function ThreadContextModal({ thread, onClose }: { thread: Thread; sessionId: st
     description: string;
   } | null>(null);
   const isCompleted = thread.data.status === 'completed';
+  const threadStakes = getThreadStakes(thread);
 
   function handleToggleStatus() {
     if (thread.data.status === 'active') {
@@ -731,6 +733,15 @@ function ThreadContextModal({ thread, onClose }: { thread: Thread; sessionId: st
                   className="prose prose-sm text-surface-700 max-w-none"
                   dangerouslySetInnerHTML={{ __html: thread.description }}
                 />
+              </div>
+            )}
+
+            {threadStakes.length > 0 && (
+              <div>
+                <h2 className="text-surface-500 mb-2 text-xs font-semibold tracking-wide uppercase">
+                  Stawki
+                </h2>
+                <ThreadStakesList stakes={threadStakes} />
               </div>
             )}
 

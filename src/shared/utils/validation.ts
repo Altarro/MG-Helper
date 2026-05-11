@@ -179,6 +179,7 @@ export const threadSchema = baseEntitySchema.extend({
     status: z.enum(THREAD_STATUSES).default('active'),
     kind: z.enum(THREAD_KINDS).default('side'),
     priority: z.enum(THREAD_PRIORITIES).default('normal'),
+    stakes: z.array(z.string().max(500)).max(20).default([]),
     resolution: z.string().max(2000).default(''),
     sortOrder: z.number().int().min(0).optional(),
   }).default({}),

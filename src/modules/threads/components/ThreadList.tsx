@@ -114,7 +114,8 @@ export function ThreadList() {
           status: values.status,
           kind: values.kind,
           priority: values.priority,
-          resolution: values.resolution,
+          stakes: values.stakes,
+          resolution: values.status === 'completed' ? values.resolution : '',
         },
       });
       toast.success(`Wątek "${values.name}" utworzony`);

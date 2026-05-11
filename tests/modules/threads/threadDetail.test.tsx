@@ -48,7 +48,14 @@ describe('ThreadDetail', () => {
       name: 'Cena Ocalenia',
       description: '<p>Stol musi zdecydowac, komu oddac artefakt.</p>',
       tags: ['stol'],
-      data: { color: '#6366f1', status: 'active', kind: 'main', priority: 'high', resolution: '' },
+      data: {
+        color: '#6366f1',
+        status: 'active',
+        kind: 'main',
+        priority: 'high',
+        stakes: ['Artefakt trafi w ręce gildii'],
+        resolution: '',
+      },
     });
     const parentThread = await addEntity(db, {
       type: 'thread',
@@ -115,6 +122,7 @@ describe('ThreadDetail', () => {
 
     await waitFor(() => {
       expect(screen.getAllByText('Kupieni Radni').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Artefakt trafi w ręce gildii').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Czarny Przyplyw').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Konsekwencja').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Dziennik Strazniczki').length).toBeGreaterThan(0);
@@ -194,6 +202,70 @@ describe('ThreadDetail', () => {
     });
   });
 
+  it('edits stakes for active threads without showing resolution in the form', async () => {
+    const thread = await addEntity(db, {
+      type: 'thread',
+      name: 'Sprawa Stawki',
+      description: '',
+      tags: [],
+      data: { color: '#22c55e', status: 'active', kind: 'side', stakes: [], resolution: 'Stary efekt' },
+    });
+
+    renderThreadDetail(thread.id);
+
+    await waitFor(() => {
+      expect(screen.getByText('Sprawa Stawki')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Edytuj/i }));
+
+    expect(screen.queryByText(/Rozwiązanie \/ efekt/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Dodaj stawkę/i }));
+    fireEvent.change(screen.getByPlaceholderText(/Stawka 1/i), {
+      target: { value: 'Bohaterowie stracą zaufanie portu' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^Zapisz$/i }));
+
+    await waitFor(async () => {
+      const stored = await db.entities.get(thread.id);
+      expect(stored?.data).toMatchObject({
+        status: 'active',
+        stakes: ['Bohaterowie stracą zaufanie portu'],
+        resolution: '',
+      });
+    });
+  });
+
+  it('shows stakes as read-only when editing a completed thread', async () => {
+    const thread = await addEntity(db, {
+      type: 'thread',
+      name: 'Zamknięty Trop',
+      description: '',
+      tags: [],
+      data: {
+        color: '#22c55e',
+        status: 'completed',
+        kind: 'side',
+        stakes: ['Miasto zapamięta koszt decyzji'],
+        resolution: 'Trop został domknięty.',
+      },
+    });
+
+    renderThreadDetail(thread.id);
+
+    await waitFor(() => {
+      expect(screen.getByText('Zamknięty Trop')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Edytuj/i }));
+
+    expect(screen.getByText('Miasto zapamięta koszt decyzji')).toBeInTheDocument();
+    expect(screen.getByText(/Rozwiązanie \/ efekt/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Dodaj stawkę/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Usuń stawkę/i })).not.toBeInTheDocument();
+  });
+
   it('clears resolution when a completed thread is reactivated', async () => {
     const thread = await addEntity(db, {
       type: 'thread',
@@ -204,6 +276,7 @@ describe('ThreadDetail', () => {
         color: '#22c55e',
         status: 'completed',
         kind: 'side',
+        stakes: ['Bibliotekarz straci ostatni argument'],
         resolution: 'Archiwum zostało odzyskane.',
       },
     });
@@ -220,6 +293,7 @@ describe('ThreadDetail', () => {
       const stored = await db.entities.get(thread.id);
       expect(stored?.data).toMatchObject({
         status: 'active',
+        stakes: ['Bibliotekarz straci ostatni argument'],
         resolution: '',
       });
     });

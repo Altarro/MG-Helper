@@ -1,6 +1,7 @@
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { Plus, X } from 'lucide-react';
 import { TagInput } from '@shared/components/TagInput';
 import { RichTextEditor } from '@shared/components/RichTextEditor';
 import {
@@ -27,6 +28,7 @@ const threadFormSchema = z
     status: z.enum(['active', 'completed']).default('active'),
     kind: z.enum(THREAD_KINDS).default('side'),
     priority: z.enum(THREAD_PRIORITIES).default('normal'),
+    stakes: z.array(z.object({ value: z.string().max(500) })).max(20).default([]),
     resolution: z.string().max(2000).default(''),
   })
   .superRefine((data, ctx) => {
@@ -39,7 +41,19 @@ const threadFormSchema = z
     }
   });
 
-export type ThreadFormValues = z.infer<typeof threadFormSchema>;
+type ThreadFormRaw = z.infer<typeof threadFormSchema>;
+
+export interface ThreadFormValues {
+  name: string;
+  description: string;
+  tags: string[];
+  color: string;
+  status: 'active' | 'completed';
+  kind: (typeof THREAD_KINDS)[number];
+  priority: (typeof THREAD_PRIORITIES)[number];
+  stakes: string[];
+  resolution: string;
+}
 
 interface ThreadFormProps {
   defaultValues?: Partial<ThreadFormValues>;
@@ -49,6 +63,7 @@ interface ThreadFormProps {
 }
 
 export function ThreadForm({ defaultValues, onSubmit, onCancel, isSaving }: ThreadFormProps) {
+  const { stakes: defaultStakes = [], ...restDefaultValues } = defaultValues ?? {};
   const {
     register,
     handleSubmit,
@@ -56,7 +71,7 @@ export function ThreadForm({ defaultValues, onSubmit, onCancel, isSaving }: Thre
     watch,
     setValue,
     formState: { errors },
-  } = useForm<ThreadFormValues>({
+  } = useForm<ThreadFormRaw>({
     resolver: zodResolver(threadFormSchema),
     defaultValues: {
       name: '',
@@ -67,17 +82,30 @@ export function ThreadForm({ defaultValues, onSubmit, onCancel, isSaving }: Thre
       kind: 'side',
       priority: 'normal',
       resolution: '',
-      ...defaultValues,
+      ...restDefaultValues,
+      stakes: defaultStakes.map((value) => ({ value })),
     },
   });
 
+  const { fields, append, remove } = useFieldArray({ control, name: 'stakes' });
   const selectedColor = watch('color');
   const selectedStatus = watch('status');
+  const watchedStakes = watch('stakes');
+  const isCompleted = selectedStatus === 'completed';
   const nameErrorId = errors.name ? 'thread-name-error' : undefined;
   const resolutionErrorId = errors.resolution ? 'thread-resolution-error' : undefined;
 
+  function handleValidSubmit(raw: ThreadFormRaw) {
+    const stakes = raw.stakes.map((stake) => stake.value.trim()).filter(Boolean);
+    return onSubmit({
+      ...raw,
+      stakes,
+      resolution: raw.status === 'completed' ? raw.resolution.trim() : '',
+    });
+  }
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
+    <form onSubmit={handleSubmit(handleValidSubmit)} className="flex flex-col gap-4" noValidate>
       {/* Name */}
       <div className="flex flex-col gap-1.5">
         <label htmlFor="thread-name" className="text-sm font-medium text-surface-800">
@@ -207,17 +235,72 @@ export function ThreadForm({ defaultValues, onSubmit, onCancel, isSaving }: Thre
         />
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-surface-800">Rozwiązanie / efekt</label>
-        <textarea
-          {...register('resolution')}
-          rows={3}
-          className="app-input w-full rounded-2xl px-3.5 py-3 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-          placeholder="Jak ten wątek zakończył się albo do czego powinien doprowadzić?"
-          aria-invalid={errors.resolution ? 'true' : 'false'}
-          aria-describedby={resolutionErrorId}
-        />
-        {selectedStatus === 'completed' && (
+      <div className="app-panel rounded-[1.45rem] p-4">
+        <div className="flex items-center justify-between gap-3">
+          <label className="text-sm font-medium text-surface-800">Stawki</label>
+          {!isCompleted && (
+            <button
+              type="button"
+              onClick={() => append({ value: '' })}
+              className="text-primary-700 hover:text-primary-800 inline-flex items-center gap-1 text-xs font-medium transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" /> Dodaj stawkę
+            </button>
+          )}
+        </div>
+
+        {fields.length === 0 && (
+          <p className="text-surface-500 mt-2 text-xs leading-6">
+            {isCompleted ? 'Brak stawek.' : 'Brak stawek - dodaj, czym ryzykują bohaterowie.'}
+          </p>
+        )}
+
+        <div className="mt-3 flex flex-col gap-2">
+          {fields.map((field, i) =>
+            isCompleted ? (
+              <div
+                key={field.id}
+                className="app-input-shell flex min-w-0 gap-3 rounded-2xl px-3.5 py-2.5"
+              >
+                <span className="app-pill-muted inline-flex h-fit shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold tabular-nums">
+                  {i + 1}
+                </span>
+                <p className="text-surface-800 min-w-0 flex-1 text-sm leading-6 break-words">
+                  {watchedStakes?.[i]?.value ?? field.value}
+                </p>
+              </div>
+            ) : (
+              <div key={field.id} className="flex gap-2">
+                <input
+                  {...register(`stakes.${i}.value`)}
+                  className="app-input text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:ring-primary-500/20 flex-1 rounded-2xl px-3.5 py-2.5 text-sm focus:ring-2 focus:outline-none"
+                  placeholder={`Stawka ${i + 1}...`}
+                />
+                <button
+                  type="button"
+                  onClick={() => remove(i)}
+                  aria-label="Usuń stawkę"
+                  className="app-button-secondary text-surface-600 rounded-2xl p-2.5 transition-colors hover:text-red-700"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ),
+          )}
+        </div>
+      </div>
+
+      {isCompleted && (
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-surface-800">Rozwiązanie / efekt</label>
+          <textarea
+            {...register('resolution')}
+            rows={3}
+            className="app-input w-full rounded-2xl px-3.5 py-3 text-sm text-surface-900 placeholder:text-surface-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+            placeholder="Jak ten wątek zakończył się albo do czego powinien doprowadzić?"
+            aria-invalid={errors.resolution ? 'true' : 'false'}
+            aria-describedby={resolutionErrorId}
+          />
           <div className="flex flex-wrap gap-2">
             {THREAD_RESOLUTION_PRESETS.map((preset) => (
               <button
@@ -230,13 +313,13 @@ export function ThreadForm({ defaultValues, onSubmit, onCancel, isSaving }: Thre
               </button>
             ))}
           </div>
-        )}
-        {errors.resolution && (
-          <p id="thread-resolution-error" role="alert" className="text-xs text-red-600">
-            {errors.resolution.message}
-          </p>
-        )}
-      </div>
+          {errors.resolution && (
+            <p id="thread-resolution-error" role="alert" className="text-xs text-red-600">
+              {errors.resolution.message}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Description */}
       <div className="flex flex-col gap-1.5">

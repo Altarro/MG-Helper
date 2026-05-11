@@ -389,6 +389,7 @@ export function ThreadTreePanel({
           status: 'active',
           kind: newKind,
           priority: 'normal',
+          stakes: [],
           resolution: '',
         },
       });

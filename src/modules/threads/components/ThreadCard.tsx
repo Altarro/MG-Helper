@@ -1,8 +1,9 @@
 import { Fragment, memo, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { CheckCircle2, FileText, GitBranch, Tag } from 'lucide-react';
-import { CardAccentSection } from '@shared/components/CardAccentSection';
+import { CheckCircle2, FileText, GitBranch, Scale, Tag } from 'lucide-react';
+import { CardAccentList, CardAccentSection } from '@shared/components/CardAccentSection';
 import {
+  getThreadStakes,
   THREAD_KIND_LABELS,
   THREAD_PRIORITY_LABELS,
   THREAD_STATUS_LABELS,
@@ -76,6 +77,7 @@ export const ThreadCard = memo(function ThreadCard({
     resolution.length > RESOLUTION_MAX_CHARS
       ? `${resolution.slice(0, RESOLUTION_MAX_CHARS).trimEnd()}...`
       : resolution;
+  const stakesText = getThreadStakes(thread).map((stake) => applyPolishTypography(stake));
 
   const isCompleted = thread.data.status === 'completed';
   const questlineGroups = getQuestlineGroups(questline);
@@ -125,6 +127,18 @@ export const ThreadCard = memo(function ThreadCard({
             <p className="text-sm leading-6 whitespace-pre-wrap text-surface-700">
               {applyPolishTypography(preview)}
             </p>
+          </CardAccentSection>
+        )}
+
+        {stakesText.length > 0 && (
+          <CardAccentSection
+            label="Stawki"
+            icon={Scale}
+            tone="warning"
+            maxLines={5}
+            remeasureKey={stakesText.join('\u0001')}
+          >
+            <CardAccentList items={stakesText} markerClassName="bg-warning-500/80" />
           </CardAccentSection>
         )}
 
