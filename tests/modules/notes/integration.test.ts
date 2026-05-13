@@ -2,10 +2,11 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { addEntity, addRelation, deleteEntity } from '@shared/db/operations';
 import { openCampaignDb } from '@shared/db/database';
 import { setActiveCampaignId, saveCampaign } from '@shared/db/campaignStore';
-import { isNote } from '@modules/notes/types';
+import { BACKSTAGE_SCENARIO_NOTE_KIND, isNote } from '@modules/notes/types';
 import { renderHook, waitFor } from '@testing-library/react';
 import { CampaignProvider } from '@shared/db/CampaignContext';
 import React from 'react';
+import { useNotes } from '@modules/notes/hooks/useNotes';
 import { useNotesBySession } from '@modules/notes/hooks/useNotesBySession';
 import { useNotesFor } from '@modules/notes/hooks/useNotesFor';
 
@@ -144,6 +145,51 @@ describe('Notes integration', () => {
     const ids = result.current!.map((n) => n.id);
     expect(ids).toContain(note1.id);
     expect(ids).toContain(note2.id);
+  });
+
+  it('hides backstage scenario notes from regular note hooks', async () => {
+    const npc = await addEntity(db, {
+      type: 'npc',
+      name: 'Mirela',
+      description: '',
+      tags: [],
+      data: { instinct: '', motivation: '', appearance: '', playStyle: '', isPC: false, playerName: '' },
+    });
+    const regularNote = await addEntity(db, {
+      type: 'note',
+      name: 'Zwykła notatka',
+      description: '',
+      tags: [],
+      data: { content: 'Treść notatki', sessionId: 's1', createdAt: '2024-01-01T10:00:00Z' },
+    });
+    const scenarioNote = await addEntity(db, {
+      type: 'note',
+      name: 'Scenariusz',
+      description: '<h2>Scena 1</h2><p>Ukryty scenariusz</p>',
+      tags: [],
+      data: {
+        kind: BACKSTAGE_SCENARIO_NOTE_KIND,
+        content: 'Ukryty scenariusz',
+        sessionId: 's1',
+        createdAt: '2024-01-01T11:00:00Z',
+        cleanupDecision: 'keep',
+        scenes: [],
+      },
+    });
+    await addRelation(db, { type: 'related_to', sourceId: scenarioNote.id, targetId: npc.id });
+    await addRelation(db, { type: 'related_to', sourceId: regularNote.id, targetId: npc.id });
+
+    const notes = renderHook(() => useNotes(), { wrapper });
+    await waitFor(() => expect(notes.result.current).not.toBeUndefined());
+    expect(notes.result.current!.map((note) => note.id)).toEqual([regularNote.id]);
+
+    const sessionNotes = renderHook(() => useNotesBySession('s1'), { wrapper });
+    await waitFor(() => expect(sessionNotes.result.current).not.toBeUndefined());
+    expect(sessionNotes.result.current!.map((note) => note.id)).toEqual([regularNote.id]);
+
+    const relatedNotes = renderHook(() => useNotesFor(npc.id), { wrapper });
+    await waitFor(() => expect(relatedNotes.result.current).not.toBeUndefined());
+    expect(relatedNotes.result.current!.map((note) => note.id)).toEqual([regularNote.id]);
   });
 
   it('cascade-deletes note with its relations', async () => {

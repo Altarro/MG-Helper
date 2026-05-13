@@ -6,7 +6,8 @@ import { CampaignProvider } from '@shared/db/CampaignContext';
 import { saveCampaign, setActiveCampaignId } from '@shared/db/campaignStore';
 import { openCampaignDb } from '@shared/db/database';
 import { NoteList } from '@modules/notes/components/NoteList';
-import { isNote } from '@modules/notes/types';
+import { BACKSTAGE_SCENARIO_NOTE_KIND, isNote } from '@modules/notes/types';
+import { addEntity } from '@shared/db/operations';
 
 const TEST_ID = '__note-list__';
 const db = openCampaignDb(TEST_ID);
@@ -56,5 +57,27 @@ describe('NoteList', () => {
       expect(note!.data.sessionId).toBe('');
       expect(note!.data.cleanupDecision).toBe('keep');
     });
+  });
+
+  it('does not show the backstage scenario in the notes menu', async () => {
+    await addEntity(db, {
+      type: 'note',
+      name: 'Scenariusz',
+      description: '<h2>Scena 1</h2><p>Ukryta treść</p>',
+      tags: [],
+      data: {
+        kind: BACKSTAGE_SCENARIO_NOTE_KIND,
+        content: 'Ukryta treść',
+        sessionId: '',
+        createdAt: '2024-01-01T10:00:00Z',
+        cleanupDecision: 'keep',
+        scenes: [],
+      },
+    });
+
+    renderNoteList();
+
+    expect(await screen.findByText('Brak notatek')).toBeInTheDocument();
+    expect(screen.queryByText('Scenariusz')).not.toBeInTheDocument();
   });
 });

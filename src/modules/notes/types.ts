@@ -1,5 +1,7 @@
 import type { Entity } from '@shared/types/entity';
 
+export const BACKSTAGE_SCENARIO_NOTE_KIND = 'backstage_scenario';
+
 export interface NoteData {
   [key: string]: unknown;
   content: string;
@@ -16,4 +18,12 @@ export interface Note extends Entity {
 
 export function isNote(entity: Entity): entity is Note {
   return entity.type === 'note';
+}
+
+export function isBackstageScenarioNote(entity: Entity): entity is Note {
+  return isNote(entity) && entity.data.kind === BACKSTAGE_SCENARIO_NOTE_KIND;
+}
+
+export function isRegularNote(entity: Entity): entity is Note {
+  return isNote(entity) && entity.data.kind !== BACKSTAGE_SCENARIO_NOTE_KIND;
 }

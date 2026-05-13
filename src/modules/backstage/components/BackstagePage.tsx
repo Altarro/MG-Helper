@@ -1,5 +1,5 @@
 import { useEffect, useState, type KeyboardEvent } from 'react';
-import { ArrowUp, GitFork, Radar, Sparkles, Table2, Theater } from 'lucide-react';
+import { ArrowUp, BookOpen, GitFork, Radar, Sparkles, Table2, Theater } from 'lucide-react';
 import { scrollWindowToElementId } from '@shared/utils/scrollToAnchor';
 import { useBackstage } from '../hooks/useBackstage';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
@@ -13,12 +13,13 @@ import { BackstageSummaryPanel } from './BackstageSummaryPanel';
 import { BackstageHintsPanel } from './BackstageHintsPanel';
 import { GraphPage } from '@modules/graph/components/GraphPage';
 import { BackstageEvoGeneratorPanel } from './BackstageEvoGeneratorPanel';
+import { BackstageScenarioPanel } from './BackstageScenarioPanel';
 
-type TabId = 'radar' | 'matrix' | 'graph' | 'evo';
+type TabId = 'scenario' | 'radar' | 'matrix' | 'graph' | 'evo';
 
 export function BackstagePage() {
   const data = useBackstage();
-  const [tab, setTab] = useState<TabId>('matrix');
+  const [tab, setTab] = useState<TabId>('scenario');
   const [clueFilter, setClueFilter] = useState<ClueMatrixFilter>('all');
   const [showFloatingTop, setShowFloatingTop] = useState(false);
 
@@ -50,6 +51,7 @@ export function BackstagePage() {
   const openThreadsCount = threads.filter((thread) => thread.data.status !== 'completed').length;
   const activeThreatsCount = threats.filter((threat) => threat.data.status !== 'completed').length;
   const tabMeta: Array<{ id: TabId; label: string; icon: typeof Radar; inDevelopment?: boolean }> = [
+    { id: 'scenario', label: 'Scenariusz', icon: BookOpen },
     { id: 'matrix', label: 'Macierz sesji', icon: Table2 },
     { id: 'graph', label: 'Graf relacji', icon: GitFork, inDevelopment: true },
     { id: 'radar', label: 'Radar zagrożeń', icon: Radar, inDevelopment: true },
@@ -146,6 +148,17 @@ export function BackstagePage() {
           </button>
         ))}
       </div>
+
+      {tab === 'scenario' && (
+        <section
+          id="backstage-panel-scenario"
+          role="tabpanel"
+          aria-labelledby="backstage-tab-scenario"
+          className="min-h-0"
+        >
+          <BackstageScenarioPanel />
+        </section>
+      )}
 
       {tab === 'radar' && (
         <section
