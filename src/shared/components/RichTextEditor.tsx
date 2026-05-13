@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
+import { useLiveQuery } from 'dexie-react-hooks';
 import {
   Bold,
   Italic,
@@ -13,6 +14,9 @@ import {
   Undo,
   Redo,
 } from 'lucide-react';
+import { useCampaign } from '@shared/db/CampaignContext';
+import { ENTITY_TYPES, type EntityType } from '@shared/types/entity';
+import { ENTITY_TYPE_LABELS, getEntityDetailPath } from '@shared/utils/entityTypeMeta';
 
 interface RichTextEditorProps {
   value: string;
@@ -45,6 +49,26 @@ function ToolbarButton({ onClick, active, label, children }: ToolbarButtonProps)
   );
 }
 
+const EntityLink = Link.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      entityId: {
+        default: null,
+        parseHTML: (element) => element.getAttribute('data-entity-id'),
+        renderHTML: (attributes) =>
+          attributes.entityId ? { 'data-entity-id': attributes.entityId as string } : {},
+      },
+      entityType: {
+        default: null,
+        parseHTML: (element) => element.getAttribute('data-entity-type'),
+        renderHTML: (attributes) =>
+          attributes.entityType ? { 'data-entity-type': attributes.entityType as string } : {},
+      },
+    };
+  },
+});
+
 export function RichTextEditor({
   value,
   onChange,
@@ -52,12 +76,30 @@ export function RichTextEditor({
   placeholder = 'Wpisz opis...',
   className = '',
 }: RichTextEditorProps) {
+  const { db } = useCampaign();
   const isInternalChange = useRef(false);
+  const [entityPickerOpen, setEntityPickerOpen] = useState(false);
+  const [entityType, setEntityType] = useState<EntityType>('npc');
+  const [entityQuery, setEntityQuery] = useState('');
+  const entityCandidates = useLiveQuery(
+    () =>
+      db.entities
+        .where('type')
+        .equals(entityType)
+        .toArray(),
+    [db, entityType],
+  );
+  const filteredEntities = useMemo(() => {
+    const lowerQuery = entityQuery.trim().toLowerCase();
+    return (entityCandidates ?? [])
+      .filter((entity) => !lowerQuery || entity.name.toLowerCase().includes(lowerQuery))
+      .slice(0, 30);
+  }, [entityCandidates, entityQuery]);
 
   const editor = useEditor({
     extensions: [
       StarterKit,
-      Link.configure({ openOnClick: false, autolink: true }),
+      EntityLink.configure({ openOnClick: false, autolink: false, linkOnPaste: false }),
     ],
     content: value,
     editorProps: {
@@ -89,10 +131,31 @@ export function RichTextEditor({
 
   if (!editor) return null;
 
-  function setLink() {
-    const url = window.prompt('URL linku:');
-    if (!url) return;
-    editor?.chain().focus().setLink({ href: url }).run();
+  function insertEntityLink(entityId: string, type: EntityType, name: string) {
+    const path = getEntityDetailPath(type, entityId);
+    if (!path) return;
+
+    editor
+      ?.chain()
+      .focus()
+      .insertContent({
+        type: 'text',
+        text: name,
+        marks: [
+          {
+            type: 'link',
+            attrs: {
+              href: `#${path}`,
+              entityId,
+              entityType: type,
+            },
+          },
+        ],
+      })
+      .insertContent(' ')
+      .run();
+    setEntityPickerOpen(false);
+    setEntityQuery('');
   }
 
   return (
@@ -144,9 +207,9 @@ export function RichTextEditor({
         </ToolbarButton>
         <div className="mx-1 w-px bg-[rgba(86,93,94,0.14)]" aria-hidden="true" />
         <ToolbarButton
-          onClick={setLink}
-          active={editor.isActive('link')}
-          label="Wstaw link"
+          onClick={() => setEntityPickerOpen((open) => !open)}
+          active={entityPickerOpen}
+          label="Wstaw link do encji"
         >
           <LinkIcon className="h-4 w-4" />
         </ToolbarButton>
@@ -165,6 +228,55 @@ export function RichTextEditor({
           </ToolbarButton>
         </div>
       </div>
+      {entityPickerOpen && (
+        <div className="border-b border-[rgba(86,93,94,0.14)] bg-surface-50 px-3 py-3">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center">
+            <select
+              value={entityType}
+              onChange={(event) => setEntityType(event.target.value as EntityType)}
+              className="app-input rounded-xl px-3 py-2 text-sm"
+              aria-label="Typ encji linku"
+            >
+              {ENTITY_TYPES.filter((type) => type !== 'event').map((type) => (
+                <option key={type} value={type}>
+                  {ENTITY_TYPE_LABELS[type]}
+                </option>
+              ))}
+            </select>
+            <input
+              value={entityQuery}
+              onChange={(event) => setEntityQuery(event.target.value)}
+              placeholder="Szukaj encji..."
+              className="app-input min-w-0 flex-1 rounded-xl px-3 py-2 text-sm"
+              aria-label="Szukaj encji do linku"
+            />
+            <button
+              type="button"
+              onClick={() => setEntityPickerOpen(false)}
+              className="app-button-secondary rounded-xl px-3 py-2 text-sm font-medium"
+            >
+              Zamknij
+            </button>
+          </div>
+          <div className="mt-2 max-h-40 overflow-auto rounded-xl border border-surface-200 bg-white p-1">
+            {filteredEntities.length === 0 ? (
+              <p className="px-3 py-2 text-sm text-surface-500">Brak wyników</p>
+            ) : (
+              filteredEntities.map((entity) => (
+                <button
+                  key={entity.id}
+                  type="button"
+                  onClick={() => insertEntityLink(entity.id, entity.type, entity.name)}
+                  className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm hover:bg-primary-50"
+                >
+                  <span className="min-w-0 truncate font-medium text-surface-800">{entity.name}</span>
+                  <span className="shrink-0 text-xs text-surface-500">{ENTITY_TYPE_LABELS[entity.type]}</span>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
       <EditorContent editor={editor} />
     </div>
   );

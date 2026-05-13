@@ -25,6 +25,7 @@ export * from './LoadingSpinner';
 export * from './Modal';
 export * from './RelationList';
 export * from './RelationPicker';
+export * from './RichTextContent';
 export * from './RichTextEditor';
 export * from './SearchBar';
 export * from './TagInput';

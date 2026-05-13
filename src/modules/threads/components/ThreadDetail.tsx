@@ -17,6 +17,7 @@ import { ClueSection } from '@shared/components/ClueSection';
 import { DetailSection } from '@shared/components/DetailSection';
 import { DetailScrollTopFab } from '@shared/components/DetailScrollTopFab';
 import { DetailTocBar } from '@shared/components/DetailTocBar';
+import { RichTextContent } from '@shared/components/RichTextContent';
 import { useRelatedEntities } from '@shared/hooks/useRelatedEntities';
 import { deleteEntity, deleteRelation, updateEntity } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
@@ -329,9 +330,9 @@ export function ThreadDetail() {
                 <h2 className="text-emerald-800 mb-2 text-xs font-semibold tracking-wide uppercase">
                   Opis
                 </h2>
-                <div
+                <RichTextContent
+                  html={thread.description}
                   className="prose prose-sm text-surface-700 max-w-none"
-                  dangerouslySetInnerHTML={{ __html: thread.description }}
                 />
               </div>
             )}

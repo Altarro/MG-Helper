@@ -346,6 +346,77 @@ main > * {
   background: rgba(176, 108, 103, 0.16);
 }
 
+.rich-text-content,
+.ProseMirror {
+  line-height: 1.7;
+}
+
+.rich-text-content h2,
+.ProseMirror h2 {
+  margin: 1.15em 0 0.45em;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-primary-900);
+}
+
+.rich-text-content h3,
+.ProseMirror h3 {
+  margin: 1em 0 0.4em;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-surface-900);
+}
+
+.rich-text-content ul,
+.rich-text-content ol,
+.ProseMirror ul,
+.ProseMirror ol {
+  margin: 0.65em 0;
+  padding-left: 1.35rem;
+}
+
+.rich-text-content ul,
+.ProseMirror ul {
+  list-style: disc;
+}
+
+.rich-text-content ol,
+.ProseMirror ol {
+  list-style: decimal;
+}
+
+.rich-text-content li,
+.ProseMirror li {
+  margin: 0.2em 0;
+}
+
+.rich-text-content a,
+.ProseMirror a {
+  color: var(--color-primary-700);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.rich-text-content a:not([data-entity-id]) {
+  color: inherit;
+  cursor: text;
+  text-decoration: none;
+}
+
+.rich-text-content a[data-entity-id],
+.ProseMirror a[data-entity-id] {
+  border-radius: 999px;
+  background: rgba(111, 146, 164, 0.14);
+  cursor: pointer;
+  padding: 0.05rem 0.35rem;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.rich-text-content[data-readonly-links="true"] a[data-entity-id] {
+  cursor: default;
+}
+
 /* Neutral outline actions: stronger hover/focus feedback across the app */
 button.border-surface-200.hover\:bg-surface-50,
 button.border-surface-300.hover\:bg-surface-50,

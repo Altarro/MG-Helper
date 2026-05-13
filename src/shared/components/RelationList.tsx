@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { X, Link as LinkIcon } from 'lucide-react';
+import { Pencil, X, Link as LinkIcon } from 'lucide-react';
 import { useRelations } from '@shared/hooks/useRelations';
 import { useEntityById } from '@shared/hooks/useEntityById';
 import { useCampaign } from '@shared/db/CampaignContext';
@@ -17,6 +17,7 @@ import { EntityTypeBadge } from './EntityTypeBadge';
 import { getEntityDetailPath } from '@shared/utils/entityTypeMeta';
 import { InlineEmptyState } from './InlineEmptyState';
 import { ConfirmDialog } from './ConfirmDialog';
+import { RelationPicker } from './RelationPicker';
 
 const RELATION_LABELS: Record<RelationType, string> = {
   contains: 'Zawiera',
@@ -55,10 +56,13 @@ function RelationRow({
   const navigate = useNavigate();
   const location = useLocation();
   const other = useEntityById(otherId);
+  const source = useEntityById(relation.sourceId);
+  const target = useEntityById(relation.targetId);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editing, setEditing] = useState(false);
 
-  if (!other) return null;
+  if (!other || !source || !target) return null;
 
   const detailPath = getEntityDetailPath(other.type, other.id);
   const canOpen = Boolean(onNavigate || detailPath);
@@ -149,6 +153,15 @@ function RelationRow({
       <div className="flex shrink-0 items-center self-stretch border-l border-[rgba(86,93,94,0.14)] bg-transparent px-2">
         <button
           type="button"
+          onClick={() => setEditing(true)}
+          disabled={deleting}
+          aria-label="Edytuj relację"
+          className="text-surface-400 hover:text-primary-700 hover:bg-primary-50 shrink-0 rounded-full p-1 transition-colors disabled:opacity-50"
+        >
+          <Pencil className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
           onClick={() => setConfirmDelete(true)}
           disabled={deleting}
           aria-label="Usuń relację"
@@ -164,6 +177,19 @@ function RelationRow({
         onConfirm={() => void handleDelete()}
         onCancel={() => !deleting && setConfirmDelete(false)}
       />
+      {editing && (
+        <RelationPicker
+          sourceId={relation.sourceId}
+          sourceType={source.type}
+          initialRelationId={relation.id}
+          initialTargetType={target.type}
+          initialTargetId={relation.targetId}
+          initialRelationType={relation.type}
+          initialRelationMeta={relation.meta}
+          initialLabel={relation.label ?? ''}
+          onClose={() => setEditing(false)}
+        />
+      )}
     </li>
   );
 }

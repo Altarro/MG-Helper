@@ -19,6 +19,7 @@ import { DetailTocBar } from '@shared/components/DetailTocBar';
 import { NarrativeLinksSection } from '@shared/components/NarrativeLinksSection';
 import { useRelatedEntities } from '@shared/hooks/useRelatedEntities';
 import { EntityDetailPortrait } from '@shared/components/EntityDetailPortrait';
+import { RichTextContent } from '@shared/components/RichTextContent';
 import { DraggableNpcChip } from '@shared/components/DraggableNpcChip';
 import { DroppableLocationZone } from '@shared/components/DroppableLocationZone';
 import {
@@ -441,9 +442,9 @@ export function LocationDetail() {
               {location.description && (
                 <div className="rounded-[1.25rem] border border-[rgba(112,128,152,0.34)] bg-[linear-gradient(180deg,rgba(201,214,228,0.36)_0%,rgba(164,181,200,0.24)_100%)] px-5 py-4 shadow-[0_12px_24px_rgba(58,74,94,0.11),inset_0_1px_0_rgba(255,255,255,0.3)]">
                   <h2 className="mb-2 text-xs font-semibold tracking-wide text-[rgb(46,61,84)] uppercase">Opis</h2>
-                  <div
+                  <RichTextContent
+                    html={location.description}
                     className="prose prose-sm text-surface-800 max-w-none"
-                    dangerouslySetInnerHTML={{ __html: location.description }}
                   />
                 </div>
               )}

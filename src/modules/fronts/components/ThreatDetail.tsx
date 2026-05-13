@@ -17,6 +17,7 @@ import { ClueSection } from '@shared/components/ClueSection';
 import { DetailSection } from '@shared/components/DetailSection';
 import { DetailScrollTopFab } from '@shared/components/DetailScrollTopFab';
 import { DetailTocBar } from '@shared/components/DetailTocBar';
+import { RichTextContent } from '@shared/components/RichTextContent';
 import { NotesList } from '@modules/notes/components/NotesList';
 import {
   addEntity,
@@ -408,10 +409,22 @@ export function ThreatDetail() {
   }
 
   async function handleRelinkFront() {
-    if (!relinkFrontId || relinkFrontSaving) return;
+    if (relinkFrontSaving) return;
 
     setRelinkFrontSaving(true);
     try {
+      if (!relinkFrontId) {
+        const relationId = parentFront?.[0]?.relation.id;
+        if (relationId) {
+          await deleteRelation(db, relationId);
+          toast.success('Odłączono zagrożenie od frontu');
+        } else {
+          toast.success('Zagrożenie nie było przypisane do frontu');
+        }
+        setShowFrontRelinkModal(false);
+        return;
+      }
+
       await assignBelongsTo(db, {
         sourceId: threatId,
         targetId: relinkFrontId,
@@ -787,9 +800,9 @@ export function ThreatDetail() {
           {currentThreat.description && (
             <DetailSection sectionId="threat-detail-opis" title="Opis">
               <div className="app-panel min-w-0 w-full rounded-[1.5rem] p-5 lg:p-6">
-                <div
+                <RichTextContent
+                  html={currentThreat.description}
                   className="prose prose-sm prose-headings:text-surface-800 prose-p:text-surface-800 prose-li:text-surface-800 prose-a:text-primary-700 min-w-0 w-full max-w-none text-pretty text-surface-800 [&_*]:max-w-none"
-                  dangerouslySetInnerHTML={{ __html: currentThreat.description }}
                 />
               </div>
             </DetailSection>
@@ -1065,6 +1078,7 @@ export function ThreatDetail() {
                     className="app-input text-surface-800 focus:border-primary-500 rounded-[1.1rem] px-3 py-2.5 text-sm focus:outline-none"
                     autoFocus
                   >
+                    <option value="">Brak frontu</option>
                     {fronts.map((front) => (
                       <option key={front.id} value={front.id}>
                         {front.name}
@@ -1088,7 +1102,7 @@ export function ThreatDetail() {
                   <button
                     type="button"
                     onClick={() => void handleRelinkFront()}
-                    disabled={!relinkFrontId || relinkFrontSaving}
+                    disabled={relinkFrontSaving}
                     className="app-button-primary rounded-full px-4 py-2 text-sm font-medium disabled:opacity-50"
                   >
                     {relinkFrontSaving ? 'Zapisywanie...' : 'Zapisz'}

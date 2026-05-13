@@ -121,7 +121,7 @@ export function TagInput({ value, onChange, placeholder = 'Dodaj tag...' }: TagI
           <ul
             role="listbox"
             aria-label="Sugestie tagów"
-            className="app-panel-strong fixed z-[80] max-h-48 overflow-auto rounded-2xl py-1.5"
+            className="app-panel-strong fixed z-[80] max-h-32 overflow-auto rounded-2xl py-1.5"
             style={{
               top: dropdownStyle.top,
               left: dropdownStyle.left,

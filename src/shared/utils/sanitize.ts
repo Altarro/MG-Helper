@@ -7,7 +7,7 @@ const ALLOWED_TAGS = [
   'a', 'blockquote', 'code', 'pre',
 ];
 
-const ALLOWED_ATTR = ['href', 'target', 'rel'];
+const ALLOWED_ATTR = ['href', 'target', 'rel', 'data-entity-id', 'data-entity-type'];
 const TEXT_BOUNDARY_TAGS =
   /<\/?(?:address|article|aside|blockquote|br|dd|div|dl|dt|figcaption|figure|footer|h[1-6]|header|hr|li|main|nav|ol|p|pre|section|table|tbody|td|tfoot|th|thead|tr|ul)\b[^>]*>/gi;
 

@@ -41,6 +41,7 @@ import type { GeneratorPack, GeneratorTable } from '@modules/generator/contracts
 import { GeneratorSettingsPanel } from './components/GeneratorSettingsPanel';
 import { ThreatRadarSettingsPanel } from './components/ThreatRadarSettingsPanel';
 import { CampaignSettingsPanel } from './components/CampaignSettingsPanel';
+import { CampaignTagsPanel } from './components/CampaignTagsPanel';
 import { toast } from 'sonner';
 
 type ImportResultView =
@@ -49,7 +50,7 @@ type ImportResultView =
 
 export function SettingsPage() {
   const { db, campaignId } = useCampaign();
-  const [activeTab, setActiveTab] = useState<'system' | 'campaign' | 'generator' | 'threat_radar'>('system');
+  const [activeTab, setActiveTab] = useState<'system' | 'campaign' | 'tags' | 'generator' | 'threat_radar'>('system');
   const jsonInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
@@ -287,6 +288,17 @@ export function SettingsPage() {
           }`}
         >
           Ustawienia kampanii
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('tags')}
+          className={`rounded-full px-4 py-2 text-xs font-semibold transition-all ${
+            activeTab === 'tags'
+              ? 'app-pill'
+              : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+          }`}
+        >
+          Tagi kampanii
         </button>
         <button
           type="button"
@@ -630,6 +642,8 @@ export function SettingsPage() {
       {activeTab === 'campaign' && (
         <CampaignSettingsPanel campaignId={campaignId} />
       )}
+
+      {activeTab === 'tags' && <CampaignTagsPanel />}
 
       {activeTab === 'threat_radar' && (
         <ThreatRadarSettingsPanel campaignId={campaignId} />

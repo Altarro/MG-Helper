@@ -192,7 +192,7 @@ describe('Session live panels QoL regressions', () => {
     const thread = await addEntity(db, {
       type: 'thread',
       name: 'Szkarłatny Trop',
-      description: 'Opis testowy',
+      description: '<p>Opis <a href="#/npcs/npc-1" data-entity-id="npc-1" data-entity-type="npc">jawny trop</a>.</p>',
       tags: [],
       data: { color: '#ef4444', status: 'active', kind: 'side' },
     });
@@ -202,6 +202,20 @@ describe('Session live panels QoL regressions', () => {
     renderInCampaign(<SessionSearchPanel sessionId={session.id} />);
 
     expect(screen.getByRole('textbox', { name: 'Szukaj encji w sesji' })).toBeInTheDocument();
+    expect(await screen.findByText('Opis jawny trop.')).toBeInTheDocument();
+    expect(screen.queryByText(/data-entity-id/)).not.toBeInTheDocument();
+
+    const searchInput = screen.getByRole('textbox', { name: 'Szukaj encji w sesji' });
+    await user.type(searchInput, 'jawny trop');
+    expect(screen.getByText('Szkarłatny Trop')).toBeInTheDocument();
+
+    await user.clear(searchInput);
+    await user.type(searchInput, 'data-entity-id');
+    await waitFor(() => {
+      expect(screen.queryByText('Szkarłatny Trop')).not.toBeInTheDocument();
+    });
+
+    await user.clear(searchInput);
 
     const pinButton = await screen.findByRole('button', { name: 'Przypnij do sceny: Szkarłatny Trop' });
     pinButton.focus();

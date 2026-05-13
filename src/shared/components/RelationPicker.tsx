@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Search } from 'lucide-react';
+import { Check, Plus, Search } from 'lucide-react';
 import { useEntitiesByType } from '@shared/hooks/useEntitiesByType';
-import { addRelation } from '@shared/db/operations';
+import { addRelation, updateRelation } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { isRelationAllowed } from '@shared/db/relationRules';
 import { useDebounce } from '@shared/hooks/useDebounce';
@@ -36,11 +36,15 @@ interface RelationPickerProps {
   sourceType: EntityType;
   onClose: () => void;
   initialTargetType?: EntityType;
+  initialTargetId?: string;
   initialRelationType?: RelationType;
   initialRelationMeta?: RelationMeta;
+  initialLabel?: string;
+  initialRelationId?: string;
   lockTargetType?: boolean;
   lockRelationType?: boolean;
   allowedTargetTypes?: EntityType[];
+  onSaved?: () => void;
 }
 
 export function RelationPicker({
@@ -48,17 +52,23 @@ export function RelationPicker({
   sourceType,
   onClose,
   initialTargetType = 'npc',
+  initialTargetId,
   initialRelationType = 'related_to',
   initialRelationMeta,
+  initialLabel = '',
+  initialRelationId,
   lockTargetType = false,
   lockRelationType = false,
   allowedTargetTypes,
+  onSaved,
 }: RelationPickerProps) {
   const { db } = useCampaign();
+  const isEditing = Boolean(initialRelationId);
   const [targetType, setTargetType] = useState<EntityType>(initialTargetType);
+  const [selectedTargetId, setSelectedTargetId] = useState(initialTargetId ?? '');
   const [relationType, setRelationType] = useState<RelationType>(initialRelationType);
   const [relationMeta, setRelationMeta] = useState<RelationMeta | undefined>(initialRelationMeta);
-  const [label, setLabel] = useState('');
+  const [label, setLabel] = useState(initialLabel);
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebounce(query, 200);
   const [saving, setSaving] = useState(false);
@@ -68,6 +78,7 @@ export function RelationPicker({
   useEffect(() => {
     if (!selectableTargetTypes.includes(targetType)) {
       setTargetType(selectableTargetTypes[0] ?? 'npc');
+      setSelectedTargetId('');
     }
   }, [selectableTargetTypes, targetType]);
 
@@ -83,6 +94,7 @@ export function RelationPicker({
       (debouncedQuery === '' ||
         e.name.toLowerCase().includes(debouncedQuery.toLowerCase())),
   ) ?? [];
+  const selectedTarget = candidates?.find((entity) => entity.id === selectedTargetId);
 
   const allowedRelations = (RELATION_TYPES as readonly RelationType[]).filter((rt) =>
     isRelationAllowed(sourceType, targetType, rt),
@@ -136,6 +148,7 @@ export function RelationPicker({
         meta: relationMeta,
       });
       toast.success('Relacja dodana');
+      onSaved?.();
       onClose();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Nie udało się dodać relacji');
@@ -143,13 +156,33 @@ export function RelationPicker({
     }
   }
 
+  async function handleUpdate() {
+    if (!initialRelationId || !selectedTargetId) return;
+
+    setSaving(true);
+    try {
+      await updateRelation(db, initialRelationId, {
+        targetId: selectedTargetId,
+        type: relationType,
+        label: label.trim() || undefined,
+        meta: relationMeta,
+      });
+      toast.success('Relacja zaktualizowana');
+      onSaved?.();
+      onClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Nie udało się zaktualizować relacji');
+      setSaving(false);
+    }
+  }
+
   return (
     <Modal
-      title="Dodaj relację"
+      title={isEditing ? 'Edytuj relację' : 'Dodaj relację'}
       size="md"
       onClose={onClose}
       initialFocusRef={searchRef}
-      aria-label="Dodaj relację"
+      aria-label={isEditing ? 'Edytuj relację' : 'Dodaj relację'}
     >
       <div className="flex flex-col gap-4">
 
@@ -165,6 +198,7 @@ export function RelationPicker({
               value={targetType}
               onChange={(e) => {
                 setTargetType(e.target.value as EntityType);
+                setSelectedTargetId('');
                 setRelationType('related_to');
               }}
               className="rounded-md border border-surface-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
@@ -260,6 +294,11 @@ export function RelationPicker({
         {/* Search */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-surface-600">Wybierz encję</label>
+          {isEditing && selectedTarget ? (
+            <div className="mb-1 rounded-md border border-primary-200 bg-primary-50 px-3 py-2 text-xs text-primary-900">
+              Wybrano: <span className="font-semibold">{selectedTarget.name}</span>
+            </div>
+          ) : null}
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-surface-400" />
             <input
@@ -282,15 +321,47 @@ export function RelationPicker({
               <button
                 type="button"
                 disabled={saving}
-                onClick={() => handleAdd(entity.id)}
-                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-primary-50 disabled:opacity-50"
+                onClick={() => {
+                  if (isEditing) {
+                    setSelectedTargetId(entity.id);
+                    return;
+                  }
+                  void handleAdd(entity.id);
+                }}
+                className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-primary-50 disabled:opacity-50 ${
+                  selectedTargetId === entity.id ? 'bg-primary-50 text-primary-900' : ''
+                }`}
               >
-                <Plus className="h-4 w-4 shrink-0 text-primary-500" />
+                {selectedTargetId === entity.id ? (
+                  <Check className="h-4 w-4 shrink-0 text-primary-600" />
+                ) : (
+                  <Plus className="h-4 w-4 shrink-0 text-primary-500" />
+                )}
                 <span className="font-medium text-surface-800">{entity.name}</span>
               </button>
             </li>
           ))}
         </ul>
+
+        {isEditing ? (
+          <div className="flex justify-end gap-2 border-t border-surface-200 pt-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-surface-300 px-4 py-2 text-sm text-surface-700 hover:bg-surface-50"
+            >
+              Anuluj
+            </button>
+            <button
+              type="button"
+              disabled={saving || !selectedTargetId}
+              onClick={() => void handleUpdate()}
+              className="rounded-md bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+            >
+              {saving ? 'Zapisywanie...' : 'Zapisz relację'}
+            </button>
+          </div>
+        ) : null}
       </div>
     </Modal>
   );

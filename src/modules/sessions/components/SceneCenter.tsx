@@ -27,6 +27,7 @@ import { DetailSection } from '@shared/components/DetailSection';
 import { Modal } from '@shared/components/Modal';
 import { NarrativeLinksSection } from '@shared/components/NarrativeLinksSection';
 import { RelationPicker } from '@shared/components/RelationPicker';
+import { RichTextContent } from '@shared/components/RichTextContent';
 import { isFaction } from '@modules/factions/types';
 import { isFront, isThreat } from '@modules/fronts/types';
 import { LOCATION_TYPE_LABELS } from '@modules/locations/types';
@@ -101,9 +102,9 @@ function LocationInfoCard({ locationId }: { locationId: string }) {
 
       {/* Description */}
       {location.description && (
-        <div
+        <RichTextContent
+          html={location.description}
           className="prose prose-sm max-w-none border-b border-surface-100 bg-white px-5 py-2.5 text-surface-700"
-          dangerouslySetInnerHTML={{ __html: location.description }}
         />
       )}
 
@@ -181,9 +182,9 @@ function NpcContextModal({ npcId, onClose }: { npcId: string; onClose: () => voi
           {npc.description && (
             <div className="rounded-[1.25rem] border border-[rgba(150,50,75,0.32)] bg-[linear-gradient(180deg,rgba(235,165,185,0.55)_0%,rgba(205,110,135,0.32)_100%)] px-5 py-4 shadow-[0_12px_24px_rgba(90,30,50,0.1),inset_0_1px_0_rgba(255,245,248,0.42)]">
               <h2 className="mb-2 text-xs font-semibold tracking-wide text-[rgb(92,28,48)] uppercase">Opis</h2>
-              <div
+              <RichTextContent
+                html={npc.description}
                 className="prose prose-sm text-surface-800 max-w-none"
-                dangerouslySetInnerHTML={{ __html: npc.description }}
               />
             </div>
           )}
@@ -727,9 +728,9 @@ function ThreadContextModal({ thread, onClose }: { thread: Thread; sessionId: st
                 <h2 className="text-emerald-800 mb-2 text-xs font-semibold tracking-wide uppercase">
                   Opis
                 </h2>
-                <div
+                <RichTextContent
+                  html={thread.description}
                   className="prose prose-sm text-surface-700 max-w-none"
-                  dangerouslySetInnerHTML={{ __html: thread.description }}
                 />
               </div>
             )}

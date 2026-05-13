@@ -9,6 +9,7 @@ import {
   deleteRelation,
   getRelationsFor,
   removeContainment,
+  updateRelation,
   ContainsParentConflictError,
   DuplicateRelationError,
   RelationNotAllowedError,
@@ -184,6 +185,40 @@ describe('deleteRelation', () => {
     const rel = await addRelation(db, { sourceId: loc.id, targetId: npc.id, type: 'contains' });
     await deleteRelation(db, rel.id);
     expect(await db.relations.get(rel.id)).toBeUndefined();
+  });
+});
+
+describe('updateRelation', () => {
+  it('updates relation fields while keeping id and createdAt', async () => {
+    const loc = await addEntity(db, locationBase);
+    const npc = await addEntity(db, npcBase);
+    const rel = await addRelation(db, {
+      sourceId: loc.id,
+      targetId: npc.id,
+      type: 'contains',
+      label: 'stare',
+    });
+
+    const updated = await updateRelation(db, rel.id, { label: 'nowe' });
+
+    expect(updated.id).toBe(rel.id);
+    expect(updated.createdAt).toBe(rel.createdAt);
+    expect(updated.label).toBe('nowe');
+    await expect(db.relations.get(rel.id)).resolves.toMatchObject({ label: 'nowe' });
+  });
+
+  it('validates edited relation against duplicate relations', async () => {
+    const loc = await addEntity(db, locationBase);
+    const npc = await addEntity(db, npcBase);
+    const rel = await addRelation(db, {
+      sourceId: loc.id,
+      targetId: npc.id,
+      type: 'contains',
+      label: 'wariant',
+    });
+    await addRelation(db, { sourceId: loc.id, targetId: npc.id, type: 'contains' });
+
+    await expect(updateRelation(db, rel.id, { label: undefined })).rejects.toThrow(DuplicateRelationError);
   });
 });
 

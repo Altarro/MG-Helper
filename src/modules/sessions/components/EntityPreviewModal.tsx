@@ -5,6 +5,7 @@ import { useCampaign } from '@shared/db/CampaignContext';
 import { Modal } from '@shared/components/Modal';
 import type { EntityType } from '@shared/types/entity';
 import { getEntityDetailPath, getEntityTypeLabel } from '@shared/utils/entityTypeMeta';
+import { stripHtml } from '@shared/utils/sanitize';
 import { normalizeClueTypes } from '@modules/clues/types';
 import { getCatalogLabelByValue } from '@modules/settings/campaignCatalogSettings';
 
@@ -85,6 +86,7 @@ export function EntityPreviewModal({ entityId, entityType, sessionId, onClose }:
 
   const detailPath = getEntityDetailPath(entity.type, entity.id);
   const details = renderTypeDetails(entityType, entity.data as Record<string, unknown>, campaignId);
+  const descriptionPreview = stripHtml(entity.description ?? '');
 
   return (
     <Modal title={entity.name} size="md" onClose={onClose}>
@@ -93,10 +95,10 @@ export function EntityPreviewModal({ entityId, entityType, sessionId, onClose }:
           {getEntityTypeLabel(entity.type)}
         </span>
         {details}
-        {entity.description ? (
+        {descriptionPreview ? (
           <div>
             <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-surface-400">Opis</p>
-            <p className="line-clamp-5 text-sm text-surface-700">{entity.description}</p>
+            <p className="line-clamp-5 text-sm text-surface-700">{descriptionPreview}</p>
           </div>
         ) : (
           <p className="text-sm text-surface-400">Brak opisu.</p>

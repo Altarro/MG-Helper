@@ -31,17 +31,37 @@ import { toast } from 'sonner';
 import { formatPolishThreadCount } from '@shared/utils/polishPlural';
 import { reorderEntities } from '@shared/utils/dnd';
 import { getThreadDerivationKindLabel } from '@shared/domain/storyContracts';
-import type { Thread } from '../types';
+import {
+  THREAD_KIND_LABELS,
+  THREAD_KINDS,
+  THREAD_PRIORITY_LABELS,
+  THREAD_PRIORITIES,
+  type Thread,
+  type ThreadKind,
+  type ThreadPriority,
+} from '../types';
 import type { ThreadFormValues } from './ThreadForm';
 import type { Relation } from '@shared/types/relation';
 import type { ThreadDerivationKindOption } from '@shared/domain/storyContracts';
 
 type FilterTab = 'all' | 'active' | 'completed';
+type KindFilter = 'all' | ThreadKind;
+type PriorityFilter = 'all' | ThreadPriority;
 
 const TAB_LABELS: Record<FilterTab, string> = {
   all: 'Wszystkie',
   active: 'Aktywne',
   completed: 'Zakończone',
+};
+
+const KIND_FILTER_LABELS: Record<KindFilter, string> = {
+  all: 'Każdy typ',
+  ...THREAD_KIND_LABELS,
+};
+
+const PRIORITY_FILTER_LABELS: Record<PriorityFilter, string> = {
+  all: 'Każdy priorytet',
+  ...THREAD_PRIORITY_LABELS,
 };
 
 function resolveQuestlineKind(relation: Relation): ThreadDerivationKindOption | null {
@@ -56,6 +76,8 @@ export function ThreadList() {
 
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<FilterTab>('all');
+  const [kindFilter, setKindFilter] = useState<KindFilter>('all');
+  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
   const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped');
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -161,8 +183,14 @@ export function ThreadList() {
       relatedThreats.some((threat) => threat.name.toLowerCase().includes(lowerQuery))
     );
   });
-  const filtered = queryMatchedThreads?.filter(
+  const statusMatchedThreads = queryMatchedThreads?.filter(
     (thread) => tab === 'all' || thread.data.status === tab,
+  );
+  const kindMatchedThreads = statusMatchedThreads?.filter(
+    (thread) => kindFilter === 'all' || (thread.data.kind ?? 'side') === kindFilter,
+  );
+  const filtered = kindMatchedThreads?.filter(
+    (thread) => priorityFilter === 'all' || (thread.data.priority ?? 'normal') === priorityFilter,
   );
   const tabStats = useMemo(() => {
     const list = queryMatchedThreads ?? [];
@@ -173,6 +201,24 @@ export function ThreadList() {
     };
   }, [queryMatchedThreads]);
   const viewModeCount = filtered?.length ?? 0;
+  const kindStats = useMemo(() => {
+    const list = statusMatchedThreads ?? [];
+    return {
+      all: list.length,
+      main: list.filter((thread) => (thread.data.kind ?? 'side') === 'main').length,
+      side: list.filter((thread) => (thread.data.kind ?? 'side') === 'side').length,
+      personal: list.filter((thread) => (thread.data.kind ?? 'side') === 'personal').length,
+    };
+  }, [statusMatchedThreads]);
+  const priorityStats = useMemo(() => {
+    const list = kindMatchedThreads ?? [];
+    return {
+      all: list.length,
+      low: list.filter((thread) => (thread.data.priority ?? 'normal') === 'low').length,
+      normal: list.filter((thread) => (thread.data.priority ?? 'normal') === 'normal').length,
+      high: list.filter((thread) => (thread.data.priority ?? 'normal') === 'high').length,
+    };
+  }, [kindMatchedThreads]);
 
   const groupedSections = useMemo(() => {
     const sections = new Map<
@@ -348,6 +394,38 @@ export function ThreadList() {
                       : tabStats.completed
                 }
               />
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2.5">
+          {(['all', ...THREAD_KINDS] as KindFilter[]).map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setKindFilter(value)}
+              className={`rounded-full px-4 py-2 text-xs font-semibold tracking-[0.01em] transition-all ${
+                kindFilter === value ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+              }`}
+            >
+              <span>{KIND_FILTER_LABELS[value]}</span>
+              <FilterCountBadge selected={kindFilter === value} count={kindStats[value]} />
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2.5">
+          {(['all', ...THREAD_PRIORITIES] as PriorityFilter[]).map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setPriorityFilter(value)}
+              className={`rounded-full px-4 py-2 text-xs font-semibold tracking-[0.01em] transition-all ${
+                priorityFilter === value ? 'app-pill' : 'app-pill-muted hover:bg-[rgba(223,225,218,0.98)]'
+              }`}
+            >
+              <span>{PRIORITY_FILTER_LABELS[value]}</span>
+              <FilterCountBadge selected={priorityFilter === value} count={priorityStats[value]} />
             </button>
           ))}
         </div>

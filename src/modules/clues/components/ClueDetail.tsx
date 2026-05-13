@@ -13,6 +13,7 @@ import { NarrativeLinksSection } from '@shared/components/NarrativeLinksSection'
 import { DetailSection } from '@shared/components/DetailSection';
 import { DetailScrollTopFab } from '@shared/components/DetailScrollTopFab';
 import { DetailTocBar } from '@shared/components/DetailTocBar';
+import { RichTextContent } from '@shared/components/RichTextContent';
 import { useRelatedEntities } from '@shared/hooks/useRelatedEntities';
 import { NotesList } from '@modules/notes/components/NotesList';
 import { deleteEntity, deleteRelation, updateEntity } from '@shared/db/operations';
@@ -264,9 +265,9 @@ export function ClueDetail() {
                 <h2 className="text-surface-500 mb-2 text-xs font-semibold tracking-wide uppercase">
                   Opis
                 </h2>
-                <div
+                <RichTextContent
+                  html={clue.description}
                   className="prose prose-sm text-surface-700 max-w-none"
-                  dangerouslySetInnerHTML={{ __html: clue.description }}
                 />
               </div>
             )}

@@ -10,6 +10,7 @@ import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { EntityDetailPortrait } from '@shared/components/EntityDetailPortrait';
 import { DetailSection } from '@shared/components/DetailSection';
+import { RichTextContent } from '@shared/components/RichTextContent';
 import { NotesList } from '@modules/notes/components/NotesList';
 import { RelationList } from '@shared/components/RelationList';
 import { RelationPicker } from '@shared/components/RelationPicker';
@@ -258,9 +259,9 @@ export function ItemDetail() {
           {item.description && (
             <div className="rounded-[1.25rem] border border-[rgba(86,150,176,0.34)] bg-[linear-gradient(180deg,rgba(171,219,235,0.5)_0%,rgba(116,188,214,0.28)_100%)] px-5 py-4 shadow-[0_12px_24px_rgba(35,95,120,0.1),inset_0_1px_0_rgba(245,252,255,0.45)]">
               <h2 className="mb-2 text-xs font-semibold tracking-wide text-[rgb(40,95,116)] uppercase">Opis</h2>
-              <div
+              <RichTextContent
+                html={item.description}
                 className="prose prose-sm text-surface-800 max-w-none"
-                dangerouslySetInnerHTML={{ __html: item.description }}
               />
             </div>
           )}

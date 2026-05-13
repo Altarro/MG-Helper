@@ -25,6 +25,7 @@ import { DetailSection } from '@shared/components/DetailSection';
 import { DetailScrollTopFab } from '@shared/components/DetailScrollTopFab';
 import { DetailTocBar } from '@shared/components/DetailTocBar';
 import { EntityTypeBadge } from '@shared/components/EntityTypeBadge';
+import { RichTextContent } from '@shared/components/RichTextContent';
 import { NotesList } from '@modules/notes/components/NotesList';
 import {
   addEntity,
@@ -394,9 +395,9 @@ function ThreatDetailPanel({ threatId, onClose }: ThreatDetailPanelProps) {
                   <h3 className="text-surface-500 mb-1 text-xs font-semibold tracking-wide uppercase">
                     Opis
                   </h3>
-                  <div
+                  <RichTextContent
+                    html={threat.description}
                     className="prose prose-sm text-surface-700 max-w-none"
-                    dangerouslySetInnerHTML={{ __html: threat.description }}
                   />
                 </div>
               )}
@@ -1010,9 +1011,9 @@ export function FrontDetail() {
               title="Opis"
             >
               <div className="app-panel min-w-0 w-full rounded-[1.5rem] p-5 lg:p-6">
-                <div
+                <RichTextContent
+                  html={front.description}
                   className="prose prose-sm prose-headings:text-surface-800 prose-p:text-surface-800 prose-li:text-surface-800 prose-a:text-primary-700 min-w-0 w-full max-w-none text-pretty text-surface-800 [&_*]:max-w-none"
-                  dangerouslySetInnerHTML={{ __html: front.description }}
                 />
               </div>
             </DetailSection>

@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { Modal } from '@shared/components/Modal';
 import { getNpcData, isPlayerNpc } from '@shared/utils/entityData';
+import { stripHtml } from '@shared/utils/sanitize';
 import { isNpc } from '@modules/npcs/types';
 
 interface NpcPreviewModalProps {
@@ -20,6 +21,7 @@ export function NpcPreviewModal({ npcId, sessionId, onClose }: NpcPreviewModalPr
 
   const data = getNpcData(npc);
   const isPC = isPlayerNpc(npc);
+  const descriptionPreview = stripHtml(npc.description ?? '');
 
   return (
     <Modal title={npc.name} size="md" onClose={onClose}>
@@ -63,12 +65,12 @@ export function NpcPreviewModal({ npcId, sessionId, onClose }: NpcPreviewModalPr
             <p className="text-sm text-surface-800">{data.appearance}</p>
           </div>
         )}
-        {npc.description && (
+        {descriptionPreview && (
           <div>
             <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-surface-400">
               Opis
             </p>
-            <p className="line-clamp-4 text-sm text-surface-700">{npc.description}</p>
+            <p className="line-clamp-4 text-sm text-surface-700">{descriptionPreview}</p>
           </div>
         )}
       </div>

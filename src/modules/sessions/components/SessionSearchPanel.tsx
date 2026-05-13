@@ -22,6 +22,7 @@ import { withLifecycleStatus } from '@shared/types/entityLifecycle';
 import { recordEntityMutationInSession, recordSessionSignal } from '../utils/sessionSignals';
 import { getItemLifecycleStatus, getLocationLifecycleStatus, getNpcLifecycleStatus } from '@shared/utils/entityData';
 import { Modal } from '@shared/components/Modal';
+import { stripHtml } from '@shared/utils/sanitize';
 import type { LocationData } from '@modules/locations/types';
 
 interface SessionSearchPanelProps {
@@ -109,7 +110,7 @@ export function SessionSearchPanel({
     () =>
       normalized
         ? sourceEntities.filter((entity) => {
-            const haystack = `${entity.name} ${entity.description ?? ''}`.toLowerCase();
+            const haystack = `${entity.name} ${stripHtml(entity.description ?? '')}`.toLowerCase();
             const queryMatch = haystack.includes(normalized);
             const typeMatch = typeFilter === 'all' || entity.type === typeFilter;
             return queryMatch && typeMatch;
@@ -387,6 +388,7 @@ export function SessionSearchPanel({
           <div className="grid grid-cols-1 gap-2.5">
             {filtered.map((entity) => {
               const path = getEntityDetailPath(entity.type, entity.id);
+              const descriptionPreview = stripHtml(entity.description ?? '');
               const badgeClasses = getEntityTypeBadgeClasses(entity.type);
               const typeLabel = getEntityTypeLabel(entity.type);
               const canPin =
@@ -552,9 +554,9 @@ export function SessionSearchPanel({
                   <p className="text-surface-900 truncate text-sm font-semibold tracking-[-0.02em]">
                     {entity.name}
                   </p>
-                  {entity.description && (
+                  {descriptionPreview && (
                     <p className="text-surface-600 mt-1 line-clamp-2 text-xs leading-5">
-                      {entity.description}
+                      {descriptionPreview}
                     </p>
                   )}
                 </>

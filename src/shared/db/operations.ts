@@ -225,6 +225,69 @@ export async function deleteRelation(db: MgHelperDb, id: string): Promise<void> 
   await db.relations.delete(id);
 }
 
+export type RelationUpdate = Partial<Pick<Relation, 'sourceId' | 'targetId' | 'type' | 'label' | 'meta'>>;
+
+export async function updateRelation(
+  db: MgHelperDb,
+  id: string,
+  changes: RelationUpdate,
+): Promise<Relation> {
+  return db.transaction('rw', db.entities, db.relations, async () => {
+    const current = await db.relations.get(id);
+    if (!current) throw new Error(`Relation not found: ${id}`);
+
+    const next: Relation = {
+      ...current,
+      ...changes,
+      label: normalizeRelationLabel('label' in changes ? changes.label : current.label),
+    };
+
+    const [source, target, existingFromSource, existingWithTarget] = await Promise.all([
+      db.entities.get(next.sourceId),
+      db.entities.get(next.targetId),
+      db.relations
+        .where('sourceId')
+        .equals(next.sourceId)
+        .toArray(),
+      db.relations
+        .where('targetId')
+        .equals(next.targetId)
+        .toArray(),
+    ]);
+
+    if (!source) throw new Error(`Source entity not found: ${next.sourceId}`);
+    if (!target) throw new Error(`Target entity not found: ${next.targetId}`);
+
+    if (!isRelationAllowed(source.type, target.type, next.type)) {
+      throw new RelationNotAllowedError(
+        `Relation "${next.type}" is not allowed between "${source.type}" and "${target.type}"`,
+      );
+    }
+
+    if (findDuplicateRelation(existingFromSource.filter((relation) => relation.id !== id), next)) {
+      throw new DuplicateRelationError(
+        `Duplicate relation "${next.type}" already exists for "${next.sourceId}" -> "${next.targetId}"`,
+      );
+    }
+
+    if (findContainsParentConflict(existingWithTarget.filter((relation) => relation.id !== id), next)) {
+      throw new ContainsParentConflictError(
+        `Entity "${next.targetId}" already has a different contains parent`,
+      );
+    }
+
+    await db.relations.update(id, {
+      sourceId: next.sourceId,
+      targetId: next.targetId,
+      type: next.type,
+      label: next.label,
+      meta: next.meta,
+    });
+
+    return next;
+  });
+}
+
 export async function getRelationsFor(db: MgHelperDb, entityId: string): Promise<Relation[]> {
   const [asSource, asTarget] = await Promise.all([
     db.relations.where('sourceId').equals(entityId).toArray(),

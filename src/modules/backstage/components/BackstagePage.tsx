@@ -1,5 +1,5 @@
 import { useEffect, useState, type KeyboardEvent } from 'react';
-import { ArrowUp, GitFork, Radar, Sparkles, Table2, Theater } from 'lucide-react';
+import { ArrowUp, GitBranchPlus, GitFork, Radar, Sparkles, Table2, Theater } from 'lucide-react';
 import { scrollWindowToElementId } from '@shared/utils/scrollToAnchor';
 import { useBackstage } from '../hooks/useBackstage';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
@@ -13,8 +13,9 @@ import { BackstageSummaryPanel } from './BackstageSummaryPanel';
 import { BackstageHintsPanel } from './BackstageHintsPanel';
 import { GraphPage } from '@modules/graph/components/GraphPage';
 import { BackstageEvoGeneratorPanel } from './BackstageEvoGeneratorPanel';
+import { MindMapPanel } from './MindMapPanel';
 
-type TabId = 'radar' | 'matrix' | 'graph' | 'evo';
+type TabId = 'radar' | 'matrix' | 'graph' | 'mind-map' | 'evo';
 
 export function BackstagePage() {
   const data = useBackstage();
@@ -51,6 +52,7 @@ export function BackstagePage() {
   const activeThreatsCount = threats.filter((threat) => threat.data.status !== 'completed').length;
   const tabMeta: Array<{ id: TabId; label: string; icon: typeof Radar; inDevelopment?: boolean }> = [
     { id: 'matrix', label: 'Macierz sesji', icon: Table2 },
+    { id: 'mind-map', label: 'Mapa myśli', icon: GitBranchPlus, inDevelopment: true },
     { id: 'graph', label: 'Graf relacji', icon: GitFork, inDevelopment: true },
     { id: 'radar', label: 'Radar zagrożeń', icon: Radar, inDevelopment: true },
     { id: 'evo', label: 'EvoGenerator', icon: Sparkles, inDevelopment: true },
@@ -261,6 +263,22 @@ export function BackstagePage() {
             Wizualny podgląd połączeń między encjami. Użyj gotowych widoków, żeby szybko przełączyć perspektywę.
           </p>
           <GraphPage embedded />
+        </section>
+      )}
+      {tab === 'mind-map' && (
+        <section
+          id="backstage-panel-mind-map"
+          role="tabpanel"
+          aria-labelledby="backstage-tab-mind-map"
+          className="min-h-0 space-y-3"
+        >
+          <h2 id="mind-map-heading" className="text-sm font-semibold text-surface-800">
+            Mapa myśli
+          </h2>
+          <p className="text-xs text-surface-500">
+            Eksperymentalny szkic frontu w formie mapy. Na razie działa tylko lokalnie i nie tworzy encji.
+          </p>
+          <MindMapPanel />
         </section>
       )}
       {tab === 'evo' && (

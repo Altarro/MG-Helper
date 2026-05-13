@@ -7,6 +7,7 @@ import { ClockVisual } from '@modules/clocks/components/ClockVisual';
 import { isClock } from '@modules/clocks/types';
 import { isThreat } from '@modules/fronts/types';
 import { getClockData, getThreatStatus } from '@shared/utils/entityData';
+import { stripHtml } from '@shared/utils/sanitize';
 import { getCatalogLabelByValue } from '@modules/settings/campaignCatalogSettings';
 
 interface ThreatPreviewModalProps {
@@ -49,6 +50,7 @@ export function ThreatPreviewModal({ threatId, sessionId, onClose }: ThreatPrevi
   const clockData = clock ? getClockData(clock) : null;
   const typeLabel = getCatalogLabelByValue('threatType', threatData.threatType, campaignId);
   const status = getThreatStatus(threat);
+  const descriptionPreview = stripHtml(threat.description ?? '');
 
   return (
     <Modal title={threat.name} size="md" onClose={onClose}>
@@ -93,12 +95,12 @@ export function ThreatPreviewModal({ threatId, sessionId, onClose }: ThreatPrevi
         )}
 
         {/* Description */}
-        {threat.description && (
+        {descriptionPreview && (
           <div>
             <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-surface-400">
               Opis
             </p>
-            <p className="line-clamp-4 text-sm text-surface-700">{threat.description}</p>
+            <p className="line-clamp-4 text-sm text-surface-700">{descriptionPreview}</p>
           </div>
         )}
 

@@ -10,6 +10,7 @@ import { DetailTocBar } from '@shared/components/DetailTocBar';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
 import { EntityDetailPortrait } from '@shared/components/EntityDetailPortrait';
+import { RichTextContent } from '@shared/components/RichTextContent';
 import { NotesList } from '@modules/notes/components/NotesList';
 import { RelationList } from '@shared/components/RelationList';
 import { RelationPicker } from '@shared/components/RelationPicker';
@@ -417,9 +418,9 @@ export function FactionDetail() {
       {!isEditing && faction.description && (
         <DetailSection sectionId="faction-detail-opis" title="Opis">
           <div className="app-panel rounded-[1.25rem] p-5">
-            <div
+            <RichTextContent
+              html={faction.description}
               className="prose prose-sm text-surface-700 max-w-none"
-              dangerouslySetInnerHTML={{ __html: faction.description }}
             />
           </div>
         </DetailSection>

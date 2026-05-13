@@ -17,6 +17,7 @@ import { LoadingPage } from '@shared/components/LoadingSpinner';
 import { MarkdownExportButton } from '@shared/components/MarkdownExportButton';
 import { RelationList } from '@shared/components/RelationList';
 import { RelationPicker } from '@shared/components/RelationPicker';
+import { RichTextContent } from '@shared/components/RichTextContent';
 import { deleteEntity, updateEntity } from '@shared/db/operations';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { useThreatDetailPath } from '@shared/hooks/useThreatDetailPath';
@@ -416,9 +417,9 @@ export function ClockDetail() {
                   <h3 className="text-surface-500 mb-2 text-xs font-semibold tracking-[0.18em] uppercase">
                     Opis
                   </h3>
-                  <div
+                  <RichTextContent
+                    html={currentClock.description}
                     className="prose prose-sm text-surface-700 max-w-none"
-                    dangerouslySetInnerHTML={{ __html: currentClock.description }}
                   />
                 </div>
               )}

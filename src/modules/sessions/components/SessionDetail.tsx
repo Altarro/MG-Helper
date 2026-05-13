@@ -28,6 +28,7 @@ import { DetailScrollTopFab } from '@shared/components/DetailScrollTopFab';
 import { DetailTocBar } from '@shared/components/DetailTocBar';
 import { LoadingSpinner } from '@shared/components/LoadingSpinner';
 import { ConfirmDialog } from '@shared/components/ConfirmDialog';
+import { RichTextContent } from '@shared/components/RichTextContent';
 import { useNotesBySession } from '@modules/notes/hooks/useNotesBySession';
 import { isNamedLocation } from '@modules/locations/types';
 import { addRelation, deleteEntity, updateEntity, getEntityById } from '@shared/db/operations';
@@ -734,9 +735,9 @@ export function SessionDetail() {
           <h2 className="text-surface-500 mb-3 text-sm font-semibold tracking-[0.18em] uppercase">
             Notatki
           </h2>
-          <div
+          <RichTextContent
+            html={session.description}
             className="prose prose-sm text-surface-800 max-w-none"
-            dangerouslySetInnerHTML={{ __html: session.description }}
           />
         </section>
       )}

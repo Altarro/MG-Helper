@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { useCampaign } from '@shared/db/CampaignContext';
 import { Modal } from '@shared/components/Modal';
 import { isPlayerNpc } from '@shared/utils/entityData';
+import { stripHtml } from '@shared/utils/sanitize';
 import { isLocation, LOCATION_TYPE_LABELS } from '@modules/locations/types';
 import { isNpc } from '@modules/npcs/types';
 
@@ -43,6 +44,7 @@ export function LocationPreviewModal({ locationId, sessionId, onClose }: Locatio
   const { location, children, npcs } = data;
   const locData = location.data;
   const typeLabel = LOCATION_TYPE_LABELS[locData.locationType];
+  const descriptionPreview = stripHtml(location.description ?? '');
 
   return (
     <Modal title={location.name} size="md" onClose={onClose}>
@@ -83,10 +85,10 @@ export function LocationPreviewModal({ locationId, sessionId, onClose }: Locatio
         )}
 
         {/* Description */}
-        {location.description && (
+        {descriptionPreview && (
           <div>
             <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-surface-400">Opis</p>
-            <p className="line-clamp-4 text-sm text-surface-700">{location.description}</p>
+            <p className="line-clamp-4 text-sm text-surface-700">{descriptionPreview}</p>
           </div>
         )}
 
